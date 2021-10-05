@@ -144,7 +144,7 @@ c Add rotating magnetic perturbation
 
 c Update BCs
 
-      call applyBC(igx,vnp,gv%aux,it=itime)
+      call applyBC(igx,vnp,gv%aux)
 
 c Compute new Newton update tolerance based on tau error estimator
 
@@ -563,10 +563,12 @@ c     post__divclean
 c     ###############################################################
       subroutine post__divclean
 
+        use local_BCS_variables, ONLY: E_bc,rw_Ebc
+      
         implicit none
 
         real(8) :: tol_divcl
-        real(8),allocatable,dimension(:,:,:,:) :: db_cnv
+        real(8),allocatable,dimension(:,:,:,:) :: db_cnv,da_cov
 
         if (ilevel > 0 .and. my_rank == 0) then
           write (*,*)
@@ -575,7 +577,8 @@ c     ###############################################################
 
 c       Find db=B^(n+1)-B^n
 
-        allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3))
+        allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     $          ,da_cov(0:nx+1,0:ny+1,0:nz+1,3))
 
         db_cnv(:,:,:,1) = vnp%array_var(IBX)%array
      .                   -vn %array_var(IBX)%array
@@ -584,17 +587,18 @@ c       Find db=B^(n+1)-B^n
         db_cnv(:,:,:,3) = vnp%array_var(IBZ)%array
      .                   -vn %array_var(IBZ)%array
 
-c       Clean db
+c       Find dA RW boundary condition at face
+
+        da_cov = 0d0
+        if (res_wall_bc) call XferBCs(-dt*E_bc,da_cov,.false.)
+        
+c       Clean db (and impose RW BC, if appropriate)
 
         tol_divcl = rtol
-        if (res_wall_bc) then
-          call B_div_clean(gv%gparams,ilevel,igrid,db_cnv,"vlap"
-     .                    ,gm_it=it_divcl,rtol=tol_divcl)
-        else
-          call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
-     .                       ,igx,igy,igz,db_cnv
-     .                       ,gm_it=it_divcl,rtol=tol_divcl)   !,w_bcs=.true.,diag_plots=.true.)
-        endif
+        call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
+     .                     ,igx,igy,igz,db_cnv,da0cov=da_cov
+     .                     ,gm_it=it_divcl,rtol=tol_divcl
+     .                     ,diag_plots=.true.)
         
 c       Find new B^(n+1)
 
@@ -611,7 +615,7 @@ c       Update helical flux and magnetic field
         bcnv(:,:,:,2) = vnp%array_var(IBY)%array
         bcnv(:,:,:,3) = vnp%array_var(IBZ)%array
 
-        deallocate(db_cnv)
+        deallocate(db_cnv,da_cov)
 
       end subroutine post__divclean
 

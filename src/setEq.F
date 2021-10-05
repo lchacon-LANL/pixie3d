@@ -2044,9 +2044,15 @@ cc              var(i,j,k,IVX:IVZ)=0d0
             enddo
           enddo
         enddo
-        
+
+        call findVectorPotential(gv%gparams,ilevel,igx,bb,aa,'vlap'
+     .                          ,lorder=4)
+
 #if !defined(vec_pot)
 cc        call B_div_clean(gv%gparams,ilevel,igx,bb,"vlap")
+        bb = curl(gv%gparams,igx,aa)
+#else
+        find_a = .false.
 #endif
 
 c     --------------------------------------------------

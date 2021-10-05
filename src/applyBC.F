@@ -704,7 +704,7 @@ c       Magnetic field BC
 
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
 #if !defined(vec_pot)
-            if (res_wall_bc.and.save_tn) then
+            if (res_wall_bc.and.(.not.source_eval).and.save_tn) then
               call rw_Ebc(gv%gparams,bcov_n,bcov_n,E_bc)
             endif
 #endif
@@ -1200,36 +1200,19 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
                 enddo
               enddo
             enddo
-            bcov_n = XformToCov(gv%gparams,igr,bcov_n)         
-c diag ****
-c$$$        call createDrawInCfile(6,"debug.bin",'Solution','t','x','y'
-c$$$     .           ,(/'DB1','DB2','DB3','DB4','DB5','DB6'/),'-c -X0 -L57'
-c$$$     .           ,'drawdebug.in')
-c$$$
-c$$$        open(unit=110,file="debug.bin",form='unformatted'
-c$$$     .       ,status='unknown')
-c$$$        write (*,*) "acov_n @ ibcov_n",acov_n(:,1,1,2)
-c$$$        v0 = acov_n
-c$$$        call contour(v0(:,:,1,1),nnx+2,nny+2,xmin,xmax,ymin,ymax,0,110)
-c$$$        call contour(v0(:,:,1,2),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
-c$$$        call contour(v0(:,:,1,3),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
-c$$$        v0 = bcov_n
-c$$$        call contour(v0(:,:,1,1),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
-c$$$        call contour(v0(:,:,1,2),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
-c$$$        call contour(v0(:,:,1,3),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
-c$$$        close(110)
-c$$$
-c$$$        pause
-c diag ****
+            bcov_n = XformToCov(gv%gparams,igr,bcov_n)
 #else
-            bcov_n = bcov       !Save previous time step
+c$$$            bcov_n = bcov       !Save previous time step (initializes for BDF2)
 c$$$            bcov_n(:,:,:,1) = -cn/cnp*u_n %array_var(IBX)%array
 c$$$     .                       -cnm/cnp*u_nm%array_var(IBX)%array
 c$$$            bcov_n(:,:,:,2) = -cn/cnp*u_n %array_var(IBY)%array
 c$$$     .                       -cnm/cnp*u_nm%array_var(IBY)%array
 c$$$            bcov_n(:,:,:,3) = -cn/cnp*u_n %array_var(IBZ)%array
 c$$$     .                       -cnm/cnp*u_nm%array_var(IBZ)%array
-c$$$            bcov_n = XformToCov(gv%gparams,igr,bcov_n)
+            bcov_n(:,:,:,1) = u_n%array_var(IBX)%array
+            bcov_n(:,:,:,2) = u_n%array_var(IBY)%array
+            bcov_n(:,:,:,3) = u_n%array_var(IBZ)%array
+            bcov_n = XformToCov(gv%gparams,igr,bcov_n)
 #endif
           endif
           
