@@ -523,11 +523,15 @@ c     Begin program
         etol = 1d-7
       endif
 
-c     Find Lap(A0)
+c     Find Lap(A0) for Dirichlet BCs (use curlcurl to avoid gauge assumption)
 
       if (PRESENT(da0cov)) then
-        dlapa0 = XformToCnv(g_def,igrid,da0cov)
-        dlapa0 = veclap    (g_def,igrid,dlapa0)
+cc        dlapa0 = XformToCnv(g_def,igrid,2*da0cov) !Factor of 2 because da0cov is at face
+cc        dlapa0 = veclap    (g_def,igrid,dlapa0)
+cc        dlapa0 = -curlcurl (g_def,igrid,dlapa0,.true.) 
+        !Factor of 2 because da0cov is at face
+        dlapa0 = -2*curlcurl_mesh2(g_def,igrid,da0cov,.false.)  !Returns covariant
+        dlapa0 = XformToCnv(g_def,igrid,dlapa0)
       else
         dlapa0 = 0d0
       endif
@@ -613,13 +617,11 @@ cc     .            ,sm_omega      = sm_omega_si
 cc     .            ,sm_it         = sm_iter_si
 cc     .            ,sm_zebra_relax= mg_zebra_relax_si
      .            )
-
-      call fillArray(g_def,igx,3,x,da_cnv,bcsa,bc_order_a
-     .              ,is_vec=.true.,is_cnv=.true. ,icomp=(/IAX/)
-     .              ,arr_cov=da_cov)
-
-      if (PRESENT(da0cov)) da_cov = da_cov + da0cov
       
+      call fillArray(g_def,igx,3,x,da_cnv,bcsa,bc_order_a
+     .              ,is_vec=.true.,is_cnv=.true.,icomp=(/IAX/)
+     .              ,arr_cov=da_cov,arr0=da0cov)
+
       if (PRESENT(gm_it)) gm_it = gmits
 
 c     End program
@@ -694,6 +696,7 @@ c     Define BCs
       bcsb(:,1) = u_0%array_var(IBX)%bconds
       bcsb(:,2) = u_0%array_var(IBY)%bconds
       bcsb(:,3) = u_0%array_var(IBZ)%bconds
+c$$$      bcsb = gv%aux%vec_list(IBCNV_0)%bconds
 
       call default_A_BCs(bcsa)
 
@@ -1122,8 +1125,8 @@ c     Begin program
      .            ,1,110)
       close (110)
 
-cc      write (*,*) "Dumped graphics in B_dump"
-      call pstop('B_dump','Dumped graphics')
+      write (*,*) "Dumped graphics in B_dump"
+cc      call pstop('B_dump','Dumped graphics')
 
 c     End program
 
