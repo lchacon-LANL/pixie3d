@@ -598,7 +598,7 @@ c       Clean db (and impose RW BC, if appropriate)
         call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
      .                     ,igx,igy,igz,db_cnv,da0cov=da_cov
      .                     ,gm_it=it_divcl,rtol=tol_divcl
-     .                     ,diag_plots=.true.)
+     .                     )!,diag_plots=.true.)
         
 c       Find new B^(n+1)
 
