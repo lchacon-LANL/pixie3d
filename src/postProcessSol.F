@@ -572,7 +572,11 @@ c     ###############################################################
 
         if (ilevel > 0 .and. my_rank == 0) then
           write (*,*)
-          write (*,*) 'Performing divergence cleaning in postproc...'
+          if (res_wall_bc) then
+            write (*,*) 'Applying RW BC in postproc...'
+          else
+            write (*,*) 'Performing divergence cleaning in postproc...'
+          endif
         endif
 
 c       Find db=B^(n+1)-B^n
@@ -587,7 +591,7 @@ c       Find db=B^(n+1)-B^n
         db_cnv(:,:,:,3) = vnp%array_var(IBZ)%array
      .                   -vn %array_var(IBZ)%array
 
-c       Find dA RW boundary condition at face
+c       Find vector potential RW boundary condition at face
 
         da_cov = 0d0
         if (res_wall_bc) call XferBCs(-dt*E_bc,da_cov,.false.)

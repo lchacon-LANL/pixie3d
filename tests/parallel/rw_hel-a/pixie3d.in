@@ -1,0 +1,98 @@
+ &datin
+    ilevel   = 0
+
+    test     = t
+
+    nxd      = 32
+    nyd      = 32
+    nzd      = 1
+
+    xmax     = 1.
+    ymax     = 0.
+    zmax     = 1.
+
+    numerical_grid = f
+
+    solenoidal = t
+    nc_eom_f   = t
+    nc_eom_v   = t
+    solve_rho  = f
+
+    tau_w = 1d2
+    r_v   = 1.5
+
+    limit_dt_flow_cfl = f
+    
+    bcs      = 'spt','rsw','per','per','per','per'
+
+    eta      = 1d0  !Vacuum
+    nu       = 1d0  !Vacuum
+    dd       = 0d-3
+    chi      = 0d-2
+    
+    aa_eta   = 0.
+    bb_eta   = 0.
+    
+    equil    = 'rwhel'
+
+    coords   = 'hel'
+
+    gparams  = 1d0,-1d0,4d0,0d0,0d0,0d0,0d0
+
+    gamma    = 1d0
+
+    dt      = 1d-2
+    numtime = 10
+    ndstep  = 1
+
+    pvx      = 0d-4
+    odd      = f
+    random   = f
+
+    cnfactor = 0.
+    sm_flag  = 2
+
+    restart  = f
+    timecorr = f
+
+    postprocess = t
+
+    source   = f
+    chk_src  = f
+
+    pc_type  = 's1'
+    pc_tol   = 1d-1
+    pc_iter  = 1
+    pc_debug = f
+    pc_debug_it = 0
+
+    mg_vcyc  = 1
+    mg_ores  = 0
+    mg_oprol = 2
+    mg_zebra_relax = f
+    sm_iter  = 4
+
+    iguess   = 0
+
+    maxksp   = 20
+    maxitgm  = 20
+    tolgm    = 8d-1
+    rtol     = 1d-3
+    method   = 1
+    mf_eps   = 1d-6
+    vol_wgt  = t
+
+    check_grid = f
+
+!    gp1 = .false.,0d0,0.1
+ /
+
+ &graphics
+    sel_diag  = 5,6,7,12,15,17,18,19,20,22,23
+    sel_graph = 1,2,3,5,6,7,9,10,11
+    dplot = 1d-4
+    prof_conf = 1,'r',1,1,1
+    cont_conf = 3,'x','y',1,1,1
+    hdf_plot = f
+ /
+
