@@ -6,10 +6,6 @@ c----------------------------------------------------------------------
 c     Initializes MG and creates grid
 c----------------------------------------------------------------------
 
-      use parameters
-
-      use grid
-
 #if defined(plotting) || defined(_equ)
       use ts_setup
 #else
@@ -20,13 +16,7 @@ c----------------------------------------------------------------------
 
       use PC_setup
 
-      use app_iosetup
-
-      use equilibrium
-
-      use graphics_io
-
-      use local_BCS_variables
+      use rw_bc
 
       implicit none
 

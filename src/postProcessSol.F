@@ -21,8 +21,10 @@ c--------------------------------------------------------------------
 
       use PC_setup, only: pc_as_solver
 
-      use local_BCS_variables, ONLY: res_wall_bc,order_bc
+      use local_BCS_variables, ONLY: order_bc
 
+      use rw_bc, ONLY: res_wall_bc,E_bc,rw_Ebc
+      
       implicit none
 
 c Call variables
@@ -563,8 +565,6 @@ c     post__divclean
 c     ###############################################################
       subroutine post__divclean
 
-        use local_BCS_variables, ONLY: E_bc,rw_Ebc
-      
         implicit none
 
         real(8) :: tol_divcl

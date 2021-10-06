@@ -287,13 +287,7 @@ c--------------------------------------------------------------------
 c     Sets adequate boundary conditions on array structure varray.
 c--------------------------------------------------------------------
 
-      use local_BCS_variables
-
-      use imposeBCinterface
-
-      use auxiliaryVariables
-
-      use var_setup
+      use rw_bc
 
       implicit none
 
@@ -1773,7 +1767,7 @@ c        * loc -> boundary location (0 -> left, 1->right)
 c        * order -> order of extrapolation (when used)
 c ---------------------------------------------------------------------
         
-      use local_BCS_variables
+      use rw_bc
 
       implicit none
 

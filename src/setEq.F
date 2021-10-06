@@ -17,12 +17,6 @@ c       * ieq=IAX:IAZ: vector potential
 c       * ieq=IPRS: total pressure is found as p=n*(Ti+Te)=a_p*n*Te.
 c--------------------------------------------------------------------
 
-      use parameters
-
-      use equilibrium
-
-      use grid
-
       use timeStepping
 
       use nlfunction_setup
@@ -31,9 +25,7 @@ c--------------------------------------------------------------------
 
       use oned_int
 
-      use local_BCS_variables
-
-      use app_iosetup
+      use rw_bc
 
       use B_tools, ONLY: B_div_clean,findVectorPotential
 
