@@ -6,15 +6,9 @@ c----------------------------------------------------------------------
 c     Allocates graphics-related arrays
 c----------------------------------------------------------------------
 
-      use app_iosetup
-
-      use auxiliaryVariables
-
       use auxPlotVariables
 
-      use equilibrium
-
-      use local_BCS_variables, ONLY: allocBCVariables,defineAuxVariables
+      use rw_bc
 
       implicit none
 
@@ -55,7 +49,7 @@ c Read coordinate map
 
 c Allocate BC variables
       
-      call allocBCVariables
+      call rw_allocBCVariables
  
 c End programs
 
@@ -69,11 +63,9 @@ c----------------------------------------------------------------------
 c     Allocates application-related arrays
 c----------------------------------------------------------------------
 
-      use auxiliaryVariables
-
       use auxPlotVariables
 
-      use local_BCS_variables, ONLY: bc_vars_allcd,deallocBCVariables
+      use rw_bc
 
       implicit none
 
@@ -87,7 +79,7 @@ c Begin program
 
       call deallocAuxPlotVar
 
-      if (bc_vars_allcd) call deallocBCVariables
+      call rw_deallocBCVariables
 
 c End programs
 

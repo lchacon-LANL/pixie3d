@@ -11,25 +11,15 @@ c     Postprocess solution in varray to find derived quantities
 c     for plotting.
 c--------------------------------------------------------------------
 
-      use var_setup
-
-      use graphics
-
       use auxiliaryVariables
 
       use auxPlotVariables
 
       use ts_io
 
-      use operators
-
-      use equilibrium
-
       use nlfunction_setup
 
-      use local_BCS_variables
-
-      use app_iosetup
+      use rw_bc
 
       use poincare_io
 
