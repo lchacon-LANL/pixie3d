@@ -7,7 +7,6 @@ c ####################################################################
         !Resistive wall vars
         logical :: res_wall_bc   =.false.
      .            ,rw_bcs(6)     =.false.
-     .            ,rw_dbg        =.true.
 
         real(8),allocatable,dimension(:) :: Brn_m,Bin_m
 
@@ -16,6 +15,7 @@ c ####################################################################
         real(8),pointer,dimension(:,:,:,:) :: E_bc
 
         logical,private :: debug_io=.false.
+     .                    ,rw_dbg  =.false.
 
       contains
 
