@@ -1,0 +1,29 @@
+ A-solve GMRES its= 15
+
+  Grid mesh:................   32x   32x    1
+  Number of processors:.....    1,    2,    1
+  Preconditioning method:... SI PC w/o flow
+  Timestep adaption.........   F
+  External source...........   F
+  Numerical grid............   F
+  Scalar advection scheme...    ZIP   
+  Velocity advection scheme.    ZIP   
+  Anisotropic transport sch.  4th-7pt 
+  TS scheme.................  BDF2    
+
+    itime      time     dt     #CFL   vx_max   vy_max   vz_max    GMRES Newton CN factor
+         1      0.00  1.0E-03 3.4E+02  2.4E-02  1.7E-02  8.4E-03    11     5     0.000
+         2      0.01  9.0E-03 3.0E+03  2.3E-02  1.8E-02  8.3E-03    10     5     0.000
+         3      0.02  1.0E-02 3.4E+03  2.3E-02  1.8E-02  7.7E-03    13     5     0.000
+         4      0.03  1.0E-02 3.4E+03  2.3E-02  1.7E-02  7.0E-03    13     5     0.000
+         5      0.04  1.0E-02 3.4E+03  2.3E-02  1.7E-02  6.4E-03    14     5     0.000
+         6      0.05  1.0E-02 3.4E+03  2.3E-02  1.6E-02  5.7E-03    14     5     0.000
+         7      0.06  1.0E-02 3.4E+03  2.3E-02  1.5E-02  5.1E-03    14     5     0.000
+         8      0.07  1.0E-02 3.4E+03  2.3E-02  1.5E-02  4.5E-03    16     6     0.000
+         9      0.08  1.0E-02 3.4E+03  2.3E-02  1.4E-02  4.0E-03    15     6     0.000
+        10      0.09  1.0E-02 3.4E+03  2.3E-02  1.3E-02  3.5E-03    16     6     0.000
+
+Final statistics
+
+ itime  Newt/ndt  GMRES/ndt  GMRES/Newt
+   10       5.3       13.6        2.6
