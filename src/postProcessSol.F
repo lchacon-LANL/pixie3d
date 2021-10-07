@@ -596,7 +596,7 @@ c       Find vector potential RW boundary condition at face
         da_cov = 0d0
         if (res_wall_bc) call XferBCs(-dt*E_bc,da_cov,.false.)
         
-c       Clean db (and impose RW BC, if appropriate)
+c       Clean db (and impose RW BC, if applicable)
 
         tol_divcl = rtol
         call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
