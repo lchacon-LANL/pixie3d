@@ -480,7 +480,7 @@ c     Call variables
 c     Local variables
 
       integer :: nx,ny,nz,igx,igy,igz,i,j,k,ii,icomp,order_res
-     .          ,order_prol,gmits,bcsga(6,3)
+     .          ,order_prol,gmits
 
       real(8) :: da_cnv (0:size(db_cnv,1)-1
      .                  ,0:size(db_cnv,2)-1
@@ -526,9 +526,6 @@ c     Begin program
 c     Find Lap(A0) for Dirichlet BCs (use curlcurl to avoid gauge assumption)
 
       if (PRESENT(da0cov)) then
-cc        dlapa0 = XformToCnv(g_def,igrid,2*da0cov) !Factor of 2 because da0cov is at face
-cc        dlapa0 = veclap    (g_def,igrid,dlapa0)
-cc        dlapa0 = -curlcurl (g_def,igrid,dlapa0,.true.) 
         !Factor of 2 because da0cov is at face
         dlapa0 = -2*curlcurl_mesh2(g_def,igrid,da0cov,.false.)  !Returns covariant
         dlapa0 = XformToCnv(g_def,igrid,dlapa0)
@@ -580,7 +577,11 @@ c     Setup solver parameters
         order_prol = 1
       endif
 
-      bc_order_a = 2
+      if (PRESENT(da0cov)) then
+        bc_order_a = 1          !To ensure consistency with Dirichlet BC provided
+      else
+        bc_order_a = 2
+      endif
       
 c     Invert vector laplacian to find dA=vlap^-1(dJ)
 
