@@ -674,8 +674,16 @@ cc            acov = acov + acov_0
 
             deallocate(acnv_n)
           else
-            if (res_wall_bc.and.(.not.source_eval)) then
-              call apply_rw_bc_A(gv%gparams,acov_n,v0,E_bc)
+            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
+#if defined(plotting)
+              call XferBCs(acov,v0,.true.)  !Reuse existing BC for plotting
+#else
+c$$$              call apply_rw_bc_A(gv%gparams,bcov_n,v0,E_bc)
+              if (save_tn) call rw_Ebc(gv%gparams,bcov_n,E_bc)
+              call XferBCs(acov_n,v0,.true.)
+              !Update face value
+              v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt*E_bc(nnx+1,:,:,:)
+#endif
             else
               call XferBCs(acov_0,v0,.true.)
             endif
@@ -698,8 +706,8 @@ c       Magnetic field BC
 
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
 #if !defined(vec_pot)
-            if (res_wall_bc.and.(.not.source_eval).and.save_tn) then
-              call rw_Ebc(gv%gparams,bcov_n,bcov_n,E_bc)
+            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
+              if (save_tn) call rw_Ebc(gv%gparams,bcov_n,E_bc)
             endif
 #endif
             prs1 = rho*tmp
