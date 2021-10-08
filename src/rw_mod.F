@@ -77,81 +77,81 @@ c     End program
 
       end subroutine rw_deallocBCVariables
 
-c     apply_rw_bc_A
-c     ###############################################################
-      subroutine apply_rw_bc_A(g_def,a_covn,a_cov,E_bc)
-
-        implicit none
-
-c     Call variables
-        
-        type(grid_mg_def),pointer :: g_def
-
-        real(8) :: a_cov (0:,0:,0:,:)
-     $            ,a_covn(0:,0:,0:,:)
-     $            ,E_bc  (0:,0:,0:,:)
-
-c     Local variables
-
-        integer :: igr,nnx,nny,nnz,i,j,k
-        
-        real(8),pointer,dimension(:,:,:,:) :: v0,b_covn
-        
-c     Begin program
-
-        if (my_rank == 0.and.ilevel > 0.and.save_tn)
-     $       write (*,*) "Apply RW BC..."
-        
-        if (g_def%ihi(1) /= nxd) return
-      
-        igr = 1
-        
-        nnx = g_def%nxv(igr) 
-        nny = g_def%nyv(igr)
-        nnz = g_def%nzv(igr)
-
-c     Find electric field @ wall (store in (nx+1) ghost cell)
-
-        if (save_tn) then
-          allocate(b_covn(0:nnx+1,0:nny+1,0:nnz+1,3))
-          
-          !Find Bcov
-          do k = 0,nnz+1
-            do j = 0,nny+1
-              do i = 0,nnx+1
-                b_covn(i,j,k,:) =
-     .                 XformToCurv_ijk(g_def,i,j,k,igr,B0,.true.)
-     .           + curl(g_def,i,j,k,nnx,nny,nnz,igr,igr,igr,a_covn)
-              enddo
-            enddo
-          enddo
-          b_covn = XformToCov(g_def,igr,b_covn)
-
-          !Find E_bc
-          call rw_Ebc(g_def,b_covn,b_covn,E_bc)
-
-          deallocate(b_covn)
-        endif
-        
-c     Update old-time vector potential
-
-        allocate(v0(0:nnx+1,0:nny+1,0:nnz+1,3))
-
-        v0 = 0d0
-
-        !Interpolate to face
-        call XferBCs(a_covn,v0,.true.)
-
-        !Update face value
-        a_cov(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt*E_bc(nnx+1,:,:,:)
-
-        deallocate(v0)
-        
-      end subroutine apply_rw_bc_A
+c$$$c     apply_rw_bc_A
+c$$$c     ###############################################################
+c$$$      subroutine apply_rw_bc_A(g_def,a_covn,a_cov,E_bc)
+c$$$
+c$$$        implicit none
+c$$$
+c$$$c     Call variables
+c$$$        
+c$$$        type(grid_mg_def),pointer :: g_def
+c$$$
+c$$$        real(8) :: a_cov (0:,0:,0:,:)
+c$$$     $            ,a_covn(0:,0:,0:,:)
+c$$$     $            ,E_bc  (0:,0:,0:,:)
+c$$$
+c$$$c     Local variables
+c$$$
+c$$$        integer :: igr,nnx,nny,nnz,i,j,k
+c$$$        
+c$$$        real(8),pointer,dimension(:,:,:,:) :: v0,b_covn
+c$$$        
+c$$$c     Begin program
+c$$$
+c$$$        if (my_rank == 0.and.ilevel > 0.and.save_tn.and.time/=0d0)
+c$$$     $       write (*,*) "Apply RW BC..."
+c$$$        
+c$$$        if (g_def%ihi(1) /= nxd) return
+c$$$      
+c$$$        igr = 1
+c$$$        
+c$$$        nnx = g_def%nxv(igr) 
+c$$$        nny = g_def%nyv(igr)
+c$$$        nnz = g_def%nzv(igr)
+c$$$
+c$$$c     Find electric field @ wall (store in (nx+1) ghost cell)
+c$$$
+c$$$        if (save_tn.and.(time/=0d0)) then
+c$$$          allocate(b_covn(0:nnx+1,0:nny+1,0:nnz+1,3))
+c$$$          
+c$$$          !Find Bcov
+c$$$          do k = 0,nnz+1
+c$$$            do j = 0,nny+1
+c$$$              do i = 0,nnx+1
+c$$$                b_covn(i,j,k,:) =
+c$$$     .                 XformToCurv_ijk(g_def,i,j,k,igr,B0,.true.)
+c$$$     .           + curl(g_def,i,j,k,nnx,nny,nnz,igr,igr,igr,a_covn)
+c$$$              enddo
+c$$$            enddo
+c$$$          enddo
+c$$$          b_covn = XformToCov(g_def,igr,b_covn)
+c$$$
+c$$$          !Find E_bc
+c$$$          call rw_Ebc(g_def,b_covn,E_bc)
+c$$$
+c$$$          deallocate(b_covn)
+c$$$        endif
+c$$$
+c$$$c     Update old-time vector potential
+c$$$
+c$$$        allocate(v0(0:nnx+1,0:nny+1,0:nnz+1,3))
+c$$$
+c$$$        v0 = 0d0
+c$$$
+c$$$        !Interpolate to face
+c$$$        call XferBCs(a_covn,v0,.true.)
+c$$$
+c$$$        !Update face value
+c$$$        a_cov(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt*E_bc(nnx+1,:,:,:)
+c$$$
+c$$$        deallocate(v0)
+c$$$       
+c$$$      end subroutine apply_rw_bc_A
 
 c     rw_Ebc
 c     #################################################################
-      subroutine rw_Ebc(g_def,bcovn,bcov,E_0)
+      subroutine rw_Ebc(g_def,bcov,E_0)
 
 c     -----------------------------------------------------------------
 c     Finds tangential cov electric field components according to
@@ -164,7 +164,7 @@ c     Call variables
 
       type(grid_mg_def),pointer :: g_def
 
-      real(8),dimension(0:,0:,0:,:) :: bcovn,bcov
+      real(8),dimension(0:,0:,0:,:) :: bcov
       real(8),dimension(0:,0:,0:,:) :: E_0
 
 c     Local variables
@@ -181,8 +181,8 @@ c$$$     .                   ,0:size(bcov,3)-1,3)
      .                   ,0:size(bcov,3)-1,3)
      .          ,gbcovint(0:size(bcov,2)-1
      .                   ,0:size(bcov,3)-1,3)
-     .          ,bcnvintnp(0:size(bcov,2)-1
-     .                    ,0:size(bcov,3)-1,3)
+c$$$     .          ,bcnvintnp(0:size(bcov,2)-1
+c$$$     .                    ,0:size(bcov,3)-1,3)
 c$$$     .          ,bcnvextnp(0:size(bcov,2)-1
 c$$$     .                    ,0:size(bcov,3)-1,3)
      .          ,bcovextnp(0:size(bcov,2)-1
@@ -211,14 +211,31 @@ c     Begin program
 cc      debug_io = old_time_eval.and.rw_dbg.and.my_rank_y==0
       debug_io = rw_dbg.and.my_rank_y==0
 
-c     Compute INTERNAL tangential magnetic field components, EXCLUDING m=n=0 mode
+c     Compute INTERNAL tangential magnetic field components, EXCLUDING m=n=0 mode (CRITICAL)
 
       !Extrapolate to face from interior
-      bcovint (:,:,:)= 0.5*bcovn(i_bc  ,:,:,:)
-     .                +0.5*bcovn(i_bc-1,:,:,:)
-      gbcovint(:,:,:)=(bcovn(i_bc  ,:,:,:)
-     .                -bcovn(i_bc-1,:,:,:))
+      bcovint (:,:,:)= 0.5*bcov(i_bc  ,:,:,:)
+     .                +0.5*bcov(i_bc-1,:,:,:)
+      gbcovint(:,:,:)=(bcov(i_bc  ,:,:,:)
+     .                -bcov(i_bc-1,:,:,:))
      .                /(g_def%xg(nxd+1)-g_def%xg(nxd))
+
+      !Perform angular average
+      bcov_avg(2) = sum(bcovint(1:ny,1:nz,2))
+      bcov_avg(3) = sum(bcovint(1:ny,1:nz,3))
+
+#if defined(petsc)
+      send_buf = bcov_avg(2:3)
+      call MPI_Allreduce(send_buf,rec_buf,2,MPI_DOUBLE_PRECISION
+     .                  ,MPI_SUM,g_def%MPI_COMM_YZ,mpierr)
+      bcov_avg = rec_buf
+#endif
+
+      bcov_avg = bcov_avg/(nyd*nzd)
+      
+      !Subtract average
+      bcovint(:,:,2) = bcovint(:,:,2) - bcov_avg(2)
+      bcovint(:,:,3) = bcovint(:,:,3) - bcov_avg(3)
 
 c     Compute EXTERNAL tangential magnetic field components from NORMAL internal ones
 
@@ -233,25 +250,6 @@ cc      case('tor')
      .       ,'Resistive wall BC not implemented for '//coords)
       end select
 
-c$$$c     Find INTERNAL tangential magnetic field components, EXCLUDING m=n=0 mode
-c$$$
-c$$$      !Perform angular average
-c$$$      bcov_avg(2) = sum(bcovint(1:ny,1:nz,2))
-c$$$      bcov_avg(3) = sum(bcovint(1:ny,1:nz,3))
-c$$$
-c$$$#if defined(petsc)
-c$$$      send_buf = bcov_avg(2:3)
-c$$$      call MPI_Allreduce(send_buf,rec_buf,2,MPI_DOUBLE_PRECISION
-c$$$     .                  ,MPI_SUM,g_def%MPI_COMM_YZ,mpierr)
-c$$$      bcov_avg = rec_buf
-c$$$#endif
-c$$$
-c$$$      bcov_avg = bcov_avg/(nyd*nzd)
-c$$$      
-c$$$      !Subtract average
-c$$$      bcovint(:,:,2) = bcovint(:,:,2) - bcov_avg(2)
-c$$$      bcovint(:,:,3) = bcovint(:,:,3) - bcov_avg(3)
-      
 c     Find electric field components @ r=1 (store in (nx+1))
 
       !Cnv from curl
@@ -266,66 +264,6 @@ c     Find electric field components @ r=1 (store in (nx+1))
      .      =XformToCov_ijk_face(g_def,i_bc-1,j,k,igr,E_0(i_bc,j,k,:),1)
         enddo
       enddo
-
-c$$$      write (*,*) "Ebc norm",sqrt(sum(E_0(nx+1,:,1,2:3)**2))
-
-c$$$      !Xform Bcov_ext to Cnv @ boundary
-c$$$      do k=0,nz+1
-c$$$        do j=0,ny+1
-c$$$          bcnvextnp(j,k,:)
-c$$$     .       =XformToCnv_ijk_face(g_def,i_bc-1,j,k,1,bcovextnp(j,k,:),1)
-c$$$          bcnvext  (j,k,:)
-c$$$     .       =XformToCnv_ijk_face(g_def,i_bc-1,j,k,1,bcovext  (j,k,:),1)
-c$$$        enddo
-c$$$      enddo
-
-c     Update INTERNAL magnetic field components at half-time assuming Ebc constant over dt
-
-c$$$#if !defined(vec_pot)
-c$$$      !Xform Bcnv_int to Cov @ boundary
-c$$$      do k=0,nz+1
-c$$$        do j=0,ny+1
-c$$$          nfactor = dot_product(bcnvextnp(j,k,:),bcovextnp(j,k,:))
-c$$$     $             /dot_product(bcnvext  (j,k,:),bcovext  (j,k,:))
-c$$$          nfactor = sqrt(nfactor)
-c$$$          write (*,*) nfactor
-c$$$          bcnvintnp(j,k,1) = bcnvextnp(j,k,1)
-c$$$          bcnvintnp(j,k,2) = bcnvextnp(j,k,2)
-c$$$     $                     - tau_w*E_0(i_bc,j,k,3)*nfactor
-c$$$          bcnvintnp(j,k,3) = bcnvextnp(j,k,3)
-c$$$     $                     + tau_w*E_0(i_bc,j,k,2)*nfactor
-c$$$          bcov(i_bc,j,k,:)
-c$$$     .       =XformToCov_ijk_face(g_def,i_bc-1,j,k,1,bcnvintnp(j,k,:),1)
-c$$$        enddo
-c$$$      enddo
-c$$$#endif
-
-c$$$      if (debug_io) then
-c$$$        write (*,*) "||E_bc||",sqrt(sum(E_0   (i_bc,1:nyd,1,:)**2))
-c$$$     .             ,"||Bn_n||",sqrt(sum(bcov_n(i_bc,1:nyd,1,:)**2))
-c$$$     .             ,"||Bn  ||",sqrt(sum(bcov  (i_bc,1:nyd,1,:)**2))
-c$$$      endif
-        
-c$$$      write (*,*) "Bext",sqrt(sum(bcovext(:,:,2:3)**2))
-c$$$      write (*,*) "||Ebc||",time,sqrt(sum(E_0(i_bc,1:ny,1:nz,2:3)**2))
-c$$$      dum = sqrt(sum(E_0(i_bc,:,:,2:3)**2))
-c$$$      if (my_rank == 0) write (*,*) "||Ebc||",time,dum
-c$$$      write (*,*) '==========================='
-c$$$      write (*,*) 'Helical cov E'
-c$$$      do j=1,nyd
-c$$$        write (*,*) i_bc,j,E_0(i_bc,j,1,2:3)
-c$$$      enddo
-c$$$      write (*,*) '==========================='
-c$$$      write (*,*) 'Inside helical cov B'
-c$$$      do j=1,nyd
-c$$$        write (*,*) i_bc,j,bcovint(j,1,2:3)
-c$$$      enddo
-c$$$      write (*,*) '==========================='
-c$$$      write (*,*) 'Outside helical cov B'
-c$$$      do j=1,nyd
-c$$$        write (*,*) i_bc,j,bcovext(j,1,2:3)
-c$$$      enddo
-c$$$      stop
 
 c     End program
 

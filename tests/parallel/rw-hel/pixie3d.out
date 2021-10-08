@@ -1,7 +1,7 @@
  A-solve GMRES its= 15
 
   Grid mesh:................   32x   32x    1
-  Number of grid levels:....    4,    4,    1
+  Number of processors:.....    1,    2,    1
   Preconditioning method:... SI PC w/o flow
   Timestep adaption.........   F
   External source...........   F
@@ -21,9 +21,9 @@
          7      0.06  1.0E-02 3.4E+03  2.3E-02  1.5E-02  5.1E-03    21     6     0.000        4
          8      0.07  1.0E-02 3.4E+03  2.3E-02  1.5E-02  4.5E-03    28     6     0.000        4
          9      0.08  1.0E-02 3.4E+03  2.3E-02  1.4E-02  4.0E-03    28     6     0.000        4
-        10      0.09  1.0E-02 3.4E+03  2.3E-02  1.3E-02  3.5E-03    28     6     0.000        4
+        10      0.09  1.0E-02 3.4E+03  2.3E-02  1.3E-02  3.5E-03    27     6     0.000        4
 
 Final statistics
 
  itime  Newt/ndt  GMRES/ndt  GMRES/Newt
-   10       5.4       24.0        4.4
+   10       5.4       23.9        4.4
