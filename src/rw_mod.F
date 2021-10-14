@@ -8,8 +8,6 @@ c ####################################################################
         logical :: res_wall_bc   =.false.
      .            ,rw_bcs(6)     =.false.
 
-        real(8),allocatable,dimension(:) :: Brn_m,Bin_m
-
         real(8) :: tau_w=1d0,r_v=1.5d0
 
         real(8),pointer,dimension(:,:,:,:) :: E_bc
@@ -46,8 +44,6 @@ c     Begin program
         allocate(E_bc(0:nx+1,0:ny+1,0:nz+1,3))
 
         E_bc = 0d0
-      
-        if(res_wall_bc.and.coords=='hel')allocate(Brn_m(nyd),Bin_m(nyd))
 
 c     End program
 
@@ -71,7 +67,7 @@ c     Local variables
 
 c     Begin program
 
-        deallocate(E_bc,Brn_m,Bin_m,stat=alloc_stat)
+        deallocate(E_bc,stat=alloc_stat)
 
 c     End program
 
@@ -292,7 +288,7 @@ c     Local variables
       integer :: m,n,jglobal,i,j,m1,mm2,mm1,nx,ny,nz
       real(8) :: theta(nyd)
      .          ,Bn(1,nyd,1),gBn(1,nyd,1)
-     .          ,Br_m(nyd),Bi_m(nyd)
+     .          ,Br_m(nyd),Bi_m(nyd),Brn_m(nyd),Bin_m(nyd)
      .          ,gBr_m(nyd),gBi_m(nyd),mm(nyd)
      .          ,phir_m(nyd),phii_m(nyd)
      .          ,phir_m_np(nyd),phii_m_np(nyd)
