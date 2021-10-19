@@ -56,7 +56,7 @@ c Namelists
      .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old,xport_order
-     .                   ,r_v,tau_w
+     .                   ,r_v,tau_w,implicit_rw_bc
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                   ,pc_as_solver,fpa,fpa_it
@@ -113,7 +113,7 @@ c Namelists
      .                   ,equil,gstor_I_drive,refine_eq
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
-     .                   ,r_v,tau_w
+     .                   ,r_v,tau_w,implicit_rw_bc
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
