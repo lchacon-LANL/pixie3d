@@ -6,14 +6,15 @@ c ####################################################################
       
         !Resistive wall vars
         logical :: res_wall_bc   =.false.
-     .            ,rw_bcs(6)     =.false.
+     $            ,rw_bcs(6)     =.false.
+     $            ,implicit_rw_bc=.false.
 
         real(8) :: tau_w=1d0,r_v=1.5d0
 
         real(8),pointer,dimension(:,:,:,:) :: E_bc
 
         logical,private :: debug_io=.false.
-     .                    ,rw_dbg  =.false.
+     .                    ,rw_dbg  =.true.
 
       contains
 
@@ -171,18 +172,10 @@ c     Local variables
      .                   ,0:size(bcov,3)-1)
      .          ,bcovext (0:size(bcov,2)-1
      .                   ,0:size(bcov,3)-1,3)
-c$$$     .          ,bcnvext (0:size(bcov,2)-1
-c$$$     .                   ,0:size(bcov,3)-1,3)
      .          ,bcovint (0:size(bcov,2)-1
      .                   ,0:size(bcov,3)-1,3)
      .          ,gbcovint(0:size(bcov,2)-1
      .                   ,0:size(bcov,3)-1,3)
-c$$$     .          ,bcnvintnp(0:size(bcov,2)-1
-c$$$     .                    ,0:size(bcov,3)-1,3)
-c$$$     .          ,bcnvextnp(0:size(bcov,2)-1
-c$$$     .                    ,0:size(bcov,3)-1,3)
-     .          ,bcovextnp(0:size(bcov,2)-1
-     .                    ,0:size(bcov,3)-1,3)
 
       real(8) :: dum,dh,bcov_avg(2:3),send_buf(2),rec_buf(2),nfactor
 
@@ -204,7 +197,6 @@ c     Begin program
       my_rank_y = 0
 #endif
       
-cc      debug_io = old_time_eval.and.rw_dbg.and.my_rank_y==0
       debug_io = rw_dbg.and.my_rank_y==0
 
 c     Compute INTERNAL tangential magnetic field components, EXCLUDING m=n=0 mode (CRITICAL)
@@ -237,8 +229,7 @@ c     Compute EXTERNAL tangential magnetic field components from NORMAL internal
 
       select case(coords)
       case('hel')
-        call rw_hel(g_def,bcovint(:,:,1),gbcovint(:,:,1),bcovext
-     $             ,bcovextnp)
+        call rw_hel(g_def,bcovint(:,:,1),gbcovint(:,:,1),bcovext)
 cc      case('cyl')
 cc      case('tor')
       case default
@@ -267,7 +258,7 @@ c     End program
 
 c     rw_hel
 c     ####################################################################
-      subroutine rw_hel(g_def,bcovn_int,gbcovn_int,bcov_ext,bcov_ext_np)
+      subroutine rw_hel(g_def,bcovn_int,gbcovn_int,bcov_ext)
       
 c     -----------------------------------------------------------------
 c     Performs RW BC. Inputs normal internal B-component, outputs
@@ -280,14 +271,12 @@ c     Call variables
         
       type(grid_mg_def),pointer :: g_def
 
-      real(8) :: bcovn_int(0:,0:),gbcovn_int(0:,0:)
-      real(8) :: bcov_ext(0:,0:,:),bcov_ext_np(0:,0:,:)
+      real(8) :: bcovn_int(0:,0:),gbcovn_int(0:,0:),bcov_ext(0:,0:,:)
 
 c     Local variables
       
-      integer :: m,n,jglobal,i,j,m1,mm2,mm1,nx,ny,nz
-      real(8) :: theta(nyd)
-     .          ,Bn(1,nyd,1),gBn(1,nyd,1)
+      integer :: m,n,jglobal,i,j,m1,mm2,mm1,nx,ny,nz,igr
+      real(8) :: theta(nyd),Bn(1,nyd,1),gBn(1,nyd,1)
      .          ,Br_m(nyd),Bi_m(nyd),Brn_m(nyd),Bin_m(nyd)
      .          ,gBr_m(nyd),gBi_m(nyd),mm(nyd)
      .          ,phir_m(nyd),phii_m(nyd)
@@ -296,14 +285,18 @@ c     Local variables
      .          ,dBr(nyd),Br(nyd),Bth(nyd),Bz(nyd)
       real(8) :: dImv,dIm,Im,d2Im,dKmv,dKm,Km,d2Km,pv,pw,RR,kk,rm,rbc
      .          ,efac,gamma,dum,mmm
+     .          ,bcov_ext_np(0:size(bcov_ext,1)-1
+     .                      ,0:size(bcov_ext,2)-1,3)
 
       real(8),allocatable,dimension(:,:,:) :: Bnl,gBnl
 
 c     Begin program
       
-      nx = size(bcov,1)-2
-      ny = size(bcov,2)-2
-      nz = size(bcov,3)-2
+      igr = 1
+      
+      nx = g_def%nxv(igr) 
+      ny = g_def%nyv(igr)
+      nz = g_def%nzv(igr)
 
       allocate(Bnl(1,ny,1),gBnl(1,ny,1))
 
@@ -360,15 +353,6 @@ c     Find VACUUM potential solution Phi outside of resistive wall
 
               Br_m(m) = efac*Brn_m(m)-(1d0-efac)/gamma*gBr_m(m)
               Bi_m(m) = efac*Bin_m(m)-(1d0-efac)/gamma*gBi_m(m)
-
-c$$$              if(m1==nint(mmm).and.debug_io) then
-c$$$                if (Brn_m(m)*Br_m(m) > 0d0) then  
-c$$$                  dum=log(Br_m(m)/Brn_m(m))*tau_w/dt
-c$$$                else
-c$$$                  dum=0d0
-c$$$                endif
-c$$$                write (*,*)"Br norm. decay k=0 =",dum
-c$$$              endif
             else
               Br_m(m) = Brn_m(m)
               Bi_m(m) = Bin_m(m)
@@ -410,15 +394,6 @@ c$$$              endif
             efac  = exp(-gamma*dt/tau_w)
             Br_m(m) = efac*Brn_m(m)-(1d0-efac)/gamma*gBr_m(m)
             Bi_m(m) = efac*Bin_m(m)-(1d0-efac)/gamma*gBi_m(m)
-
-c$$$            if(m1==nint(mmm).and.debug_io) then
-c$$$              if (Brn_m(m)*Br_m(m) > 0d0) then
-c$$$                dum=log(Br_m(m)/Brn_m(m))*tau_w/dt
-c$$$              else
-c$$$                dum=0d0
-c$$$              endif
-c$$$              write (*,*) m,"Br norm. decay k/=0, m =",mmm," is",dum
-c$$$            endif
           else
             Br_m(m) = Brn_m(m)
             Bi_m(m) = Bin_m(m)
@@ -448,7 +423,7 @@ c$$$      call ifft(nyd,Bz,theta,nyd,Br_m,Bi_m,mm,0)
       !Get LOCAL helical (cov) magnetic field components @ r=1 
       rbc = 1d0
 
-      do j = jlom,jhip
+      do j = 0,ny+1
         jglobal = j + g_def%jlo(1) - 1
         if (jglobal > nyd) jglobal = jglobal - nyd
         if (jglobal < 1  ) jglobal = nyd + jglobal
@@ -473,9 +448,7 @@ c$$$      Bi_m =-kk*phir_m_np
 c$$$      call ifft(nyd,Bz,theta,nyd,Br_m,Bi_m,mm,0)
 
       !Get LOCAL helical (cov) magnetic field components @ r=1 
-      rbc = 1d0
-
-      do j = jlom,jhip
+      do j = 0,ny+1
         jglobal = j + g_def%jlo(1) - 1
         if (jglobal > nyd) jglobal = jglobal - nyd
         if (jglobal < 1  ) jglobal = nyd + jglobal
@@ -483,17 +456,12 @@ c$$$      call ifft(nyd,Bz,theta,nyd,Br_m,Bi_m,mm,0)
         bcov_ext_np(j,:,2) = rbc/mmm*Bth(jglobal)
         bcov_ext_np(j,:,3) = 0d0 !Bz(jglobal) - kk*bcov_ext_np(j,:,2)
       enddo
-
-      if (rw_dbg) then
-        dum = 0d0
-        do j = jlo,jhi
-          dum = dum + (bcov_ext_np(j,1,2)-bcov_ext(j,1,2))
-     $                /bcov_ext(j,1,2)/dt*tau_w
-        enddo
-        dum = psum((/dum/))/nyd
-        
+    
+      if (rw_dbg.and.save_tn) then
+        Bnl(1,1:ny,1)=(bcov_ext_np(1:ny,1,2)/bcov_ext(1:ny,1,2)-1d0)/dt
+        dum = psum(Bnl(1,1:ny,1),mpi_comm=g_def%MPI_COMM_Y)/nyd
         if (debug_io)
-     $    write(*,*) "Bt norm. decay rate k/=0, m =",nint(mmm)," is",dum
+     $    write(*,*) "Bt norm. decay rate, m =",nint(mmm)," is",dum
       endif
       
       deallocate(Bnl,gBnl)

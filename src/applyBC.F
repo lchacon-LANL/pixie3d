@@ -526,11 +526,6 @@ c       Allocate auxiliary variables in local domain
           
         case(IBCNV_0)
 
-          if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
-            prs0 = rho_0*tmp_0 ; E_bc = 0d0
-            call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
-          endif
-          
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
      .              ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
      .              ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
@@ -541,9 +536,6 @@ c       Allocate auxiliary variables in local domain
         case(IBCNV_0)
 
           if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
-            prs0 = rho_0*tmp_0 ; E_bc = 0d0
-            call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
-
             call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
      .                ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
      .                ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
@@ -679,9 +671,24 @@ cc            acov = acov + acov_0
               call XferBCs(acov,v0,.true.)  !Reuse existing BC for plotting
 #else
 c$$$              call apply_rw_bc_A(gv%gparams,bcov_n,v0,E_bc)
-              if (save_tn) call rw_Ebc(gv%gparams,bcov_n,E_bc)
-              call XferBCs(acov_n,v0,.true.)
+              if (implicit_rw_bc.and.(.not.save_tn)) then
+                !Extrapolate Vec-Pot and new-time B to boundary
+                bcnd = vaux%vec_list(IACOV)%bconds
+                where (vaux%vec_list(IACOV)%bconds==-EQU) bcnd =-EXT
+                call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+     .                  ,bcnd,igr,igr,igr,iorder=2
+     .                  ,is_cnv=vaux%vec_list(IACOV)%cnv)
+                bcov = curl(gv%gparams,igr,acov)
+                bcov = XformToCov(gv%gparams,igr,bcov)
+                !Compute new-time E-field @ boundary
+                call rw_Ebc(gv%gparams,bcov  ,E_bc)
+              elseif (save_tn) then
+                !Compute old-time E-field @ boundary
+                call rw_Ebc(gv%gparams,bcov_n,E_bc)
+              endif
+              
               !Update face value
+              call XferBCs(acov_n,v0,.true.)
               v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt*E_bc(nnx+1,:,:,:)
 #endif
             else
@@ -707,7 +714,19 @@ c       Magnetic field BC
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
 #if !defined(vec_pot)
             if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
-              if (save_tn) call rw_Ebc(gv%gparams,bcov_n,E_bc)
+              if (implicit_rw_bc.and.(.not.save_tn)) then
+                !Extrapolate Vec-Pot and new-time B to boundary
+                bcnd = vaux%vec_list(IBCNV)%bconds
+                where (vaux%vec_list(IBCNV)%bconds==-NEU) bcnd =-EXT
+                call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
+     .                  ,bcnd,igr,igr,igr,iorder=2
+     .                  ,is_cnv=vaux%vec_list(IBCNV)%cnv)
+                !Compute new-time E-field @ boundary
+                call rw_Ebc(gv%gparams,bcov  ,E_bc)
+              elseif (save_tn) then
+                !Compute old-time E-field @ boundary
+                call rw_Ebc(gv%gparams,bcov_n,E_bc)
+              endif
             endif
 #endif
             prs1 = rho*tmp
