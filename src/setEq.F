@@ -17,12 +17,6 @@ c       * ieq=IAX:IAZ: vector potential
 c       * ieq=IPRS: total pressure is found as p=n*(Ti+Te)=a_p*n*Te.
 c--------------------------------------------------------------------
 
-      use parameters
-
-      use equilibrium
-
-      use grid
-
       use timeStepping
 
       use nlfunction_setup
@@ -31,9 +25,7 @@ c--------------------------------------------------------------------
 
       use oned_int
 
-      use local_BCS_variables
-
-      use app_iosetup
+      use rw_bc
 
       use B_tools, ONLY: B_div_clean,findVectorPotential
 
@@ -1826,10 +1818,6 @@ c     --------------------------------------------------
           call pstop('setEq','VMEC EQU file not found')
         endif
 
-c     Read VMEC coordinates and fill grid hierarchy
-
-cc        call vmec_map(equ_file,gv%gparams) !Moved to createNLF
-
 c     Read VMEC equilibrium
 
         call vmec_equ(ilevel,igx,nx,ny,nz,bb,var(:,:,:,IPRS)
@@ -1885,10 +1873,16 @@ c     --------------------------------------------------
 
 c     Read EFIT equilibrium
 
-        call efit_equ(ilevel,igx,nx,ny,nz,bb,var(:,:,:,IPRS)
-     .                                      ,var(:,:,:,IRHO)
-     .               ,gamma,equ_file)
-
+        if (solve_rho) then  !Adiabatic rho for now
+          call efit_equ(ilevel,igx,nx,ny,nz,bb,var(:,:,:,IPRS)
+     .                                        ,var(:,:,:,IRHO)
+     .                 ,gamma,equ_file)
+        else                 !Constant rho
+          call efit_equ(ilevel,igx,nx,ny,nz,bb,var(:,:,:,IPRS)
+     .                                        ,var(:,:,:,IRHO)
+     .                 ,0d0,equ_file)
+        endif
+        
         find_a = .false.
 
         !Divergence clean field if not Tokamak
@@ -2043,11 +2037,14 @@ cc              var(i,j,k,IVX:IVZ)=0d0
           enddo
         enddo
 
-        write (*,*) "Check prsw definition and assignment above"
-        stop
-        
+        call findVectorPotential(gv%gparams,ilevel,igx,bb,aa,'vlap'
+     .                          ,lorder=4)
+
 #if !defined(vec_pot)
-        call B_div_clean(gv%gparams,ilevel,igx,bb,"vlap")
+cc        call B_div_clean(gv%gparams,ilevel,igx,bb,"vlap")
+        bb = curl(gv%gparams,igx,aa)
+#else
+        find_a = .false.
 #endif
 
 c     --------------------------------------------------

@@ -11,25 +11,15 @@ c     Postprocess solution in varray to find derived quantities
 c     for plotting.
 c--------------------------------------------------------------------
 
-      use var_setup
-
-      use graphics
-
       use auxiliaryVariables
 
       use auxPlotVariables
 
       use ts_io
 
-      use operators
-
-      use equilibrium
-
       use nlfunction_setup
 
-      use local_BCS_variables
-
-      use app_iosetup
+      use rw_bc
 
       use poincare_io
 
@@ -235,6 +225,8 @@ c Resistive wall diagnostics
       if (res_wall_bc) then
         if (my_rank == 0) write (*,*) '||Bn||',time,
      .   sqrt(integral(gv%gparams,igx,bcov(:,:,:,1)**2,average=.false.))
+        if (my_rank == 0) write (*,*) '||Bt||',time,
+     .   sqrt(integral(gv%gparams,igx,bcov(:,:,:,2)**2,average=.false.))
       endif
       
 c Velocity and current intrinsic components (wrt B)

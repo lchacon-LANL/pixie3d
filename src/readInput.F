@@ -6,10 +6,6 @@ c----------------------------------------------------------------------
 c     Initializes MG and creates grid
 c----------------------------------------------------------------------
 
-      use parameters
-
-      use grid
-
 #if defined(plotting) || defined(_equ)
       use ts_setup
 #else
@@ -20,13 +16,7 @@ c----------------------------------------------------------------------
 
       use PC_setup
 
-      use app_iosetup
-
-      use equilibrium
-
-      use graphics_io
-
-      use local_BCS_variables
+      use rw_bc
 
       implicit none
 
@@ -66,7 +56,7 @@ c Namelists
      .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old,xport_order
-     .                   ,res_wall_bc,r_v,tau_w,implicit_rw_bc,rw_hel_v1
+     .                   ,r_v,tau_w,implicit_rw_bc
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                   ,pc_as_solver,fpa,fpa_it
@@ -123,7 +113,7 @@ c Namelists
      .                   ,equil,gstor_I_drive,refine_eq
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
-     .                   ,res_wall_bc,r_v,tau_w,implicit_rw_bc,rw_hel_v1
+     .                   ,r_v,tau_w,implicit_rw_bc
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
@@ -504,10 +494,8 @@ c     #####################################################################
       B0       = 0d0           ! Boundary magnetic field (cnv)
       M0       = 0d0           ! Momentum source
 
-      res_wall_bc= .false.     ! Whether we are using resistive wall BCs
       tau_w    = 1d2           ! Resistive wall thin-shell time
       r_v      = 1.5           ! Radius of outer conducting shell
-      implicit_rw_bc = .false. ! Whether RW BC is treated implicitly or not
 
       !Nonlinear function parameters
       adiabatic  = .false.     ! Whether we use adiabatic EoS or not
@@ -699,6 +687,8 @@ c     #####################################################################
 
       implicit none
 
+      integer :: i
+      
       !Check legacy parameters
       if (hall_new     )  ion_hall = .true.
 
@@ -715,8 +705,6 @@ c     #####################################################################
       if (nsweep /= 0  )  sm_iter = nsweep
 
       if (pc_max_iter>0)  pc_iter = pc_max_iter
-
-      where (bcs == 'sym') bcs = 'fsm' !Face symmetric
 
       if (.not.timecorr) ts_adapt_dt = timecorr
 
@@ -740,11 +728,25 @@ c     #####################################################################
       !NK
 cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
 
+      !Face symmetric if "sym"
+      where (bcs == 'sym') bcs = 'fsm'
+
       !Adequate BCs for collapsed dimension
       if (nxd == 1) bcs(1:2) = 'per'
       if (nyd == 1) bcs(3:4) = 'per'
       if (nzd == 1) bcs(5:6) = 'per'
 
+      !Setup resistive wall logic
+      where (bcs == 'rsw')
+        rw_bcs = .true.
+        bcs = 'def'
+      end where
+
+      res_wall_bc = .false.
+      do i=1,size(rw_bcs)
+        res_wall_bc = res_wall_bc.or.rw_bcs(i)
+      enddo
+      
       !Adequate size for collapsed dimension
       if (coords /= 'car') then
         if (nxd == 1) then
