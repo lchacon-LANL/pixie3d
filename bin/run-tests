@@ -8,7 +8,7 @@ tput setaf 1; make -s eq src | sed '/^\s*$/d'
 tput setaf 4; echo "RUNNING SERIAL B tests..."
 tput setaf 0; make -s tests > tests/tests-B.txt
 
-make -s distclean
+make -s srcclean
 tput setaf 4; echo "COMPILING SERIAL A tests..."
 tput setaf 1; make -s VECPOT=t eq src | sed '/^\s*$/d'
 tput setaf 4; echo "RUNNING SERIAL A tests..."
@@ -20,7 +20,7 @@ tput setaf 1; make -s BOPT=O eq src | sed '/^\s*$/d'
 tput setaf 4; echo "RUNNING PARALLEL B tests..."
 tput setaf 0; make -s BOPT=O tests > tests/tests-parallel-B.txt
 
-make -s BOPT=O distclean
+make -s BOPT=O srcclean
 tput setaf 4; echo "COMPILING PARALLEL A tests..."
 tput setaf 1; make -s BOPT=O VECPOT=t eq src | sed '/^\s*$/d'
 tput setaf 4; echo "RUNNING PARALLEL A tests..."

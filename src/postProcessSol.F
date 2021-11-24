@@ -21,8 +21,10 @@ c--------------------------------------------------------------------
 
       use PC_setup, only: pc_as_solver
 
-      use local_BCS_variables, ONLY: res_wall_bc
+      use local_BCS_variables, ONLY: order_bc
 
+      use rw_bc, ONLY: res_wall_bc,E_bc,rw_Ebc
+      
       implicit none
 
 c Call variables
@@ -64,16 +66,6 @@ c Begin program
       ny = gv%gparams%nyv(igy)
       nz = gv%gparams%nzv(igz)
 
-c Postprocessing density
-
-c$$$      if (adiabatic .and. (.not.solve_rho)) then
-c$$$        if (my_rank == 0) write (*,*) 'Postprocessing density'
-c$$$        vnp%array_var(IRHO)%array(1:nx,1:ny,1:nz) =
-c$$$     .       u_0%array_var(IRHO)%array(1:nx,1:ny,1:nz)
-c$$$     .     *(vnp%array_var(IPRS)%array(1:nx,1:ny,1:nz)
-c$$$     .      /u_0%array_var(IPRS)%array(1:nx,1:ny,1:nz))**(1d0/gamma)
-c$$$      endif
-
 c Add random noise in EOM (to break symmetry)
 
       if (noise) then
@@ -112,11 +104,11 @@ c -------------------------------------------------------------------
 
 #if !defined(samrai)
 
-c Filter single mode in helical geometry (only on V for now)
-
-      if (coords == 'hel'.and.post_filter_hel) then
-        call post__filter_V
-      endif
+c$$$c Filter single mode in helical geometry (only on V for now)
+c$$$
+c$$$      if (coords == 'hel'.and.post_filter_hel) then
+c$$$        call post__filter_V
+c$$$      endif
       
 c Smooth magnetic and velocity fields
 
@@ -124,10 +116,12 @@ c Smooth magnetic and velocity fields
         call post__smooth_B
         call post__smooth_V
       endif
-
+      
 c Divergence-clean magnetic field when PC is on
 
-      if (post_divclean) call post__divclean
+#if !defined(vec_pot)
+      if (post_divclean.or.res_wall_bc) call post__divclean
+#endif
 
 c Perform Lagrangian temperature step
 
@@ -135,6 +129,7 @@ c Perform Lagrangian temperature step
 
 c Add rotating magnetic perturbation
 
+#if !defined(vec_pot)
       if (br_pert_freq /= 0d0) then
 
         !Substract old one
@@ -147,10 +142,11 @@ c Add rotating magnetic perturbation
         call perturbEquilibrium_ppnch_bc(vnp, br_pert_bc
      .                                  ,br_pert_phase)
       endif
+#endif
 
 c Update BCs
 
-      call applyBC(igx,vnp,gv%aux,it=itime)
+      call applyBC(igx,vnp,gv%aux)
 
 c Compute new Newton update tolerance based on tau error estimator
 
@@ -216,118 +212,118 @@ c End program
 
       contains
 
-c     post__filter_V
-c     ###############################################################
-      subroutine post__filter_V
-
-        implicit none
-
-        integer :: ieq,i,j,k,jg,jlog
-        real(8) :: ac(nx),as(nx),lsum(nx,2),gsum(nx,2),mm
-        real(8),allocatable,dimension(:,:,:,:) :: dv
-
-c     Begin program
-
-        if (my_rank == 0) then
-          if (ilevel > 0) write (*,*)
-          write (*,*) 'Performing filtering of V in postproc...'
-        endif
-
-c     Find dV=V^(n+1)-V^n
-
-        allocate(dv(0:nx+1,0:ny+1,0:nz+1,3))
-
-        dv(:,:,:,1) = vnp%array_var(IVX)%array
-     .               -vn %array_var(IVX)%array
-        dv(:,:,:,2) = vnp%array_var(IVY)%array
-     .               -vn %array_var(IVY)%array
-        dv(:,:,:,3) = vnp%array_var(IVZ)%array
-     .               -vn %array_var(IVZ)%array
-
-c     Filter by Fourier transform
-
-        mm = gv%gparams%params(1)
-
-        jlog = gv%gparams%jlo(igy)
-
-        do ieq=1,3
-
-          k = 1
-
-          ac = 0d0 ; as = 0d0
-          
-          !Perform Fourier transform in theta
-          do j = 1,ny
-            jg = j + jlog - 1   !Global index
-            ac = ac + dv(1:nx,j,k,ieq)*cos(-2*pi*mm*(jg-1)/nyd)
-            as = as + dv(1:nx,j,k,ieq)*sin(-2*pi*mm*(jg-1)/nyd)
-          enddo
-          
-#if defined(petsc)
-          lsum(:,1) = ac
-          lsum(:,2) = as
-          call MPI_Allreduce(lsum,gsum,2*nx,MPI_DOUBLE_PRECISION
-     .                      ,MPI_SUM,gv%gparams%MPI_COMM_Y,mpierr)
-          ac = gsum(:,1)
-          as = gsum(:,2)
-#endif
-
-          !Inverse Fourier transform
-          do j = 1,ny
-            jg = j + jlog - 1   !Global index
-            dv(1:nx,j,k,ieq) =2*(ac*cos(2*pi*mm*(jg-1)/nyd) !Factor of 2 to
-     .                          -as*sin(2*pi*mm*(jg-1)/nyd))/nyd !account for (N-m) contrib
-          enddo
-
-        enddo
-
-c     Find new V^(n+1)
-
-c$$$        write (*,*) "1"
-c$$$     .              ,sqrt(sum((vnp%array_var(IVX)%array(1:nx,1:ny,1:nz)
-c$$$     .                        -vn %array_var(IVX)%array(1:nx,1:ny,1:nz)
-c$$$     .                       -dv(1:nx,1:ny,1:nz,1))**2))
-c$$$     .              /sqrt(sum((dv(1:nx,1:ny,1:nz,1))**2))
-c$$$        write (*,*) "2"
-c$$$     .              ,sqrt(sum((vnp%array_var(IVY)%array(1:nx,1:ny,1:nz)
-c$$$     .                        -vn %array_var(IVY)%array(1:nx,1:ny,1:nz)
-c$$$     .                       -dv(1:nx,1:ny,1:nz,2))**2))
-c$$$     .              /sqrt(sum((dv(1:nx,1:ny,1:nz,2))**2))
-c$$$        write (*,*) "3"
-c$$$     .              ,sqrt(sum((vnp%array_var(IVZ)%array(1:nx,1:ny,1:nz)
-c$$$     .                        -vn %array_var(IVZ)%array(1:nx,1:ny,1:nz)
-c$$$     .                       -dv(1:nx,1:ny,1:nz,3))**2))
-c$$$     .              /sqrt(sum((dv(1:nx,1:ny,1:nz,3))**2))
-c$$$        k = 1
-c$$$        do j = 1,1 !ny
-c$$$          do i = 1,nx
-c$$$            write (*,*) "1"
-c$$$     .                 ,(vnp%array_var(IVX)%array(i,j,k)
-c$$$     .                  -vn %array_var(IVX)%array(i,j,k))
-c$$$     .                 /dv(i,j,k,1)
-c$$$            write (*,*) "2"
-c$$$     .                 ,(vnp%array_var(IVY)%array(i,j,k)
-c$$$     .                  -vn %array_var(IVY)%array(i,j,k))
-c$$$     .                 /dv(i,j,k,2)
-c$$$            write (*,*) "3"
-c$$$     .                 ,(vnp%array_var(IVZ)%array(i,j,k)
-c$$$     .                  -vn %array_var(IVZ)%array(i,j,k))
-c$$$     .                 /dv(i,j,k,3)
+c$$$c     post__filter_V
+c$$$c     ###############################################################
+c$$$      subroutine post__filter_V
+c$$$
+c$$$        implicit none
+c$$$
+c$$$        integer :: ieq,i,j,k,jg,jlog
+c$$$        real(8) :: ac(nx),as(nx),lsum(nx,2),gsum(nx,2),mm
+c$$$        real(8),allocatable,dimension(:,:,:,:) :: dv
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$        if (my_rank == 0) then
+c$$$          if (ilevel > 0) write (*,*)
+c$$$          write (*,*) 'Performing filtering of V in postproc...'
+c$$$        endif
+c$$$
+c$$$c     Find dV=V^(n+1)-V^n
+c$$$
+c$$$        allocate(dv(0:nx+1,0:ny+1,0:nz+1,3))
+c$$$
+c$$$        dv(:,:,:,1) = vnp%array_var(IVX)%array
+c$$$     .               -vn %array_var(IVX)%array
+c$$$        dv(:,:,:,2) = vnp%array_var(IVY)%array
+c$$$     .               -vn %array_var(IVY)%array
+c$$$        dv(:,:,:,3) = vnp%array_var(IVZ)%array
+c$$$     .               -vn %array_var(IVZ)%array
+c$$$
+c$$$c     Filter by Fourier transform
+c$$$
+c$$$        mm = gv%gparams%params(1)
+c$$$
+c$$$        jlog = gv%gparams%jlo(igy)
+c$$$
+c$$$        do ieq=1,3
+c$$$
+c$$$          k = 1
+c$$$
+c$$$          ac = 0d0 ; as = 0d0
+c$$$          
+c$$$          !Perform Fourier transform in theta
+c$$$          do j = 1,ny
+c$$$            jg = j + jlog - 1   !Global index
+c$$$            ac = ac + dv(1:nx,j,k,ieq)*cos(-2*pi*mm*(jg-1)/nyd)
+c$$$            as = as + dv(1:nx,j,k,ieq)*sin(-2*pi*mm*(jg-1)/nyd)
 c$$$          enddo
+c$$$          
+c$$$#if defined(petsc)
+c$$$          lsum(:,1) = ac
+c$$$          lsum(:,2) = as
+c$$$          call MPI_Allreduce(lsum,gsum,2*nx,MPI_DOUBLE_PRECISION
+c$$$     .                      ,MPI_SUM,gv%gparams%MPI_COMM_Y,mpierr)
+c$$$          ac = gsum(:,1)
+c$$$          as = gsum(:,2)
+c$$$#endif
+c$$$
+c$$$          !Inverse Fourier transform
+c$$$          do j = 1,ny
+c$$$            jg = j + jlog - 1   !Global index
+c$$$            dv(1:nx,j,k,ieq) =2*(ac*cos(2*pi*mm*(jg-1)/nyd) !Factor of 2 to
+c$$$     .                          -as*sin(2*pi*mm*(jg-1)/nyd))/nyd !account for (N-m) contrib
+c$$$          enddo
+c$$$
 c$$$        enddo
+c$$$
+c$$$c     Find new V^(n+1)
+c$$$
+c$$$c$$$        write (*,*) "1"
+c$$$c$$$     .              ,sqrt(sum((vnp%array_var(IVX)%array(1:nx,1:ny,1:nz)
+c$$$c$$$     .                        -vn %array_var(IVX)%array(1:nx,1:ny,1:nz)
+c$$$c$$$     .                       -dv(1:nx,1:ny,1:nz,1))**2))
+c$$$c$$$     .              /sqrt(sum((dv(1:nx,1:ny,1:nz,1))**2))
+c$$$c$$$        write (*,*) "2"
+c$$$c$$$     .              ,sqrt(sum((vnp%array_var(IVY)%array(1:nx,1:ny,1:nz)
+c$$$c$$$     .                        -vn %array_var(IVY)%array(1:nx,1:ny,1:nz)
+c$$$c$$$     .                       -dv(1:nx,1:ny,1:nz,2))**2))
+c$$$c$$$     .              /sqrt(sum((dv(1:nx,1:ny,1:nz,2))**2))
+c$$$c$$$        write (*,*) "3"
+c$$$c$$$     .              ,sqrt(sum((vnp%array_var(IVZ)%array(1:nx,1:ny,1:nz)
+c$$$c$$$     .                        -vn %array_var(IVZ)%array(1:nx,1:ny,1:nz)
+c$$$c$$$     .                       -dv(1:nx,1:ny,1:nz,3))**2))
+c$$$c$$$     .              /sqrt(sum((dv(1:nx,1:ny,1:nz,3))**2))
+c$$$c$$$        k = 1
+c$$$c$$$        do j = 1,1 !ny
+c$$$c$$$          do i = 1,nx
+c$$$c$$$            write (*,*) "1"
+c$$$c$$$     .                 ,(vnp%array_var(IVX)%array(i,j,k)
+c$$$c$$$     .                  -vn %array_var(IVX)%array(i,j,k))
+c$$$c$$$     .                 /dv(i,j,k,1)
+c$$$c$$$            write (*,*) "2"
+c$$$c$$$     .                 ,(vnp%array_var(IVY)%array(i,j,k)
+c$$$c$$$     .                  -vn %array_var(IVY)%array(i,j,k))
+c$$$c$$$     .                 /dv(i,j,k,2)
+c$$$c$$$            write (*,*) "3"
+c$$$c$$$     .                 ,(vnp%array_var(IVZ)%array(i,j,k)
+c$$$c$$$     .                  -vn %array_var(IVZ)%array(i,j,k))
+c$$$c$$$     .                 /dv(i,j,k,3)
+c$$$c$$$          enddo
+c$$$c$$$        enddo
+c$$$c$$$        
+c$$$c$$$        stop
+c$$$
+c$$$        vnp%array_var(IVX)%array = dv(:,:,:,1)
+c$$$     .                            +vn%array_var(IVX)%array
+c$$$        vnp%array_var(IVY)%array = dv(:,:,:,2)
+c$$$     .                            +vn%array_var(IVY)%array
+c$$$        vnp%array_var(IVZ)%array = dv(:,:,:,3)
+c$$$     .                            +vn%array_var(IVZ)%array
+c$$$
+c$$$        deallocate(dv)
 c$$$        
-c$$$        stop
-
-        vnp%array_var(IVX)%array = dv(:,:,:,1)
-     .                            +vn%array_var(IVX)%array
-        vnp%array_var(IVY)%array = dv(:,:,:,2)
-     .                            +vn%array_var(IVY)%array
-        vnp%array_var(IVZ)%array = dv(:,:,:,3)
-     .                            +vn%array_var(IVZ)%array
-
-        deallocate(dv)
-        
-      end subroutine post__filter_V
+c$$$      end subroutine post__filter_V
 
 c     post__smooth_B
 c     ###############################################################
@@ -572,16 +568,21 @@ c     ###############################################################
         implicit none
 
         real(8) :: tol_divcl
-        real(8),allocatable,dimension(:,:,:,:) :: db_cnv
+        real(8),allocatable,dimension(:,:,:,:) :: db_cnv,da_cov
 
         if (ilevel > 0 .and. my_rank == 0) then
           write (*,*)
-          write (*,*) 'Performing divergence cleaning in postproc...'
+          if (res_wall_bc) then
+            write (*,*) 'Applying RW BC in postproc...'
+          else
+            write (*,*) 'Performing divergence cleaning in postproc...'
+          endif
         endif
 
 c       Find db=B^(n+1)-B^n
 
-        allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3))
+        allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     $          ,da_cov(0:nx+1,0:ny+1,0:nz+1,3))
 
         db_cnv(:,:,:,1) = vnp%array_var(IBX)%array
      .                   -vn %array_var(IBX)%array
@@ -590,26 +591,27 @@ c       Find db=B^(n+1)-B^n
         db_cnv(:,:,:,3) = vnp%array_var(IBZ)%array
      .                   -vn %array_var(IBZ)%array
 
-c       Clean db
+c       Find vector potential RW boundary condition at face
+
+        da_cov = 0d0
+        if (res_wall_bc) call XferBCs(-dt*E_bc,da_cov,.false.)
+        
+c       Clean db (and impose RW BC, if applicable)
 
         tol_divcl = rtol
-        if (res_wall_bc) then
-          call B_div_clean(gv%gparams,ilevel,igrid,db_cnv,"vlap"
-     .                    ,gm_it=it_divcl,rtol=tol_divcl)
-        else
-          call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
-     .                       ,igx,igy,igz,db_cnv
-     .                       ,gm_it=it_divcl,rtol=tol_divcl)   !,w_bcs=.true.,diag_plots=.true.)
-        endif
+        call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
+     .                     ,igx,igy,igz,db_cnv,da0cov=da_cov
+     .                     ,gm_it=it_divcl,rtol=tol_divcl
+     .                     )!,diag_plots=.true.)
         
 c       Find new B^(n+1)
 
         vnp%array_var(IBX)%array = db_cnv(:,:,:,1)
-     .                 +vn%array_var(IBX)%array
+     .                            +vn%array_var(IBX)%array
         vnp%array_var(IBY)%array = db_cnv(:,:,:,2)
-     .                 +vn%array_var(IBY)%array
+     .                            +vn%array_var(IBY)%array
         vnp%array_var(IBZ)%array = db_cnv(:,:,:,3)
-     .                 +vn%array_var(IBZ)%array
+     .                            +vn%array_var(IBZ)%array
 
 c       Update helical flux and magnetic field
 
@@ -617,7 +619,7 @@ c       Update helical flux and magnetic field
         bcnv(:,:,:,2) = vnp%array_var(IBY)%array
         bcnv(:,:,:,3) = vnp%array_var(IBZ)%array
 
-        deallocate(db_cnv)
+        deallocate(db_cnv,da_cov)
 
       end subroutine post__divclean
 
