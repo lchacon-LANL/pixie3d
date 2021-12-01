@@ -94,10 +94,10 @@ c Safeguards
         if (trim(equil)=='efit') then
           if (solve_prs) then
             min_prs = minval(prs(1:nx,1:ny,1:nz))
-            min_prs = pmin(min_prs)
+            min_prs = 0.1*pmin(min_prs)
           else
             min_te  = minval(tmpe(1:nx,1:ny,1:nz))
-            min_te  = pmin(min_te)
+            min_te  = 0.1*pmin(min_te)
           endif
 cc          write (*,*) min_te,min_prs
         endif
@@ -150,7 +150,10 @@ c     Local variables
 
 c     Begin program
 
-      minv = minval(varray%array_var(ivar)%array(1:nx,1:ny,1:nz))
+      array = varray%array_var(ivar)%array
+     $       /gv%gparams%gmetric%grid(igx)%jac
+
+      minv = minval(array(1:nx,1:ny,1:nz))
 
       minvg = pmin(minv)        !Parallel min
       
@@ -166,9 +169,6 @@ c     Begin program
         endif
 
         if (apply_failsafe) then
-          array = varray%array_var(ivar)%array
-     $           /gv%gparams%gmetric%grid(igx)%jac
-
           where(array < failsafe) array = failsafe
 
           varray%array_var(ivar)%array =

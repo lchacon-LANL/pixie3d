@@ -1005,7 +1005,6 @@
           write (*,'(a,1pe14.7,a)') " tau_i    =",tau_i," s^(-1)"
           write (*,'(a,1pe14.7,a)') " omega_ci =",omega_ci," rad/s"
           write (*,'(a,1pe14.7,a)') " omega_ce =",omega_ce," rad/s"
-          stop
         endif
 
 !     Check EFIT qtys
