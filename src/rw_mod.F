@@ -459,7 +459,11 @@ c$$$      call ifft(nyd,Bz,theta,nyd,Br_m,Bi_m,mm,0)
     
       if (rw_dbg.and.save_tn) then
         Bnl(1,1:ny,1)=(bcov_ext_np(1:ny,1,2)/bcov_ext(1:ny,1,2)-1d0)/dt
+#if defined(petsc)
         dum = psum(Bnl(1,1:ny,1),mpi_comm=g_def%MPI_COMM_Y)/nyd
+#else
+        dum = sum(Bnl(1,1:ny,1))/nyd
+#endif
         if (debug_io)
      $    write(*,*) "Bt norm. decay rate, m =",nint(mmm)," is",dum
       endif
