@@ -70,7 +70,7 @@ program pixeq_xfer
   irecfile = ''     !Reference PIXIE3D record file
   orecfile = ''     !Output PIXIE3D record file
 
-  open(unit=uinput,file='pixeq_xfer.in',status='old')
+  open(unit=uinput,file='pixie3d.in',status='old')
   read(uinput,xfer,iostat=ierr)
   close(uinput)
 
