@@ -1847,7 +1847,7 @@ c     Evaluate rhs correction: gamma*div(dv*p0) - (gamma-1)*dv*grad(p0)
         enddo
       enddo
 
-      if (.not.adiabatic) then
+      if ((.not.adiabatic).and.(.not.refine_eq)) then
         call point_to_MG_array(nx,ny,nz,igr,v0  ,gv0)
         call point_to_MG_array(nx,ny,nz,igr,rho0,grho0)
         call point_to_MG_array(nx,ny,nz,igr,nu0 ,gvis)
@@ -1980,7 +1980,7 @@ c     Find Joule heating correction
       call point_to_MG_array(nx,ny,nz,igrid,j0,gj0)
       call point_to_MG_array(nx,ny,nz,igrid,rho0,grho0)
 
-      if (.not.adiabatic) then
+      if ((.not.adiabatic).and.(.not.refine_eq)) then
         do k = 1,nz
           do j = 1,ny
             do i = 1,nx
@@ -2033,7 +2033,7 @@ cc
 cc        endif
 
         !Heat source contribution
-        if (.not.adiabatic) then
+        if ((.not.adiabatic).and.(.not.refine_eq)) then
 
           call point_to_MG_array(nx,ny,nz,igrid,ve0,gve0)
           call point_to_MG_array(nx,ny,nz,igrid,heta0,gheta)

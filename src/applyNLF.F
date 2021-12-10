@@ -159,18 +159,23 @@ c Total kinetic pressure equation <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 c     Heat flux
 
-      if (source_eval.and.(.not.adiabatic)) then
-        heat_flx = 0d0
+      if (source_eval) then
+        if (.not.adiabatic) then
+          heat_flx = heat_xport0(i,j,k) !Only keep ||-xport term in source when not adiabatic
+        else
+          heat_flx = heat_xport(i,j,k)  !Otherwise, keep all terms in source (there is a heat src)
+        endif
+cc        heat_flx = 0d0
       else
         heat_flx = heat_xport(i,j,k)
       endif
       
 c     Sources
 
-      if ((.not.source_eval).and.(.not.adiabatic)) then
-        heat_srce = heat_src(i,j,k)
-      else
+      if (source_eval.or.adiabatic.or.refine_eq) then
         heat_srce = 0d0
+      else
+        heat_srce = heat_src(i,j,k)
       endif
 
 c     Add contributions

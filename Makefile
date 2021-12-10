@@ -123,7 +123,13 @@ endif
 
 #Export required variables
 
-export CPPFLAGS MODPATH CONTRIBLIBS BINDIR PIT REL1 #MPI_HOME
+ifdef NOCOMMON
+  COMMON = 
+else
+  COMMON = common
+endif
+
+export CPPFLAGS MODPATH CONTRIBLIBS BINDIR PIT REL1 COMMON #MPI_HOME
 
 #Define targets
 
@@ -132,9 +138,9 @@ export CPPFLAGS MODPATH CONTRIBLIBS BINDIR PIT REL1 #MPI_HOME
 
 all: $(SUBDIRS)
 
-pixie3d: contrib src 
+pixie3d: src 
 
-pixplot: contrib plot
+pixplot: plot
 
 $(SUBDIRS): contrib
 	$(MAKE) --no-print-directory -e -C $@ $(TARGET)
@@ -170,6 +176,11 @@ else
 endif
 endif
 endif
+ifdef BOPT
+	$(MAKE) --no-print-directory -e -C eq/test_parallel test
+else
+	$(MAKE) --no-print-directory -e -C eq/test_serial test
+endif
 
 rebuild-tests: ;
 ifeq ($(VECPOT),t)
@@ -192,6 +203,11 @@ else
 	$(MAKE) --no-print-directory -e -C tests/serial rebuild-b
 endif
 endif
+endif
+ifdef BOPT
+	$(MAKE) --no-print-directory -e -C eq/test_parallel rebuild
+else
+	$(MAKE) --no-print-directory -e -C eq/test_serial rebuild
 endif
 
 # COMMON CONTRIBUTED LIBRARIES
@@ -218,8 +234,8 @@ contrib_pack: ;
 # CLEAN ALL
 
 srcclean:
-	$(MAKE) --no-print-directory -C src clean
-	$(MAKE) --no-print-directory -C plot clean
+	-@for subdir in $(SUBDIRS) ; do \
+		$(MAKE) -C $$subdir clean;  done
 
 allclean: contrib_clean distclean
 

@@ -272,6 +272,8 @@ c Local variables
 
 c Begin program
 
+      if (.not.limit_dt_flow_cfl) return
+      
       igx = 1
       igy = 1
       igz = 1
@@ -299,9 +301,9 @@ c Calculate flow-based CFL
             if (nz == 1) ih(3) = 0d0
 
             !k.v
-            v(1) = u_np%array_var(IVX)%array(i,j,k)
-            v(2) = u_np%array_var(IVY)%array(i,j,k)
-            v(3) = u_np%array_var(IVZ)%array(i,j,k)
+            v(1) = abs(u_np%array_var(IVX)%array(i,j,k))
+            v(2) = abs(u_np%array_var(IVY)%array(i,j,k))
+            v(3) = abs(u_np%array_var(IVZ)%array(i,j,k))
             kv_par = scalarProduct(gv%gparams,i,j,k,igx,ih,v)
 
             !Find flow CFL
@@ -311,32 +313,24 @@ c Calculate flow-based CFL
         enddo
       enddo
 
-c Calculate flow-CFL time step
+      !Parallel synchronization
+      w_cfl = pmax(w_cfl)
+      
+c Calculate flow-CFL time step (About 10x explicit CFL)
 
-      if (w_cfl > 0d0) then
-        dt_cfl = 0.15*pi/w_cfl
-      else
-        dt_cfl = 1d10
-      endif
-
-c Synchronize timestep among all processors
-
-#if defined(petsc)
-      ldt = dt_cfl
-      call MPI_Allreduce(ldt,dt_cfl,1,MPI_DOUBLE_PRECISION
-     .                  ,MPI_MIN,MPI_COMM_WORLD,mpierr)
-#endif
+      dt_cfl = 2*pi/(w_cfl + 1d-10)
 
 c Compare with input time step
 
-      if (limit_dt_flow_cfl) then
-        dt = min(dt,dt_cfl)
+      dt = min(dt,dt_cfl)
 
-        if (my_rank==0.and.dt==dt_cfl)
-     .     write (*,'(a,1p,1e11.4)')
+cc      if (my_rank==0) write (*,*) "Flow CFL=",dt_cfl
+      
+      if (my_rank==0.and.dt==dt_cfl) then
+        write (*,'(a,1p,1e11.4)')
      .     '   >>>> Flow-CFL-limited dt=',dt_cfl
       endif
-
+      
 c End program
 
       end subroutine set_user_dt

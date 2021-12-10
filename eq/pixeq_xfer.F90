@@ -9,16 +9,18 @@ program pixeq_xfer
   use grid
 
   use app_iosetup
+
+  use problem_def
   
   implicit none
 
   character(Len=1024) :: ifile,ofile,irecfile,orecfile
   integer :: n_args,ntimelevels,itlevel,order,u_rec_in
   integer :: ierr,perr
-  logical :: debug=.true.,extrude_dir(3)
+  logical :: debug=.true.,extrude_dir(3),is_equ=.false.,zero_flow=.false.
 
   !namelist
-  namelist /xfer/ ifile,ofile,irecfile,orecfile,order
+  namelist /xfer/ ifile,ofile,irecfile,orecfile,order,is_equ,zero_flow
 
   !State variables
   type(var_array),pointer :: vref=>null(),vout=>null(),vref_0=>null()
@@ -52,6 +54,11 @@ program pixeq_xfer
 
   debug = debug.and.(my_rank == 0)
 
+  if (debug) then
+    write (*,*)
+    write (*,*) "BEGIN FILE TRANSFER"
+  endif
+
   igx = 1
   igy = 1
   igz = 1
@@ -63,7 +70,7 @@ program pixeq_xfer
   irecfile = ''     !Reference PIXIE3D record file
   orecfile = ''     !Output PIXIE3D record file
 
-  open(unit=uinput,file='pixeq_xfer.in',status='old')
+  open(unit=uinput,file='pixie3d.in',status='old')
   read(uinput,xfer,iostat=ierr)
   close(uinput)
 
@@ -76,8 +83,11 @@ program pixeq_xfer
   !Open ORIGIN file and read in configuration!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  if (debug) write (*,*) "Reading REFERENCE file ",trim(ifile)
-
+  if (debug) then
+    write (*,*)
+    write (*,*) "Reading REFERENCE file ",trim(ifile)
+  endif
+  
   u_rec_in = openRestartFileForRead(file=irecfile)
 
 !!$  if (NDEPS > 0 .and. NDEPV > 0 .and. NAUXS > 0 .and. NAUXV > 0) then
@@ -107,11 +117,10 @@ program pixeq_xfer
   if (debug) then
     write (*,*)
     write (*,*) 'REFERENCE problem dimensions'
-    write (*,*) 'NEQ=',neqd
-    write (*,*) 'NX=',nxd
-    write (*,*) 'NY=',nyd
-    write (*,*) 'NZ=',nzd
-    write (*,*)
+    write (*,*) '  NEQ=',neqd
+    write (*,*) '  NX=',nxd
+    write (*,*) '  NY=',nyd
+    write (*,*) '  NZ=',nzd
   endif
 
   !Set vector dimensions and allocate variables
@@ -122,8 +131,11 @@ program pixeq_xfer
   call allocateDerivedType(vref_0)
 
   !Read first file until last time slice
-  if (debug) write (*,*) "Reading REFERENCE record file ",trim(irecfile)
-
+  if (debug) then
+    write (*,*)
+    write (*,*) "Reading REFERENCE record file ",trim(irecfile)
+  endif
+  
   call readTimeStep(u_rec_in,itm,tt,dt,gammat,vref_0,ierr)
 
   if (ierr /= 0) call pstop("pixeq_xfer","Equilibrium file unreadable")
@@ -180,7 +192,10 @@ program pixeq_xfer
   call destroyGrid(gv%gparams)
   call deallocateGlobalVar(gv)
 
-  if (debug) write (*,*) "Performing STATE transfer"
+  if (debug) then
+    write (*,*)
+    write (*,*) "Performing STATE transfer"
+  endif
 
   !Read application grid setup configuration
   nxf = nxd
@@ -197,10 +212,10 @@ program pixeq_xfer
   if (debug) then
     write (*,*)
     write (*,*) 'TARGET problem dimensions'
-    write (*,*) 'NEQ=',neqd
-    write (*,*) 'NX=',nxd
-    write (*,*) 'NY=',nyd
-    write (*,*) 'NZ=',nzd
+    write (*,*) '  NEQ=',neqd
+    write (*,*) '  NX=',nxd
+    write (*,*) '  NY=',nyd
+    write (*,*) '  NZ=',nzd
     write (*,*)
     write (*,*) 'Extrude?',extrude_dir
   endif
@@ -235,30 +250,53 @@ program pixeq_xfer
   !Write output file!
   !!!!!!!!!!!!!!!!!!!
 
-  if (debug) write (*,*) "Writing output ",trim(orecfile),' at itime=',itm,'; time=',tt
+  if (debug) then
+    write (*,*)
+    write (*,'(3a,i4,a,1pe14.7)') " Writing output ",trim(orecfile),' at itime=',itm,'; time=',tt
+  endif
 
   !Reset time counters
-  itm = 0 ; tt = 0d0
+!!  itm = 0 ; tt = 0d0
 
-  call xfer_varray(vref_0,vout)
-!!  call applyBC(igx,vout,gv%aux)
+  call init_IO
 
-#if defined(adios)
-  ierr = init_ADIOS_IO()
-#endif
+  if (is_equ) then  !New initial condition only
+     call xfer_varray(vref,vout)
+
+     if (zero_flow) then
+        vout%array_var(IVX)%array=0d0
+        vout%array_var(IVY)%array=0d0
+        vout%array_var(IVZ)%array=0d0
+     endif
+     
+     call writeRecordFile(orecfile,0,0d0,dt,gammat,vout,init=.true.)
+  else              !New restart file
+     !!!!!!!!!!!!!!!!!!!!!!
+     !Dump new equilibrium!
+     !!!!!!!!!!!!!!!!!!!!!!
+     call xfer_varray(vref_0,vout)
+!!     call applyBC(igx,vout,gv%aux)
+
+     call writeRecordFile(orecfile,0,0d0,dt,gammat,vout,init=.true.)
+
+     !!!!!!!!!!!!!!!!!!
+     !Dump final state!
+     !!!!!!!!!!!!!!!!!!
+     call xfer_varray(vref,vout)
+
+     call writeRecordFile(orecfile,itm,tt,dt,gammat,vout,init=.false.)
+  endif
   
-  call writeRecordFile(orecfile,itm,tt,dt,gammat,vout,init=.true.)
-
-  call xfer_varray(vref,vout)
-
-  call writeRecordFile(orecfile,itm,tt,dt,gammat,vout,init=.false.)
-
-#if defined(adios)
-  ierr = destroy_ADIOS_IO()
-#endif
+  call finalize_IO
 
 !!  call writeDerivedType(vout,6,.true.)
   
+  if (debug) then
+    write (*,*)
+    write (*,*) "FINALIZED FILE TRANSFER"
+    write (*,*)
+  endif
+
   !!!!!!!!!!!!!!!!!!!!!!
   !Deallocate variables!
   !!!!!!!!!!!!!!!!!!!!!!
@@ -275,7 +313,7 @@ program pixeq_xfer
 #if defined(petsc)
   call PetscFinalize(mpierr)
 #endif
-
+ 
 contains
 
   ! xfer_varray

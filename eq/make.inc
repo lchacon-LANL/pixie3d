@@ -1,3 +1,13 @@
+BASE         = pixeq_xfer
+EXEC         = $(BASE)-$(MACHINE)-$(REL1)-$(LABEL)_$(OPT)
+CODE         = $(EXEC)_xfer.x
+ifdef ADIOS_VER
+  PETSCCODE    = $(EXEC)-adios-$(ADIOS_VER).petsc.x
+else
+  PETSCCODE    = $(EXEC)-posix.petsc.x
+endif
+SAMRAICODE   = $(EXEC).samrai.x
+
 #Define message
 
 MESSAGE = "Compiling EQUILIBRIUM  modules"
@@ -6,7 +16,7 @@ override CPPFLAGS += -D_equ
 
 #Modules
 
-MODS := mhd_mod.F BC_mod.F PC_mod.F
+MODS := mhd_mod.F BC_mod.F PC_mod.F rw_mod.F
 
 #Define subdirectories for common code
 
@@ -30,6 +40,7 @@ LNK_FILES = ../src/applyBC.F\
 	    ../src/BC_mod.F\
 	    ../src/mhd_mod.F\
 	    ../src/PC_mod.F\
+	    ../src/rw_mod.F\
 	    ../src/readInput.F
 
 #Exclusions

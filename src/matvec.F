@@ -394,7 +394,7 @@ c Calculate matrix-vector product
             call getCartesianCoordinates(g_def,i,j,k,igrid,igrid,igrid
      .                                  ,ig,jg,kg,x1,y1,z1)
 
-            iRR(i,j,k) = 1d0/(x1**2+y1**2)
+            iRR(i,j,k) = 1d0/(x1*x1+y1*y1)
           enddo
         enddo
       enddo
@@ -421,6 +421,116 @@ c End program
       call deallocMGPointers(fpointers,mg_ctx_l)
 
       end subroutine del_star
+
+c del_star2
+c####################################################################
+      subroutine del_star2(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
+c--------------------------------------------------------------------
+c     This subroutine is a matvec for the toroidal Grad-Shafranov
+c     operator, del^*. In call:
+c      * gpos: vector index of position on the numerical grid
+c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
+c              surrounding stencil is filled (9-pt stencil in 2D
+c              , 27-pt stencil in 3D).
+c            + If gpos = 0, all the grid is considered.
+c            + If gpos < 0, all grid is mapped, but operations are 
+c              restricted to stencil of abs(gpos) (useful for
+c              matrix-light GS)
+c      * neq: number of coupled equations
+c      * ntot: total number of unknowns: neq*nx*ny*nz
+c      * x(ntot): input vector
+c      * y(ntot): output vector
+c      * igrid: grid level
+c      * bcnf: boundary conditions on x vector.
+c--------------------------------------------------------------------
+
+      use matvec
+
+      implicit none
+
+c Call variables
+
+      integer :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8) :: x(ntot),y(ntot)
+      type(grid_mg_def),pointer :: g_def
+
+c Local variables
+
+      real(8) :: x1,y1,z1
+      integer :: ip,im,jp,jm,kp,km,isig,ijk,ijkg,nxx,nyy,nzz
+      integer :: imin,imax,jmin,jmax,kmin,kmax,i,j,k,ig,jg,kg
+
+      real(8),allocatable,dimension(:,:,:,:) :: xarr
+cc      real(8),pointer    ,dimension(:,:,:)   :: ljac
+      real(8),allocatable,dimension(:,:,:)   :: iRR
+
+      logical    :: fpointers
+
+      type(mg_ctx),pointer :: mg_ctx_l => null()
+
+c Begin program
+
+      call allocMGPointers(neq,g_def,mg_ctx_l,fpointers)
+
+      isig = g_def%istartp(igrid)
+
+      nxx = g_def%nxv(igrid)
+      nyy = g_def%nyv(igrid)
+      nzz = g_def%nzv(igrid)
+
+c Find limits for loops
+
+      call limits(mg_ctx_l,abs(gpos),igrid
+     .           ,imin,imax,jmin,jmax,kmin,kmax)
+
+c Map vector x to array for processing
+
+      allocate(xarr(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+
+cc      xarr = 0d0
+      call fillArray(g_def,igrid,neq,x,xarr,bcnd,order_bc,gpos=gpos)
+
+c Calculate matrix-vector product
+
+      !Initalize toroidal radius (R=R0+r*cos(theta)=(x^2+y^2))
+      allocate(iRR(0:nxx+1,0:nyy+1,0:nzz+1))
+
+      do k = kmin-1,kmax+1
+        do j = jmin-1,jmax+1
+          do i = imin-1,imax+1
+            call getCartesianCoordinates(g_def,i,j,k,igrid,igrid,igrid
+     .                                  ,ig,jg,kg,x1,y1,z1)
+
+            iRR(i,j,k) = 1d0/(x1*x1+y1*y1)
+          enddo
+        enddo
+      enddo
+
+      !Main loop
+      do k = kmin,kmax
+        do j = jmin,jmax
+          do i = imin,imax
+
+cc            call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
+            call getCartesianCoordinates(g_def,i,j,k,igrid,igrid,igrid
+     .                                  ,ig,jg,kg,x1,y1,z1)
+
+            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+
+            y(ijk) = (x1*x1+y1*y1)
+     $              *lap(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                  ,xarr(:,:,:,1),dff=iRR,vol=MG_get_res_vol_wgt())
+          enddo
+        enddo
+      enddo
+
+c End program
+
+      deallocate(xarr,iRR)
+
+      call deallocMGPointers(fpointers,mg_ctx_l)
+
+      end subroutine del_star2
 
 c test_mtvc
 c####################################################################
@@ -584,11 +694,11 @@ c Local variables
       integer :: isig,ijk,ijkg,nnx,nny,nnz,i,j,k,ig,jg,kg
       integer :: imin,imax,jmin,jmax,kmin,kmax
 
-      real(8),allocatable,dimension(:,:,:,:) :: dtmp,dprs
+      real(8),allocatable,dimension(:,:,:,:) :: dtmpe,dprs
       real(8),pointer    ,dimension(:,:,:,:) :: vs0_cnv,rho0,bh0,tmp0
-     .                                         ,chi0,chip0,tnsr0
+     .                                         ,tnsr0,chi0
 
-      real(8),pointer    ,dimension(:,:,:) :: jac,dprs_advc,dtmp_diff
+      real(8),pointer    ,dimension(:,:,:)   :: jac,dprs_advc,dtmpe_diff
 
       real(8) :: upwind,nu2,dvol,tlap
 
@@ -615,14 +725,14 @@ c Find limits for loops
 
 c Map vector x to array for processing
 
-      allocate(dtmp(0:nnx+1,0:nny+1,0:nnz+1,neq)
-     .        ,dprs(0:nnx+1,0:nny+1,0:nnz+1,neq)
-     .        ,dprs_advc(0:nnx+1,0:nny+1,0:nnz+1)
-     .        ,dtmp_diff(0:nnx+1,0:nny+1,0:nnz+1)
+      allocate(dtmpe(0:nnx+1,0:nny+1,0:nnz+1,neq)
+     .        ,dprs (0:nnx+1,0:nny+1,0:nnz+1,neq)
+     .        ,dprs_advc (0:nnx+1,0:nny+1,0:nnz+1)
+     .        ,dtmpe_diff(0:nnx+1,0:nny+1,0:nnz+1)
      .        )
 
-      dtmp = 0d0
-      dprs = 0d0
+      dtmpe = 0d0
+      dprs  = 0d0
  
       call fillArray(g_def,igrid,neq,x,dprs,bcnd,order_bc,gpos=gpos
      .              ,icomp=(/IPRS/))
@@ -632,13 +742,12 @@ c Map velocity components
       call point_to_MG_array(nnx,nny,nnz,igrid,vs0_cnv,gvs0)
       call point_to_MG_array(nnx,nny,nnz,igrid,rho0   ,grho0)
       call point_to_MG_array(nnx,nny,nnz,igrid,tmp0   ,gtmp0)
-c$$$      call point_to_MG_array(nnx,nny,nnz,igrid,bh0    ,gbhat)
-c$$$      call point_to_MG_array(nnx,nny,nnz,igrid,chi0   ,gchi)
-c$$$      call point_to_MG_array(nnx,nny,nnz,igrid,chip0  ,gchipar)
-      if (gamma > 1d0)
-     .   call point_to_MG_array(nnx,nny,nnz,igrid,tnsr0  ,gchitnsr)
+      call point_to_MG_array(nnx,nny,nnz,igrid,chi0   ,gchi)
 
-      dtmp = dprs/rho0!/a_p !See def in fillLocalAuxVars
+      if (gamma > 1d0)
+     .   call point_to_MG_array(nnx,nny,nnz,igrid,tnsr0,gchitnsr)
+
+      dtmpe = dprs/(rho0*a_p)
 
 c Auxiliary computations
 
@@ -656,11 +765,15 @@ c Auxiliary computations
       endif
 
       !Anisotropic transport term
-      if (gamma > 1d0)
-     .   dtmp_diff = tnsr_diff(g_def,igrid,dprs(:,:,:,1),bcnd(:,1),tnsr0
-cc     .                ,2,limited,limit_mthd=UPWD
+      if (gamma > 1d0) then
+        if (use_p_diff) then
+         dtmpe_diff=lap(g_def,igrid,dprs(:,:,:,1),dff=chi0(:,:,:,1))
+        else
+         dtmpe_diff=tnsr_diff(g_def,igrid,dtmpe(:,:,:,1),bcnd(:,1),tnsr0
      .                     ,2,.true.,limit_mthd=UPWD,arr0=tmp0(:,:,:,1))
-
+        endif
+      endif
+      
 c Calculate matrix-vector product
 
       do k = kmin,kmax
@@ -681,23 +794,7 @@ c Calculate matrix-vector product
             upwind = dprs_advc(i,j,k)
             
             tlap = 0d0
-c$$$            if (chi > 0d0.and.gamma > 1d0) then
-c$$$              if (use_p_diff) then
-c$$$                tlap = lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-c$$$     .                    ,dprs(:,:,:,1),dff=chi0(:,:,:,1))
-c$$$              else
-c$$$                tlap = lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-c$$$     .                    ,dtmp(:,:,:,1),dff=chi0(:,:,:,1))  !See above for dtmp def
-c$$$              endif
-c$$$            endif
-c$$$
-c$$$            if (chi_par > chi.and.(.not.lagrangian).and.gamma > 1d0)then
-c$$$              tlap = tlap + (chip0(i,j,k,1)-chi0(i,j,k,1))
-c$$$     .                *par_diff(g_def,i,j,k,igrid,dtmp(:,:,:,1),dtmp,bh0
-c$$$     .                       ,2,"dutoit",vol=.false.,tmp0=tmp0(:,:,:,1)
-c$$$     .                       ,advc_mthd=UPWD)  !See above for dtmp def
-c$$$            endif
-            if (gamma > 1d0) tlap = (gamma-1d0)*dtmp_diff(i,j,k)
+            if (gamma > 1d0) tlap = (gamma-1d0)*dtmpe_diff(i,j,k)
             
             y(ijk)=dvol*( cnp/dt*dprs(i,j,k,1)
      $                  + alpha*(upwind - tlap) )*jac(i,j,k)
@@ -708,8 +805,8 @@ c$$$            endif
 
 c End program
 
-      deallocate(dtmp,dprs,dprs_advc,dtmp_diff)
-      nullify(vs0_cnv,rho0,bh0,tmp0,chi0,chip0,tnsr0)
+      deallocate(dtmpe,dprs,dprs_advc,dtmpe_diff)
+      nullify(vs0_cnv,rho0,bh0,tmp0,chi0,tnsr0)
 
       call deallocMGPointers(fpointers,mg_ctx_l)
 
@@ -755,7 +852,7 @@ c Local variables
 
       real(8),allocatable,dimension(:,:,:,:) :: dtmpe,dprs
       real(8),pointer    ,dimension(:,:,:,:) :: vs0_cnv,rho0,bh0,tmpe0
-     .                                         ,chi0,chip0,tnsr0
+     .                                         ,tnsr0
 
       real(8),pointer    ,dimension(:,:,:) :: jac,dtmpe_advc,dtmpe_diff
 
@@ -805,14 +902,21 @@ c Map velocity components
 c Auxiliary computations
 
       !Advective term
-      dtmpe_advc =
+      if (use_p_classic_eq) then !Classic Te evolution eq
+        dtmpe_advc =
      .   flx_nc_advec_mesh(g_def,igrid,vs0_cnv,dtmpe(:,:,:,1),UPWD,bcnd)
      .  +(gamma-1d0)*dtmpe(:,:,:,1)*div(g_def,igrid,vs0_cnv)
+      else
+        dtmpe_advc=
+     .  (gamma-1d0)*flx_advec_mesh   (g_def,igrid,vs0_cnv,dtmpe(:,:,:,1)
+     .                               ,UPWD,bcnd,zip_vel=.false.)
+     . +(2d0-gamma)*flx_nc_advec_mesh(g_def,igrid,vs0_cnv,dtmpe(:,:,:,1)
+     .                               ,UPWD,bcnd)
+      endif
 
       !Anisotropic transport term
       if (gamma > 1d0)
      .   dtmpe_diff=tnsr_diff(g_def,igrid,dtmpe(:,:,:,1),bcnd(:,1),tnsr0
-cc     .                ,2,limited,limit_mthd=UPWD
      .                    ,2,.true.,limit_mthd=UPWD,arr0=tmpe0(:,:,:,1))
 
 c Calculate matrix-vector product
@@ -836,6 +940,7 @@ c Calculate matrix-vector product
             
             tlap = 0d0
             if (gamma > 1d0) tlap = (gamma-1d0)*dtmpe_diff(i,j,k)
+     $                                         /(rho0(i,j,k,1)*a_p)
             
             y(ijk)=dvol*( cnp/dt*dtmpe(i,j,k,1)
      $                  + alpha*(upwind - tlap) )*jac(i,j,k)
@@ -847,7 +952,7 @@ c Calculate matrix-vector product
 c End program
 
       deallocate(dtmpe,dtmpe_advc,dtmpe_diff)
-      nullify(vs0_cnv,rho0,bh0,tmpe0,chi0,chip0,tnsr0)
+      nullify(vs0_cnv,rho0,bh0,tmpe0,tnsr0)
 
       call deallocMGPointers(fpointers,mg_ctx_l)
 

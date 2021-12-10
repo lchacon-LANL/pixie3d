@@ -1,0 +1,29 @@
+
+  Grid mesh:................   32x   32x    1
+  Number of grid levels:....    4,    4,    1
+  Preconditioning method:... SI PC w/o flow
+  Timestep adaption.........   F
+  External source...........   T
+  Numerical grid............   F
+  Scalar advection scheme...  SMART   
+  Velocity advection scheme.  SMART   
+  Anisotropic transport sch.  4th-7pt 
+  TS scheme.................  BDF2    
+
+    itime      time     dt     #CFL   vx_max   vy_max   vz_max    GMRES Newton CN factor  GMRES-DC
+         1      0.10  1.0E-01 1.5E+01  1.3E-04  9.5E-04  3.2E-06     3     3     0.000        5
+         2      1.00  9.0E-01 1.4E+02  2.4E-04  7.6E-04  2.5E-05     7     5     0.000        5
+         3      2.00  1.0E+00 1.5E+02  7.5E-05  6.3E-04  1.0E-04    14     5     0.000        5
+         4      3.00  1.0E+00 1.5E+02  6.1E-05  5.5E-04  1.5E-04    15     5     0.000        4
+         5      4.00  1.0E+00 1.5E+02  6.3E-05  5.7E-04  1.5E-04    16     6     0.000        4
+         6      5.00  1.0E+00 1.5E+02  7.4E-05  6.5E-04  1.8E-04    18     5     0.000        4
+         7      6.00  1.0E+00 1.5E+02  8.9E-05  7.5E-04  1.8E-04    18     5     0.000        5
+         8      7.00  1.0E+00 1.5E+02  1.0E-04  8.3E-04  1.8E-04    25     5     0.000        5
+         9      8.00  1.0E+00 1.5E+02  1.1E-04  9.1E-04  1.7E-04    34     6     0.000        5
+        10      9.00  1.0E+00 1.5E+02  1.2E-04  9.8E-04  1.7E-04    22     6     0.000        5
+        11     10.00  1.0E+00 1.5E+02  1.3E-04  1.1E-03  1.8E-04    22     6     0.000        5
+
+Final statistics
+
+ itime  Newt/ndt  GMRES/ndt  GMRES/Newt
+   11       5.2       17.6        3.4

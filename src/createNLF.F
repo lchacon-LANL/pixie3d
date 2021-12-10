@@ -12,7 +12,7 @@ c----------------------------------------------------------------------
 
       use equilibrium
 
-      use local_BCS_variables, ONLY: allocBCVariables
+      use rw_bc, ONLY: rw_allocBCVariables
 
       implicit none
 
@@ -43,7 +43,7 @@ c Begin program
       if (trim(equil)=='efit') call efit_map(equ_file,gv%gparams
      .                                      ,efit_coords)
 
-      call allocBCVariables
+      call rw_allocBCVariables
       
 c     End programs
 
@@ -59,7 +59,7 @@ c----------------------------------------------------------------------
 
       use PC_var
 
-      use local_BCS_variables, ONLY: bc_vars_allcd,deallocBCVariables
+      use rw_bc, ONLY: rw_deallocBCVariables
 
       implicit none
 
@@ -73,7 +73,7 @@ c Begin program
       if (pc_vars_allcd) call deallocPCVariables
 #endif
 
-      if (bc_vars_allcd) call deallocBCVariables
+      call rw_deallocBCVariables
       
 c End programs
 

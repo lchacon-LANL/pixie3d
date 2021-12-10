@@ -287,13 +287,7 @@ c--------------------------------------------------------------------
 c     Sets adequate boundary conditions on array structure varray.
 c--------------------------------------------------------------------
 
-      use local_BCS_variables
-
-      use imposeBCinterface
-
-      use auxiliaryVariables
-
-      use var_setup
+      use rw_bc
 
       implicit none
 
@@ -532,14 +526,6 @@ c       Allocate auxiliary variables in local domain
           
         case(IBCNV_0)
 
-          if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
-            prs0 = rho_0*tmp_0
-#if !defined(vec_pot)
-            if (res_wall_bc) call rw_bc(gv%gparams,bcov_0,bcov_0,E_bc)
-#endif
-            call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
-          endif
-          
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
      .              ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
      .              ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
@@ -550,10 +536,6 @@ c       Allocate auxiliary variables in local domain
         case(IBCNV_0)
 
           if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
-            prs0 = rho_0*tmp_0
-            if (res_wall_bc) call rw_bc(gv%gparams,bcov_0,bcov_0,E_bc)
-            call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
-
             call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
      .                ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
      .                ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
@@ -684,45 +666,39 @@ cc            acov = acov + acov_0
 
             deallocate(acnv_n)
           else
-            if (res_wall_bc) then
-              
+            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
+#if defined(plotting)
+              call XferBCs(acov,v0,.true.)  !Reuse existing BC for plotting
+#else
+c$$$              call apply_rw_bc_A(gv%gparams,bcov_n,v0,E_bc)
               if (implicit_rw_bc.and.(.not.save_tn)) then
                 !Extrapolate Vec-Pot and new-time B to boundary
                 bcnd = vaux%vec_list(IACOV)%bconds
                 where (vaux%vec_list(IACOV)%bconds==-EQU) bcnd =-EXT
-c$$$                !Predictor step (not working)
-c$$$                call XferBCs(acov_n,v0,.true.)
-c$$$                v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
-c$$$     .                           -dt/cnp*E_bc(nnx+1,:,:,:)
                 call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     .                    ,bcnd,igr,igr,igr,iorder=2
-     .                    ,is_cnv=vaux%vec_list(IACOV)%cnv)
+     .                  ,bcnd,igr,igr,igr,iorder=2
+     .                  ,is_cnv=vaux%vec_list(IACOV)%cnv)
                 bcov = curl(gv%gparams,igr,acov)
                 bcov = XformToCov(gv%gparams,igr,bcov)
-                !Corrector step
-                call rw_bc(gv%gparams,bcov_n,bcov  ,E_bc)
+                !Compute new-time E-field @ boundary
+                call rw_Ebc(gv%gparams,bcov  ,E_bc)
               elseif (save_tn) then
-                call rw_bc(gv%gparams,bcov_n,bcov_n,E_bc)
+                !Compute old-time E-field @ boundary
+                call rw_Ebc(gv%gparams,bcov_n,E_bc)
               endif
-
+              
+              !Update face value
               call XferBCs(acov_n,v0,.true.)
-              v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt/cnp*E_bc(nnx+1,:,:,:)
-              
-              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
-     .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
+              v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt*E_bc(nnx+1,:,:,:)
+#endif
             else
-
-c$$$              acov(nnx+1,:,:,:) = acov_n(nnx+1,:,:,:)
-c$$$     .                          - dt/cnp*E_ni(nnx+1,:,:,:)
-              
               call XferBCs(acov_0,v0,.true.)
-              
-              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+            endif
+
+            call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
      .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
-            endif
-            
+
           endif
 
         case(IACNV)  !Done when computing acov
@@ -737,11 +713,19 @@ c       Magnetic field BC
 
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
 #if !defined(vec_pot)
-            if (res_wall_bc) then
+            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
               if (implicit_rw_bc.and.(.not.save_tn)) then
-                call rw_bc(gv%gparams,bcov_n,bcov  ,E_bc)
+                !Extrapolate Vec-Pot and new-time B to boundary
+                bcnd = vaux%vec_list(IBCNV)%bconds
+                where (vaux%vec_list(IBCNV)%bconds==-NEU) bcnd =-EXT
+                call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
+     .                  ,bcnd,igr,igr,igr,iorder=2
+     .                  ,is_cnv=vaux%vec_list(IBCNV)%cnv)
+                !Compute new-time E-field @ boundary
+                call rw_Ebc(gv%gparams,bcov  ,E_bc)
               elseif (save_tn) then
-                call rw_bc(gv%gparams,bcov_n,bcov_n,E_bc)
+                !Compute old-time E-field @ boundary
+                call rw_Ebc(gv%gparams,bcov_n,E_bc)
               endif
             endif
 #endif
@@ -955,13 +939,7 @@ c Select variable
         
           !Reference temperature for transport parameters
           if (spitzer.or.chi_bgnskii) then
-            te0_ref = maxval(tmpe_0)
-
-#if defined(petsc)
-            lref = te0_ref
-            call MPI_Allreduce(lref,te0_ref,1,MPI_DOUBLE_PRECISION
-     .                        ,MPI_MAX,MPI_COMM_WORLD,mpierr)
-#endif 
+            te0_ref = pmax(maxval(tmpe_0))
           endif
 
         case(IETA_0)
@@ -1004,9 +982,7 @@ c$$$            tmpe = tmpe_0*(abs(tmpe))**(gamma-1d0)
                 tmpe = varray%array_var(IPRS )%array/(rho*jac*a_p)
               end where
             else
-              where (rho /= 0d0)
-                tmpe = varray%array_var(ITMPE)%array/jac
-              end where
+              tmpe = varray%array_var(ITMPE)%array/jac
             endif
           endif
 
@@ -1026,7 +1002,7 @@ c       Resistivity (needed for BCs; may depend on T)
             allocate(s0(0:nnx+1,0:nny+1,0:nnz+1))
             if (solve_prs) then
               s0 = u_n%array_var(IPRS)%array
-     .            /u_n%array_var(IRHO)%array/a_p
+     .           /(u_n%array_var(IRHO)%array*a_p)
             else
               s0 = u_n%array_var(ITMPE)%array/jac
             endif
@@ -1234,7 +1210,7 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
           if (source_eval) then
 #endif
             bcov_n = bcov_0     !Set it to initial cond.
-          else
+          elseif (save_tn) then
 #if defined(vec_pot)
             do k = 0,nnz+1
               do j = 0,nny+1
@@ -1245,36 +1221,19 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
                 enddo
               enddo
             enddo
-            bcov_n = XformToCov(gv%gparams,igr,bcov_n)         
-c diag ****
-c$$$        call createDrawInCfile(6,"debug.bin",'Solution','t','x','y'
-c$$$     .           ,(/'DB1','DB2','DB3','DB4','DB5','DB6'/),'-c -X0 -L57'
-c$$$     .           ,'drawdebug.in')
-c$$$
-c$$$        open(unit=110,file="debug.bin",form='unformatted'
-c$$$     .       ,status='unknown')
-c$$$        write (*,*) "acov_n @ ibcov_n",acov_n(:,1,1,2)
-c$$$        v0 = acov_n
-c$$$        call contour(v0(:,:,1,1),nnx+2,nny+2,xmin,xmax,ymin,ymax,0,110)
-c$$$        call contour(v0(:,:,1,2),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
-c$$$        call contour(v0(:,:,1,3),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
-c$$$        v0 = bcov_n
-c$$$        call contour(v0(:,:,1,1),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
-c$$$        call contour(v0(:,:,1,2),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
-c$$$        call contour(v0(:,:,1,3),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
-c$$$        close(110)
-c$$$
-c$$$        pause
-c diag ****
+            bcov_n = XformToCov(gv%gparams,igr,bcov_n)
 #else
-            bcov_n = bcov       !Save previous time step
+c$$$            bcov_n = bcov       !Save previous time step (initializes for BDF2)
 c$$$            bcov_n(:,:,:,1) = -cn/cnp*u_n %array_var(IBX)%array
 c$$$     .                       -cnm/cnp*u_nm%array_var(IBX)%array
 c$$$            bcov_n(:,:,:,2) = -cn/cnp*u_n %array_var(IBY)%array
 c$$$     .                       -cnm/cnp*u_nm%array_var(IBY)%array
 c$$$            bcov_n(:,:,:,3) = -cn/cnp*u_n %array_var(IBZ)%array
 c$$$     .                       -cnm/cnp*u_nm%array_var(IBZ)%array
-c$$$            bcov_n = XformToCov(gv%gparams,igr,bcov_n)
+            bcov_n(:,:,:,1) = u_n%array_var(IBX)%array
+            bcov_n(:,:,:,2) = u_n%array_var(IBY)%array
+            bcov_n(:,:,:,3) = u_n%array_var(IBZ)%array
+            bcov_n = XformToCov(gv%gparams,igr,bcov_n)
 #endif
           endif
           
@@ -1311,17 +1270,17 @@ c$$$            bcov_n = XformToCov(gv%gparams,igr,bcov_n)
           if (source_eval) then
             acov_n = acov_0     !Set it to initial cond.
           else  !This determines bcov_n also
-c$$$        acov_n = acov       !Save previous time step
-            !BDF2 interpolation is critical for accuracy in RW!!
-            acov_n(:,:,:,1) = -cn/cnp*u_n %array_var(IAX)%array
-     .                       -cnm/cnp*u_nm%array_var(IAX)%array
-            acov_n(:,:,:,2) = -cn/cnp*u_n %array_var(IAY)%array
-     .                       -cnm/cnp*u_nm%array_var(IAY)%array
-            acov_n(:,:,:,3) = -cn/cnp*u_n %array_var(IAZ)%array
-     .                       -cnm/cnp*u_nm%array_var(IAZ)%array
-c$$$            acov_n(:,:,:,1) =u_n %array_var(IAX)%array
-c$$$            acov_n(:,:,:,2) =u_n %array_var(IAY)%array
-c$$$            acov_n(:,:,:,3) =u_n %array_var(IAZ)%array
+c$$$            acov_n = acov       !Save previous time step
+c$$$            !BDF2 interpolation is critical for accuracy in RW!!
+c$$$            acov_n(:,:,:,1) = -cn/cnp*u_n %array_var(IAX)%array
+c$$$     .                       -cnm/cnp*u_nm%array_var(IAX)%array
+c$$$            acov_n(:,:,:,2) = -cn/cnp*u_n %array_var(IAY)%array
+c$$$     .                       -cnm/cnp*u_nm%array_var(IAY)%array
+c$$$            acov_n(:,:,:,3) = -cn/cnp*u_n %array_var(IAZ)%array
+c$$$     .                       -cnm/cnp*u_nm%array_var(IAZ)%array
+            acov_n(:,:,:,1) = u_n%array_var(IAX)%array
+            acov_n(:,:,:,2) = u_n%array_var(IAY)%array
+            acov_n(:,:,:,3) = u_n%array_var(IAZ)%array
           endif
 #endif
 
@@ -1560,9 +1519,7 @@ c$$$            tmpe = tmpe_0*(abs(tmpe))**(gamma-1d0)
                 tmpe = varray%array_var(IPRS)%array/(rho*jac*a_p)
               end where
             else
-              where (rho /= 0d0)
-                tmpe = varray%array_var(ITMPE)%array/jac
-              end where
+              tmpe = varray%array_var(ITMPE)%array/jac
             endif
           endif
 
@@ -1582,7 +1539,7 @@ c       Resistivity (needed for BCs; may depend on T)
             allocate(s0(1:nnx+1,1:nny+1,1:nnz+1))
             if (solve_prs) then
               s0 = u_n%array_var(IPRS)%array
-     .            /u_n%array_var(IRHO)%array/a_p
+     .           /(u_n%array_var(IRHO)%array*a_p)
             else
               s0 = u_n%array_var(ITMPE)%array/jac
             endif
@@ -1837,7 +1794,7 @@ c        * loc -> boundary location (0 -> left, 1->right)
 c        * order -> order of extrapolation (when used)
 c ---------------------------------------------------------------------
         
-      use local_BCS_variables
+      use rw_bc
 
       implicit none
 
