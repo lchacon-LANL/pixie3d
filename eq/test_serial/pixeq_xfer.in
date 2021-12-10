@@ -1,7 +1,0 @@
- &xfer
-   ifile = 'pix3d_ref.in'
-   ofile = 'pix3d_out.in'
-   irecfile = 'record_in.bin'
-   orecfile = 'record_out.bin'
-   order = 2
- /
