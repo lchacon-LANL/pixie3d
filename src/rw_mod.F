@@ -14,7 +14,7 @@ c ####################################################################
         real(8),pointer,dimension(:,:,:,:) :: E_bc
 
         logical,private :: debug_io=.false.
-     .                    ,rw_dbg  =.true.
+     .                    ,rw_dbg  =.false.
 
       contains
 
