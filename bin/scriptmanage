@@ -5,10 +5,11 @@ help()
 cat <<HELP
 Usage: 
 
-$0 submit_script [job#]
+$0 submit_script inputfile [job#]
 
 where:
 	submit_script: is the script file to be submitted
+	inputfile:     is the input file of the job 
 	job#:          is an optional job number to begin monitoring
 HELP
 exit 0
@@ -16,16 +17,29 @@ exit 0
 
 check_job()
 {
-RUNTEST=$(scontrol show job $1 | grep State | cut -d "=" -f 2 | cut -d " " -f 1)
-echo "Job $1 is $RUNTEST"
-while [ "$RUNTEST" != "RUNNING" -a "$RUNTEST" != "COMPLETED" -a "$RUNTEST" != "CANCELLED" ]
+ERROR=$(scontrol show job $1 2>&1 | grep error)
+if [ "x$ERROR" = "x" ]; then
+  RUNTEST=$(scontrol show job $1 | grep State | cut -d "=" -f 2 | cut -d " " -f 1)
+  echo "Job $1 is $RUNTEST"
+else
+  echo "Error in job $1. Exiting."
+  exit 1
+fi
+while [ "$RUNTEST" != "RUNNING" -a "$RUNTEST" != "COMPLETED" -a "$RUNTEST" != "CANCELLED" -a "x$ERROR" == "x" ]
 do
-  sleep 60
+  sleep 10
+  ERROR=$(scontrol show job $1 2>&1 | grep error)
   RUNTEST=$(scontrol show job $1 | grep State | cut -d "=" -f 2 | cut -d " " -f 1)
   #echo "Job $1 is $RUNTEST"
 done
-echo "Job $1 is $RUNTEST"
-}
+if [ "x$ERROR" = "x" ]; then
+  echo "Job $1 is $RUNTEST"
+  rm exit_code.txt 2> /dev/null  
+else
+  echo "Error in job $1. Exiting."
+  exit 1
+fi
+} 
 
 check_return_code()
 {
@@ -43,10 +57,10 @@ new_job()
 {
 sed  -i -e '/restart/{' \
         -e 'c\' \
-        -e '    restart  = t' \
+        -e '    ts_restart  = t' \
         -e '}' \
-        pixie3d.in 
-rm exit_code.txt 2> /dev/null  #Do not remove: leave to "restart" by default
+        $inputfile
+
 JOB=$(sbatch $1 --dependency=after:$JOB | cut -d " " -f 4)
 echo 'New JOB='$JOB
 
@@ -73,10 +87,10 @@ rm exit_code.txt 2> /dev/null
 
 # First submission
 
-JOB="$2"
+inputfile=$2
+JOB="$3"
 
 if [ "$JOB" = "" ]; then
-#  echo "1" > exit_code.txt  #Set to restart by default, in case of system abort
   JOB=$(sbatch $1 | cut -d " " -f 4)
   echo 'New JOB='$JOB
 fi

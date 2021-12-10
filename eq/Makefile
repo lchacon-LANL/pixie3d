@@ -2,25 +2,15 @@
 
 -include make.inc
 
-# Read local configuration
-
-ifndef ARCH
--include $(COMMONDIR)/make/make.mach.inc
-endif
-
-ifndef MODFLAG 
--include $(COMMONDIR)/make/make.comp.inc
-endif
-
-ifndef CONTRIBLIBS
--include $(COMMONDIR)/make/make.lib.inc
-endif
-
 # GENERAL PURPOSE MAKEFILE
 
 SRC  ?= $(filter-out $(EXCLUDE),$(wildcard *.[F,c,f] *.f90 *.F90))
 
 MODS ?= $(filter-out $(EXCLUDE),$(wildcard *_mod.[F,f] *_mod.f90 *_mod.F90))
+
+prefix = .
+
+# Objects
 
 OBJS   := $(filter %.o, $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))\
                         $(patsubst %.c,%.o,$(filter-out $(MODS),$(SRC)))\
@@ -44,38 +34,29 @@ COMMON_OBJS = $(filter %.o, $(patsubst %.f,%.o,$(COMMON_SRC))\
 
 MODDIRS = $(MODPATH) $(patsubst $(COMMONDIR)%,$(ADDMODFLAG)$(COMMONDIR)%,$(SUBDIRS))
 
-#Define main targets
-
-prefix = .
-PWD = `pwd`
-BINDIR = ../bin
-CONTRIBDIR = $(COMMONDIR)/contrib
-
-#Export required variables
-
-export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH
-
 #Define targets
 
-.PHONY: setup setup_lnk target lib message clean distclean common contrib contrib_clean $(SUBDIRS)
+.PHONY: clean distclean common code code_a petsc petsc_a $(SUBDIRS)
 
-code code_a: common pixeq_xfer.x
+code code_a: common $(CODE)
 
-petsc petsc_a: common pixeq_xfer.petsc.x
+petsc petsc_a: common $(PETSCCODE) 
 
-pixeq_xfer.x: $(OBJMOD) $(OBJS) $(COMMON_OBJS)
+$(CODE): $(OBJMOD) $(OBJS) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
 	$(FC) $(FFLAGS) -o $@ $(OBJMOD) $(OBJS) $(COMMON_OBJS) $(CONTRIBLIBS) $(LIBS) $(LDFLAGS)
-	@cp $@ $(BINDIR)
+	@mv $@ $(BINDIR)
+	@cd $(BINDIR); ln -s -f $@ $(BASE).x
 
-pixeq_xfer.petsc.x: $(OBJMOD) $(OBJS) $(COMMON_OBJS)
+$(PETSCCODE): $(OBJMOD) $(OBJS) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
 	${FLINKER} $(FFLAGS) -o $@ $(OBJMOD) $(OBJS) $(COMMON_OBJS) $(CONTRIBLIBS) ${PETSC_SNES_LIB} $(LIBS) $(LDFLAGS)
-	@cp $@ $(BINDIR)
+	@mv $@ $(BINDIR)
+	@cd $(BINDIR); ln -s -f $@ $(BASE).petsc.x
 
 target: common message $(OBJMOD) $(OBJS) $(COMMON_OBJS)
 
@@ -91,7 +72,7 @@ $(SUBDIRS):
 #Cleaning targets
 
 clean: ;
-	-@rm -f *.o *.mod *.a *.x
+	-@rm -f *.o *.*mod *.a *.x
 
 distclean: clean
 	-@for subdir in $(SUBDIRS) ; do \
@@ -102,16 +83,6 @@ distclean: clean
 setup: ;
 	-@for file in $(LNK_FILES) ; do \
 		ln -s $$file 2>/dev/null ; done
-
-#Library setup
-
-lib: common $(OBJMOD) $(OBJS) $(COMMON_OBJS)
-ifdef LIBNAME
-	-ar rs $(LIBNAME) $(OBJMOD) $(OBJS) 
-endif
-ifdef LIBNAME_COM
-	-ar rs $(LIBNAME_COM) $(OBJMOD) $(OBJS) $(COMMON_OBJS)
-endif
 
 #Define dependencies
 

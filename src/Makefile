@@ -95,9 +95,9 @@ MODDIRS = $(MODPATH) $(patsubst $(COMMONDIR)%,$(ADDMODFLAG)$(COMMONDIR)%,$(SUBDI
 .PHONY: clean distclean common code code_a petsc petsc_a $(SUBDIRS)
 
 ifdef SAMR
-    code: common $(SAMRAICODE) 
+    code: $(COMMON) $(SAMRAICODE) 
 else
-    code: common $(CODE) 
+    code: $(COMMON) $(CODE) 
 endif 
 
 $(CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
@@ -108,7 +108,7 @@ $(CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@mv $@ $(BINDIR)
 	@cd $(BINDIR); ln -s -f $@ $(BASE).x
 
-code_a: common $(A_CODE) 
+code_a: $(COMMON) $(A_CODE) 
 
 $(A_CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
@@ -118,7 +118,7 @@ $(A_CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@mv $@ $(BINDIR)
 	@cd $(BINDIR); ln -s -f $@ $(BASE)_a.x
 
-petsc: common $(PETSCCODE) 
+petsc: $(COMMON) $(PETSCCODE) 
 
 $(PETSCCODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
@@ -128,7 +128,7 @@ $(PETSCCODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@mv $@ $(BINDIR)
 	@cd $(BINDIR); ln -s -f $@ $(BASE).petsc.x
 
-petsc_a: common $(PETSC_A_CODE) 
+petsc_a: $(COMMON) $(PETSC_A_CODE) 
 
 $(PETSC_A_CODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
@@ -138,7 +138,7 @@ $(PETSC_A_CODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@mv $@ $(BINDIR)
 	@cd $(BINDIR); ln -s -f $@ $(BASE)_a.petsc.x
 
-samrai: common $(SAMRAICODE)
+samrai: $(COMMON) $(SAMRAICODE)
 
 $(SAMRAICODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''

@@ -37,9 +37,18 @@
       real(8),dimension(:,:),allocatable :: psi_coef
 
       !Module variables
-      real(8) :: r_max,r_min,z_max,LL,iLL,psisgn=1d0,e_bp=0d0
+      real(8) :: r_max,r_min,z_max,z_min,LL,iLL,psisgn=1d0,e_bp=0d0
 
-      logical :: short_efit_file=.true.,efit_dbg=.false.,efit_rho_adiab=.false.
+      logical :: short_efit_file=.true.,efit_dbg=.false.
+
+      !Physical constants
+      real(8),parameter ::  mu_0 = (4*pi)*1d-7 &!Magnetic permeability (SI units)
+                           ,eps_0= 8.8542d-12  &!Permittivity of free space
+                           ,n_0  = 1d20        &!m^-3
+                           ,kb   = 1.6022d-19  &!J/eV
+                           ,mi   = 1.6726d-27  &!kg
+                           ,me   = 9.1094d-31  &!kg
+                           ,qe   = 1.6022d-19   !C
       
       CONTAINS
 
@@ -63,7 +72,7 @@
         !Begin program
         
         call getCartesianCoordinates(g_def,i,j,k      &
-     &            ,igrid,igrid,igrid,ig,jg,kg,x1,y1,z1)
+                 ,igrid,igrid,igrid,ig,jg,kg,x1,y1,z1)
 
         RR = sqrt(x1**2+y1**2)
         ZZ = z1 !+ zmaxis*iLL
@@ -185,6 +194,8 @@
           return
         endif
 
+        call clean_sptrx(nbbbs,rbbbs,zbbbs)
+        
         if (.not.short_efit_file) then
           read (neqdsk,2024,IOSTAT=istat) kvtor,rvtor,nmass
           if (istat /= 0) then
@@ -225,7 +236,7 @@
 
         close (neqdsk)
         
-!!$        call read_chk()
+        if (my_rank == 0) call read_chk(0)
    
 2000    format (6a8,3i4)
 2020    format (5e16.9)
@@ -236,11 +247,13 @@
 
 !       read_chk
 !       #########################################################################
-        subroutine read_chk
+        subroutine read_chk(flag)
 
+          integer :: flag
+          
           !Plot Psi(R,Z)
           call createDrawInCfile(1,"efit_psi.bin",'Solution','t','x','y' &
-                              ,(/'Psi'/),'-c -X0 -L57','drawpsi.in')
+                              ,(/'Psi'/),'-c -X0 -L57','drawefit_psi.in')
 
           open(unit=110,file="efit_psi.bin",form='unformatted',status='unknown')
 
@@ -265,10 +278,12 @@
           !Plot q profile (gnuplot)
           open(unit=110,file="efit_q.txt",status='unknown')
           do i=1,nw
-             write(110,*) i,qpsi(i)
+             write(110,*) 1d0*i/nw,abs(qpsi(i))
           enddo
           close(110)
 
+          if (flag == 0) return
+          
           write(*,2000) case,idum,nw,nh
 
           write(*,2020) rdim,zdim,rcentr,rleft,zmid
@@ -350,6 +365,7 @@
 
         !Limiter box
         z_max = maxval(zlim)
+        z_min = minval(zlim)
         r_max = maxval(rlim)
         r_min = minval(rlim)
 
@@ -362,11 +378,13 @@
           write (*,*) "Limiter R_max (m)=",r_max
           write (*,*) "Limiter R_min (m)=",r_min
           write (*,*) "Limiter Z_max (m)=",z_max
+          write (*,*) "Limiter Z_min (m)=",z_min
         endif
         
         r_max = r_max*iLL
         r_min = r_min*iLL
         z_max = z_max*iLL
+        z_min = z_min*iLL
 
         rdim  = rdim *iLL
         rleft = rleft*iLL
@@ -491,6 +509,169 @@
 
       END SUBROUTINE efit_cleanup
 
+!     inside_sptrx
+!     #################################################################
+      function inside_sptrx(R,Z) result(inside)
+
+!     -----------------------------------------------------------------
+!     Determines whether a point is inside separatrix.
+!     -----------------------------------------------------------------
+
+        implicit none
+
+!     Call variables
+
+        real(8) :: R,Z
+        logical :: inside
+        
+!     Local variables
+
+        integer :: npt,ipt
+        real(8) :: rz(2),dth,theta,a(2),b(2)
+
+!     Begin program
+        
+        rz(1) = R/iLL
+        rz(2) = Z/iLL
+
+        npt = nbbbs
+
+        !Order N algorithm based on angular integration
+        !(approximates shape by a polygon)
+        !Works for arbitrary curve shape
+        theta = 0d0
+        b = rz-(/rbbbs(1),zbbbs(1)/)
+        do ipt=2,npt
+           a = b
+           b = rz-(/rbbbs(ipt),zbbbs(ipt)/)
+           dth = atan2((a(1)*b(2)-a(2)*b(1)),dot_product(a,b))
+           theta = theta + dth
+        enddo
+        a = b
+        b = rz-(/rbbbs(1),zbbbs(1)/)
+        dth = atan2((a(1)*b(2)-a(2)*b(1)),dot_product(a,b))
+        theta = theta + dth
+        
+!!        write (*,*) npt,theta/(2*pi)
+        inside = (abs(theta) > 0.98*2*pi)
+!!        if (.not.inside) write (*,*) "diag",rz
+        
+      end function inside_sptrx
+
+!     inside_lmtr
+!     #################################################################
+      function inside_lmtr(R,Z) result(inside)
+
+!     -----------------------------------------------------------------
+!     Determines whether a point is inside limiter.
+!     -----------------------------------------------------------------
+
+        implicit none
+
+!     Call variables
+
+        real(8) :: R,Z
+        logical :: inside
+        
+!     Local variables
+
+        integer :: npt,ipt
+        real(8) :: rz(2),dth,theta,a(2),b(2)
+
+!     Begin program
+        
+        rz(1) = R!/iLL
+        rz(2) = Z!/iLL
+
+        npt = size(rlim)
+
+        !Order N algorithm based on angular integration
+        !(approximates shape by a polygon)
+        !Works for arbitrary curve shape
+        theta = 0d0
+        b = rz-(/rlim(1),zlim(1)/)
+        do ipt=2,npt
+           a = b
+           b = rz-(/rlim(ipt),zlim(ipt)/)
+           dth = atan2((a(1)*b(2)-a(2)*b(1)),dot_product(a,b))
+           theta = theta + dth
+        enddo
+        a = b
+        b = rz-(/rlim(1),zlim(1)/)
+        dth = atan2((a(1)*b(2)-a(2)*b(1)),dot_product(a,b))
+        theta = theta + dth
+
+!!$        write (*,*) npt,theta/(2*pi)
+        inside = (abs(theta) > 0.98*2*pi)
+
+      end function inside_lmtr
+
+!     clean_sptrx
+!     #################################################################
+      subroutine clean_sptrx(npt,rb,zb)
+
+!     -----------------------------------------------------------------
+!     Cleans up separatrix to ensure points are inside limiter.
+!     -----------------------------------------------------------------
+        
+        implicit none
+
+        integer :: npt
+        real(8) :: rb(:),zb(:)
+
+!       Local variables
+
+        integer :: np,i
+        real(8) :: mag,iLL
+        real(8), allocatable,dimension(:) :: rl,zl
+
+!       Begin program
+
+        allocate(rl(npt),zl(npt))
+        
+        !First pass (select inside limiter)
+        np = 0
+        do i=1,npt
+           if (inside_lmtr(rb(i),zb(i))) then
+              np = np + 1
+              zl(np) = zb(i)
+              rl(np) = rb(i)
+           endif
+        enddo
+
+        npt = np
+        rb(1:np) = rl(1:np)
+        zb(1:np) = zl(1:np)
+
+        !Second pass (detect jumps in curve)
+        iLL = 1d0/(maxval(rlim)-minval(rlim))
+        mag = 0d0
+        np = 0
+        do i=1,npt-1
+           np = np + 1
+           mag = sqrt((rb(i+1)-rb(i))**2+(zb(i+1)-zb(i))**2)
+           if (mag*iLL > 0.3.and.np < npt/2) then 
+              np = 0 !large jump across points; line too short: cut out
+           else
+              zl(np) = zb(i)
+              rl(np) = rb(i)
+           endif
+        enddo
+
+        !Store new separatrix
+        npt = np
+        rb(1:np) = rl(1:np)
+        zb(1:np) = zl(1:np)
+
+        if (np < npt) then
+           rb(np+1:)=0d0
+           zb(np+1:)=0d0
+        endif
+        
+        deallocate(rl,zl)
+        
+      end subroutine clean_sptrx
+      
       END MODULE efit
 
 !     efit_map
@@ -547,34 +728,65 @@
 
         coords = coord
 
+        !Origin R-coord (set to magnetic axis if not provided)
         if (gparams(1) == 0d0) then
-          gparams(1) = 0.5*(r_max+r_min) !Major radius (biased)
+           gparams(1) = rmaxis*iLL         !Magnetic axis R-coord
         else
-          gparams(1) = gparams(1)*iLL    !Magnetic axis R-coord
+           if (gparams(1) > 0d0) then      !Do NOT shift to magnetic axis
+              gparams(1) = gparams(1)*iLL  !Specified axis R-coord; backward compatibility
+           else
+              gparams(8) = -(abs(gparams(1))-rmaxis)*iLL  !R-coordinate bdry shift
+              gparams(1) = rmaxis*iLL      !Magnetic axis R-coord
+           endif
         endif
-        if (gparams(2) /= 0d0) then
-          gparams(2) = gparams(2)*iLL    !Magnetic axis Z-coord
+
+        !Origin Z-coord (set to magnetic axis if not provided)
+        if (gparams(2) == 0d0) then
+           gparams(2) = zmaxis*iLL         !Magnetic axis Z-coord
+        else
+           if (gparams(2) > 0d0) then      !Do NOT shift to magnetic axis
+              gparams(2) = gparams(2)*iLL  !Specified axis Z-coord; backward compatibility
+           else
+              gparams(9) = -(abs(gparams(2))-zmaxis)*iLL  !Z-coordinate bdry shift
+              gparams(2) = zmaxis*iLL      !Magnetic axis Z-coord
+           endif
         endif
-        !gparams(1) = rmaxis*iLL  !Magnetic axis R-coord
-        !gparams(2) = 0d0         !Magnetic axis Z-coord
+
+        !Minor radius (set if not provided)
         if (gparams(3) == 0d0) then
-          gparams(3) = 1d0    !Minor radius
+          gparams(3) = 1d0
         else
-          gparams(3) = gparams(3)*iLL    !Minor radius
+          gparams(3) = gparams(3)*iLL
         endif
-        if (gparams(4) == 0d0) gparams(4) = 2*z_max/(r_max-r_min)   !Elongation
+
+        !Elongation of bdry (estimate if not provided)
+        if (gparams(4) == 0d0) then
+          gparams(4) = (maxval(zbbbs)-minval(zbbbs))/(maxval(rbbbs)-minval(rbbbs))
+        endif
+        
         ! gparams(5),delta, provided in input deck
         ! gparams(6), zeta, provided in input deck
+
+        !Elongation at SP (estimate if not provided)
+        if (gparams(7) == 0d0) then
+          if (gparams(8)==0d0.or.gparams(9)==0d0) then
+            gparams(7) = gparams(4)  !Origin NOT at magnetic axis: use bdry elongation
+          else
+            gparams(7) = zdim/rdim   !Estimate elongation of flux surfaces near mag-axis (crudely)
+          endif
+        endif
 
       case('tsq')
 
         coords = coord
 
-        gparams(1) = 0.5*(r_max+r_min)   !Major radius
-        gparams(2) = 2*gparams(2)        !Horizontal dimension
-        gparams(3) = z_max*gparams(3)    !Vertical   dimension
+        !Find box dimensions based on limiter
+        if (gparams(1) == 0d0) gparams(1) = 0.5*(r_max+r_min)  !Domain center R-coord
+        if (gparams(2) == 0d0) gparams(2) = 0.5*(z_max+z_min)  !Domain center Z-coord
+        if (gparams(3) == 0d0) gparams(3) = r_max-r_min        !Horizontal dimension
+        if (gparams(4) == 0d0) gparams(4) = z_max-z_min        !Vertical   dimension
 
-      case default
+     case default
 
         call pstop("efit_map","Coordinates unknown")
 
@@ -632,6 +844,9 @@
         real(8)  :: db2val,dbvalu
         external :: db2val,dbvalu
 
+        real(8) :: Zi,mi_mp,log_lamb,v_A,t_A,T_max,tau_e,tau_i,omega_ce,omega_ci &
+                  ,n0_cgs,B0_cgs
+        
 !     Begin program
 
         if (my_rank == 0) then
@@ -665,15 +880,19 @@
                                  ,kx,kz,psi_coef,work)
 
               !Interpolate pressure
-              if (psi(i,j,k) > sibry) then
-                prs(i,j,k)   = dbvalu(tps,pres_coef,nxs,kx,0,sibry,inbv,work)
-                bsub3(i,j,k) = dbvalu(tps,fpol_coef,nxs,kx,0,sibry,inbv,work)
-              else
-                prs(i,j,k)   = dbvalu(tps,pres_coef,nxs,kx,0,psi(i,j,k),inbv,work)
+!!$              if (psi(i,j,k) < sibry) then
+              if (inside_sptrx(RR,ZZ)) then
+                if (psi(i,j,k) > sibry) then
+                  call pstop("efit_equ","Error in separatrix boundary")
+                endif
+                prs  (i,j,k) = dbvalu(tps,pres_coef,nxs,kx,0,psi(i,j,k),inbv,work)
                 bsub3(i,j,k) = dbvalu(tps,fpol_coef,nxs,kx,0,psi(i,j,k),inbv,work)
+              else
+                prs  (i,j,k) = dbvalu(tps,pres_coef,nxs,kx,0,sibry,inbv,work)
+                bsub3(i,j,k) = dbvalu(tps,fpol_coef,nxs,kx,0,sibry,inbv,work)
               endif
 
-              if (prs(i,j,k) < 0d0) prs(i,j,k) = abs(prs(i,j,k))
+              prs(i,j,k) = abs(prs(i,j,k))
 
             enddo
           enddo
@@ -691,24 +910,18 @@
      &              ,is_cnv=.false.,iorder=2)
 
 !     Normalization constants for magnetic field (toroidal at magnetic axis) and pressure
-
+        
         BB0 = abs(dbvalu(tps,fpol_coef,nxs,kx,0,simag,inbv,work))/rmaxis
 
         iB0 = 1d0/BB0
-        ip0 = (4*pi)*1d-7*iB0*iB0  !(B0^2/mu_0)^(-1)
+        ip0 = mu_0*iB0*iB0  !(B0^2/mu_0)^(-1)
 
         ipsi0 = iB0*iLL*(2*pi)**(-e_bp)
 !!        ipsi0 = iB0*iLL*(2*pi)**(-1d0)
-
-        if (my_rank == 0) then
-          write (*,*)
-          write (*,'(a,1pe14.7,a)') " B_0 = ",BB0," T"
-          write (*,'(a,1pe14.7,a)') " p_0 = ",1d0/ip0," N/m^2"
-        endif
         
 !     Normalized pressure
 
-        prs = prs*ip0 + 1d-5 !Add pressure floor
+        prs = prs*ip0 + 1d-4 !Add pressure floor
 
 !     Find magnetic field components
 
@@ -735,7 +948,7 @@
         where (bcs == -NEU) bcs = -DEF  !Do nothing to tangential components
 
         call setMGBC(gv%gparams,0,3,nx,ny,nz,igrid,bb,bcs &
-     &              ,icomp=(/IBX/),is_vec=.true.           &
+     &              ,icomp=(/IBX/),is_vec=.true.          &
      &              ,is_cnv=.true.,iorder=2)
 
 !     Find normalized density
@@ -743,10 +956,55 @@
         max_prs = maxval(prs)
         max_prs = pmax(max_prs)
         
-        if (max_prs == 0d0.or.(.not.efit_rho_adiab)) then
+        if (max_prs == 0d0.or.(gam==0d0)) then
           rho = 1d0
         else
           rho = (abs(prs/max_prs)**(1d0/gam))  !Forces positive density
+        endif
+
+!     Find normalization constants
+
+        n0_cgs = n_0*1d-6  !1/cm^3
+        B0_cgs = BB0*1d4   !Gauss
+        Zi = 1d0
+        mi_mp = 1d0
+        log_lamb = 1d1
+        
+        v_A = BB0/sqrt(mi*n_0*mu_0)  !m/s
+        t_A = 1d0/(v_A*iLL) !s
+        T_max = max_prs/(kb*ip0*n_0) !eV
+!!$        tau_e = (4*pi*eps_0)**(2)*3*sqrt(me)*(kb*T_max)**1.5/(4*sqrt(2*pi)*n_0*log_lamb*qe**4) !s (SI)
+!!$        write (*,*) tau_e/(3.44d5*(T_max**1.5)/(n0_cgs*log_lamb))
+        tau_e = 3.44d5*(T_max**1.5)/(n0_cgs*log_lamb) !s (cgs)
+        tau_i = 2.08d7*(T_max**1.5)/(Zi**4*n0_cgs*log_lamb)*sqrt(mi_mp) !s (cgs)
+        omega_ce = qe*BB0/me    !1/s (SI)
+        omega_ci = qe*Zi*BB0/mi !1/s (SI)
+        
+        if (my_rank == 0) then
+          write (*,'(a)') " Normalization constants:"
+          write (*,*)
+          write (*,'(a,1pe14.7,a)') " L_0 = ",1d0/iLL," m"
+          write (*,'(a,1pe14.7,a)') " n_0 = ",n_0," 1/m^3"
+          write (*,'(a,1pe14.7,a)') " B_0 = ",BB0," T"
+          write (*,'(a,1pe14.7,a)') " p_0 = ",1d0/ip0," N/m^2"
+          write (*,'(a,1pe14.7,a)') " v_A = ",v_A," m/s"
+          write (*,'(a,1pe14.7,a)') " t_A = ",t_A," s"
+          write (*,'(a,1pe14.7,a)') " Tmax= ",T_max*1d-3," keV "
+          write (*,*)
+          write (*,'(a)') " Normalized parameters:"
+          write (*,*)
+          write (*,'(a,1pe14.7)') " beta       = ",max_prs
+          write (*,'(a,1pe14.7)') " chi_par e  = ",3.2*kb*T_max*tau_e/(me*v_A)*iLL  !electrons
+!!          write (*,'(a,1pe14.7)') " chi_perp e = ",4.7*kb*T_max/(me*omega_ce**2*tau_e*v_A)*iLL  !e
+          write (*,'(a,1pe14.7)') " chi_perp i = ",2.0*kb*T_max/(mi*omega_ci**2*tau_i*v_A)*iLL  !ions
+          write (*,'(a,1pe14.7)') " eta        = ",me/(n_0*qe*qe*tau_e*v_A*mu_0)*iLL
+          write (*,*)
+          write (*,'(a)') " Other relevant parameters:"
+          write (*,*)
+          write (*,'(a,1pe14.7,a)') " tau_e    =",tau_e," s^(-1)"
+          write (*,'(a,1pe14.7,a)') " tau_i    =",tau_i," s^(-1)"
+          write (*,'(a,1pe14.7,a)') " omega_ci =",omega_ci," rad/s"
+          write (*,'(a,1pe14.7,a)') " omega_ce =",omega_ce," rad/s"
         endif
 
 !     Check EFIT qtys
@@ -900,7 +1158,7 @@
         DEALLOCATE(vv,jj,mag1,mag2,mag3,mag1g,mag2g,mag3g,stat=istat)
  
       end subroutine GS_chk
- 
+
 !!$!     dcon_dump
 !!$!     #################################################################
 !!$      subroutine dcon_dump

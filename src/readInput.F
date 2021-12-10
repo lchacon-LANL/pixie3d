@@ -6,10 +6,6 @@ c----------------------------------------------------------------------
 c     Initializes MG and creates grid
 c----------------------------------------------------------------------
 
-      use parameters
-
-      use grid
-
 #if defined(plotting) || defined(_equ)
       use ts_setup
 #else
@@ -20,13 +16,7 @@ c----------------------------------------------------------------------
 
       use PC_setup
 
-      use app_iosetup
-
-      use equilibrium
-
-      use graphics_io
-
-      use local_BCS_variables
+      use rw_bc
 
       implicit none
 
@@ -40,7 +30,7 @@ c Local variables
       character*(3) :: bcs(6)
       type(grid_pack):: gp1,gp2,gp3
 
-      logical       :: nc_eom_f,mg_coarse_solve,refine_eq
+      logical       :: nc_eom_f,mg_coarse_solve
 
       integer       :: mg_coarse_size
 
@@ -58,7 +48,7 @@ c Namelists
       namelist /datin/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
      .                   ,npx,npy,npz,gp1,gp2,gp3,check_grid,equil
-     .                   ,efit_coords
+     .                   ,efit_coords,gstor_I_drive
      .                ,ilevel,debug,test
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
@@ -66,7 +56,7 @@ c Namelists
      .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old,xport_order
-     .                   ,res_wall_bc,r_v,tau_w,implicit_rw_bc,rw_hel_v1
+     .                   ,r_v,tau_w,implicit_rw_bc
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                   ,pc_as_solver,fpa,fpa_it
@@ -96,7 +86,7 @@ c Namelists
      .                   ,subtract_E0,e_cons_vstar,post_smooth_B
      .                   ,regularize_A,use_p_classic_eq,post_filter_hel
      .                ,prt_file,equ_file,map_file,dcon
-     .           !Legacy parameters
+     .                !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
      .                   ,zebra_relax,ores,oprol,debug,debug_it
      .                   ,lag_pinch_bc,recordfile,pc_debug_it
@@ -105,7 +95,7 @@ c Namelists
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
 
       !Problem setup
-      namelist /setup/  nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
+      namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
      .                   ,npx,npy,npz,gp1,gp2,gp3,efit_coords
 
@@ -120,10 +110,10 @@ c Namelists
      .                   ,br_pert_bc_old,br_pert_phase_old
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
      .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptmp,pax,pay,paz
-     .                   ,equil
+     .                   ,equil,gstor_I_drive,refine_eq
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
-     .                   ,res_wall_bc,r_v,tau_w,implicit_rw_bc,rw_hel_v1
+     .                   ,r_v,tau_w,implicit_rw_bc
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
@@ -210,10 +200,6 @@ c Initialize MG parameters
 
       call MG_set_coarse_size(mg_coarse_size)
 
-c Consistency check
-
-      call consistency_chk
-
 c Map perturbations
 
       pert(IRHO)= prho
@@ -230,6 +216,10 @@ c Map perturbations
       pert(IAZ) = paz
 #endif
       pert(IPRS)= a_p*ptmp  !Transform to total pressure
+
+c Consistency check
+
+      call consistency_chk
 
 c Init boundary conditions
 
@@ -504,10 +494,8 @@ c     #####################################################################
       B0       = 0d0           ! Boundary magnetic field (cnv)
       M0       = 0d0           ! Momentum source
 
-      res_wall_bc= .false.     ! Whether we are using resistive wall BCs
       tau_w    = 1d2           ! Resistive wall thin-shell time
       r_v      = 1.5           ! Radius of outer conducting shell
-      implicit_rw_bc = .false. ! Whether RW BC is treated implicitly or not
 
       !Nonlinear function parameters
       adiabatic  = .false.     ! Whether we use adiabatic EoS or not
@@ -602,6 +590,8 @@ c     #####################################################################
       vperflow = 0.            ! Maximum perpendicular fluid flow
       chk_src  = .false.       ! Whether to check source (e.g., to check equilibria)
 
+      gstor_I_drive = .true.   ! Whether we drive GS toroidal solver with I=Bphi*R or q-profile
+      
       prho     = 0d0           ! Density perturbation
       pvx      = 0d0           ! Vx perturbation
       pvy      = 0d0           ! Vy perturbation
@@ -697,6 +687,8 @@ c     #####################################################################
 
       implicit none
 
+      integer :: i
+      
       !Check legacy parameters
       if (hall_new     )  ion_hall = .true.
 
@@ -714,8 +706,6 @@ c     #####################################################################
 
       if (pc_max_iter>0)  pc_iter = pc_max_iter
 
-      where (bcs == 'sym') bcs = 'fsm' !Face symmetric
-
       if (.not.timecorr) ts_adapt_dt = timecorr
 
       if (restart) ts_restart = restart
@@ -726,31 +716,47 @@ c     #####################################################################
       if (tst_flg) test = .true.
 
       if (refine_eq) then
-        dd  = 1d0        !To damp density
-        chi = 1d0        !To damp pressure profile
+        dd  = 0d0        !To avoid dens decay
+        chi = 0d0        !To avoid temp decay due to perpendicular xport
         nu  = 1d0        !To damp flow
         eta = 0d0        !To avoid resistive diffusion
         source = .false. !To let equilibrium float
+        pert = 0d0       !Zero out perturbations
+        chk_src = .true.
       endif
 
       !NK
 cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
+
+      !Face symmetric if "sym"
+      where (bcs == 'sym') bcs = 'fsm'
 
       !Adequate BCs for collapsed dimension
       if (nxd == 1) bcs(1:2) = 'per'
       if (nyd == 1) bcs(3:4) = 'per'
       if (nzd == 1) bcs(5:6) = 'per'
 
+      !Setup resistive wall logic
+      where (bcs == 'rsw')
+        rw_bcs = .true.
+        bcs = 'def'
+      end where
+
+      res_wall_bc = .false.
+      do i=1,size(rw_bcs)
+        res_wall_bc = res_wall_bc.or.rw_bcs(i)
+      enddo
+      
       !Adequate size for collapsed dimension
       if (coords /= 'car') then
         if (nxd == 1) then
-          xmax = 1d-3 ; xmin = 0d0
+          xmax = LMIN_NEQONE ; xmin = 0d0
         endif
         if (nyd == 1) then
-          ymax = 1d-3 ; ymin = 0d0
+          ymax = LMIN_NEQONE ; ymin = 0d0
         endif
         if (nzd == 1) then
-          zmax = 1d-3 ; zmin = 0d0
+          zmax = LMIN_NEQONE ; zmin = 0d0
         endif
       endif
 
@@ -852,18 +858,45 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
       if (ts_restart) dcon = .false.
 
       if (coords == 'hel') then  !Special case for 2D helical geometry
-        nh2 = nint(gparams(1))
+        if (nh2 == 0) nh2 = nint(gparams(1))
         nh1 = nh2                
 cc        ymax = 2*acos(-1d0)/nh2  !Collapse angular dimension
 cc        numerical_grid = (nh2 > 1)  !Analytical grid metrics are wrong for nh2 > 1
       endif
+
+      if (   coords == 'cyl'
+     $   .or.coords == 'tor'
+     $   .or.trim(equil) == '3dkai'
+     $   .or.trim(equil) == 'ppn3d'
+     $   .or.trim(equil) == 'p3nsl'
+     $   .or.trim(equil) == '3drfp') then               !Special case for cyl-tor geometries
+        if (nh2 == 0) nh2 = nint(gparams(1))
+        if (nh3 == 0) nh3 = nint(gparams(2)*gparams(3))
+        nh1 = nh2                
+      endif
+
+      if (   trim(equil) == 'gstor'
+     $   .or.trim(equil) == 'ohtor'
+     $   .or.trim(equil) == 'stell') then
+        if (nh2 == 0) nh2 =  nint(gparams(4))
+        if (nh3 == 0) nh3 = -nint(gparams(5))
+        nh1 = nh2
+      endif
       
+      if (   trim(equil) == 'vmec'
+     $   .or.trim(equil) == 'efit'
+     $   .or.trim(equil) == '3drfp') then
+        nh1 = nh2
+      endif
+
       if ((nh1 == 0 .and. nh2 == 0 .and. nh3 == 0)
      .   .and.(    equil /= 'ppn3d'
      .        .and.equil /= 'p3nsl'
      .        .and.equil(1:4) /= 'vela'
      .        .and.equil(1:4) /= 'tbbr'
      .        .and.equil /= 'rfp83'
+     .        .and.equil /= 'bpnch'
+     .        .and.equil /= 'bpchT'
      .        .and.equil /= 'adv1'
      .        .and.equil /= 'adv2')
      .        .and.equil /= 'sod' ) then

@@ -480,7 +480,7 @@ c     Call variables
 c     Local variables
 
       integer :: nx,ny,nz,igx,igy,igz,i,j,k,ii,icomp,order_res
-     .          ,order_prol,gmits,bcsga(6,3)
+     .          ,order_prol,gmits
 
       real(8) :: da_cnv (0:size(db_cnv,1)-1
      .                  ,0:size(db_cnv,2)-1
@@ -523,11 +523,12 @@ c     Begin program
         etol = 1d-7
       endif
 
-c     Find Lap(A0)
+c     Find Lap(A0) for Dirichlet BCs (use curlcurl to avoid gauge assumption)
 
       if (PRESENT(da0cov)) then
-        dlapa0 = XformToCnv(g_def,igrid,da0cov)
-        dlapa0 = veclap    (g_def,igrid,dlapa0)
+        !Factor of 2 because da0cov is at face
+        dlapa0 = -2*curlcurl_mesh2(g_def,igrid,da0cov,.false.)  !Returns covariant
+        dlapa0 = XformToCnv(g_def,igrid,dlapa0)
       else
         dlapa0 = 0d0
       endif
@@ -576,7 +577,11 @@ c     Setup solver parameters
         order_prol = 1
       endif
 
-      bc_order_a = 2
+      if (PRESENT(da0cov)) then
+        bc_order_a = 1          !To ensure consistency with Dirichlet BC provided
+      else
+        bc_order_a = 2
+      endif
       
 c     Invert vector laplacian to find dA=vlap^-1(dJ)
 
@@ -613,13 +618,11 @@ cc     .            ,sm_omega      = sm_omega_si
 cc     .            ,sm_it         = sm_iter_si
 cc     .            ,sm_zebra_relax= mg_zebra_relax_si
      .            )
-
-      call fillArray(g_def,igx,3,x,da_cnv,bcsa,bc_order_a
-     .              ,is_vec=.true.,is_cnv=.true. ,icomp=(/IAX/)
-     .              ,arr_cov=da_cov)
-
-      if (PRESENT(da0cov)) da_cov = da_cov + da0cov
       
+      call fillArray(g_def,igx,3,x,da_cnv,bcsa,bc_order_a
+     .              ,is_vec=.true.,is_cnv=.true.,icomp=(/IAX/)
+     .              ,arr_cov=da_cov,arr0=da0cov)
+
       if (PRESENT(gm_it)) gm_it = gmits
 
 c     End program
@@ -629,7 +632,7 @@ c     End program
 c     vlap_div_clean
 c     #################################################################
       subroutine vlap_div_clean(g_def,iout,nx,ny,nz,igx,igy,igz,db,dacov
-     .                     ,dbcov,w_bcs,w_pre_bcs,diag_plots,gm_it,rtol)
+     .              ,da0cov,dbcov,w_bcs,w_pre_bcs,diag_plots,gm_it,rtol)
 
 c     -----------------------------------------------------------------
 c     Finds curl(dA)=B^(n+1)-B^n, with dA=inv_lap(dJ). 
@@ -638,7 +641,7 @@ c       * iout: level of output info
 c       * nx,ny,nz: mesh size
 c       * igx,igy,igz: grid level size
 c       * db: input cnv magnetic field 
-c       * dacov,dbcov (optional): cov B (input) and A (output)
+c       * dacov,da0cov,dbcov (optional): cov A0 and B (input) and A (output)
 c       * w_bcs (optional): whether output has BCs
 c       * w_pre_bcs (optional): whether input requires BCs
 c       * diag_plots (optional): whether we want plots of answer
@@ -656,8 +659,9 @@ c     Call variables
 
       integer,optional :: gm_it
       real(8),optional :: rtol
-      real(8),optional,INTENT(IN) :: dbcov(0:nx+1,0:ny+1,0:nz+1,3)
-      real(8),optional,INTENT(OUT):: dacov(0:nx+1,0:ny+1,0:nz+1,3)
+      real(8),optional,INTENT(IN) :: dbcov (0:nx+1,0:ny+1,0:nz+1,3)
+     $                              ,da0cov(0:nx+1,0:ny+1,0:nz+1,3)
+      real(8),optional,INTENT(OUT):: dacov (0:nx+1,0:ny+1,0:nz+1,3)
 
       logical,optional :: w_bcs,w_pre_bcs,diag_plots
 
@@ -693,24 +697,14 @@ c     Define BCs
       bcsb(:,1) = u_0%array_var(IBX)%bconds
       bcsb(:,2) = u_0%array_var(IBY)%bconds
       bcsb(:,3) = u_0%array_var(IBZ)%bconds
+c$$$      bcsb = gv%aux%vec_list(IBCNV_0)%bconds
 
       call default_A_BCs(bcsa)
-
-c$$$      bcsa = bcsb
-c$$$      where (bcond == FSYM)
-c$$$        bcsa(:,1) = FSYM !Recover symmetry BCs
-c$$$        bcsa(:,2) = FSYM !Recover symmetry BCs
-c$$$        bcsa(:,3) = FSYM !Recover symmetry BCs
-c$$$      end where
-c$$$      where (bcsa == -NEU) bcsa = -EQU  !Use covariant components for tangential BCs
-c$$$                                        !Normal component BCs same as B (div = 0)
-c$$$
-c$$$      call set_vec_symm_bc(bcsa,-1)
 
 c     Find dA
 
       call vlap_curl_inv(g_def,igx,db,da_cov,bcsb,bcsa,iout
-     .                  ,w_pre_bcs=w_pre_bcs
+     .                  ,w_pre_bcs=w_pre_bcs,da0cov=da0cov
      .                  ,gm_it=gm_it,rtol=rtol)
 
 c     Diagnostics

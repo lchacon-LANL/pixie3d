@@ -79,7 +79,7 @@ c Begin program
 c Impose boundary conditions and find auxiliary quantities
 
 #if !defined (samrai)
-      call applyBC(igx,varray,gv%aux,it=itime,bc_order=order_bc)
+      call applyBC(igx,varray,gv%aux,bc_order=order_bc)
 #else
       call defineAuxVariables(gv%aux)  !Set pointers
 #endif
@@ -90,12 +90,28 @@ c Fill LOCAL auxiliary variables
 
 c Safeguards
 
-      if (old_time_eval) then
-        call chk_neg(rho,'density')
-        call chk_neg(prs,'pressure')
-        call chk_neg(heat_src,'heat source')
+      if (source_eval) then
+        if (trim(equil)=='efit') then
+          if (solve_prs) then
+            min_prs = minval(prs(1:nx,1:ny,1:nz))
+            min_prs = 0.1*pmin(min_prs)
+          else
+            min_te  = minval(tmpe(1:nx,1:ny,1:nz))
+            min_te  = 0.1*pmin(min_te)
+          endif
+cc          write (*,*) min_te,min_prs
+        endif
       endif
       
+      if (old_time_eval) then
+        call chk_neg(IRHO,'rho',0d0)
+        if (solve_prs) then
+          call chk_neg(IPRS,'prs',min_prs)
+        else
+          call chk_neg(ITMPE,'Te',min_te)
+        endif
+      endif
+
 c Setup fluxes
 
 #if defined(flux_rhs)
@@ -111,7 +127,7 @@ c End program
 
 c     chk_neg
 c     ###############################################################
-      subroutine chk_neg(array,desc)
+      subroutine chk_neg(ivar,desc,failsafe)
 
       implicit none
 c     ---------------------------------------------------------------
@@ -121,34 +137,52 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      real(8) :: array(0:nx+1,0:ny+1,0:nz+1)
+      integer :: ivar
+      real(8) :: failsafe
       character(*) :: desc
 
 c     Local variables
 
       integer :: index(3)
       real(8) :: minv,ltmin,minvg
+      real(8) :: array(0:nx+1,0:ny+1,0:nz+1)
+      logical :: apply_failsafe
 
 c     Begin program
 
+      array = varray%array_var(ivar)%array
+     $       /gv%gparams%gmetric%grid(igx)%jac
+
       minv = minval(array(1:nx,1:ny,1:nz))
 
-      minvg = pmin(minv)  !Parallel min
+      minvg = pmin(minv)        !Parallel min
       
-      if (minvg < -1d-14) then
-
+      apply_failsafe = (failsafe>0d0).and.(minvg<failsafe)
+      
+      if (minvg < -1d-14.or.apply_failsafe) then
+      
         if (minv < -1d-14) then
           index = globalIndex(gv%gparams,igx
-     .                       ,minloc(array(1:nx,1:ny,1:nz)))
+     .           ,minloc(varray%array_var(ivar)%array(1:nx,1:ny,1:nz)))
           write(*,*) 'proc=',my_rank,' ',trim(desc),'=',minv
      .              ,' global pos=',index
         endif
 
-        call pstop('setupNonlinearFunction',
-     .   'Warning: negative values for '//trim(desc)//' are occurring')
+        if (apply_failsafe) then
+          where(array < failsafe) array = failsafe
 
+          varray%array_var(ivar)%array =
+     $           array*gv%gparams%gmetric%grid(igx)%jac
+
+          if (my_rank == 0) write(*,*) "WARNING: ",trim(desc)
+     $           ," is below threshold; failsafe applied"
+        else
+          call pstop('setupNonlinearFunction',
+     $           'Negative values for '//trim(desc)/
+     $           /' detected')
+        endif
       endif
-
+      
       end subroutine chk_neg
 
       end subroutine setupNonlinearFunction
