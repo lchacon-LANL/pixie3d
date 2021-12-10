@@ -13,7 +13,7 @@ c ######################################################################
         integer :: u_equf=1000,u_prtf=2000
         character(100) :: equ_file,prt_file
 
-        character(30) :: in_file  ='pixie3d.in' ! Default input file
+        character(1024) :: in_file  ='pixie3d.in' ! Default input file
 
       contains
 
