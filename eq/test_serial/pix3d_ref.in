@@ -62,3 +62,12 @@
     cont_conf = 3,'x','y',1,1,1
     hdf_plot=f
  /
+
+ &xfer
+   ifile = 'pix3d_ref.in'
+   ofile = 'pix3d_out.in'
+   irecfile = 'record_in.bin'
+   orecfile = 'record_out.bin'
+   order = 2
+ /
+
