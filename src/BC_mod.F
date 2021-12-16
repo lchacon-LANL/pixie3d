@@ -700,7 +700,7 @@ cc      vaux%vec_list(IENI)%bconds = vaux%vec_list(IACOV)%bconds
 
       !Electric field (Hall piece)
 c$$$      call default_A_BCs(vaux%vec_list(IEH)%bconds)
-c$$$  if (ion_hall) then
+c$$$      if (ion_hall) then
         vaux%vec_list(IEH )%bconds = vaux%vec_list(IVCOV)%bconds
 c$$$      else
 c$$$        vaux%vec_list(IEH)%bconds(:,1) = bcond

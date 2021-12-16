@@ -2716,14 +2716,10 @@ c BCs
 
       du = 0d0
 
-cc      call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
-
       call fillArray(g_def,igrid,neq,x,du,bcnd,1,gpos=gpos  !order=0 for stability
-     .              ,icomp=(/IVX,IJX/),is_cnv=is_cnv,is_vec=.true.
-cc     .              ,icomp=(/IVX,IAX/),is_cnv=is_cnv,is_vec=.true.
+cc     .              ,icomp=(/IVX,IJX/),is_cnv=is_cnv,is_vec=.true.
+     .              ,icomp=(/IVX,IAX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.,arr_cov=du_cov,arr0=v0)
-
-cc      call set_force_corners(.false.) !Force corners owing to div(A)=0 BC
 
 cc#if defined(pgf90)
       allocate(dv    (0:nxx+1,0:nyy+1,0:nzz+1,3)
@@ -2801,23 +2797,24 @@ c Calculate matrix-vector product
             psit = findPsit(g_def,i,j,k,igrid)
 
             !P_si^B  ******************************
-            if (nc_eom_jxb.and.(.not.bcSP())) then !Force conservative form in SP geometries
-              j0cnv = curl(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                     ,b0_cov)
-              cda = -U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                       ,dv,dv_cov,a0_cnv,0)
-
-              b0cnv = b0_cnv(i,j,k,:)
-              ccda  = cnp*dj_cnv(i,j,k,:)/dt  !curl(curl(dA)) from dj
-
-              psib=crossProduct_ijk(g_def,i,j,k,igrid,b0cnv,ccda,.true.)
-     .            -crossProduct_ijk(g_def,i,j,k,igrid,j0cnv,cda ,.true.)
-
-              psib= alpha*XformToCnv_ijk(g_def,i,j,k,igrid,psib)
-            else
-              psib= div_tensor(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                        ,alt__eom(),tensor_x,tensor_y,tensor_z)
-            endif
+c$$$            if (nc_eom_jxb.and.(.not.bcSP())) then !Force conservative form in SP geometries
+c$$$              j0cnv = curl(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+c$$$     .                     ,b0_cov)
+c$$$              cda = -U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+c$$$     .                       ,dv,dv_cov,a0_cnv,0)
+c$$$
+c$$$              b0cnv = b0_cnv(i,j,k,:)
+c$$$              ccda  = cnp*dj_cnv(i,j,k,:)/dt  !curl(curl(dA)) from dj
+c$$$
+c$$$              psib=crossProduct_ijk(g_def,i,j,k,igrid,b0cnv,ccda,.true.)
+c$$$     .            -crossProduct_ijk(g_def,i,j,k,igrid,j0cnv,cda ,.true.)
+c$$$
+c$$$              psib= alpha*XformToCnv_ijk(g_def,i,j,k,igrid,psib)
+c$$$            else
+c$$$              psib= div_tensor(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+c$$$     .                        ,alt__eom(),tensor_x,tensor_y,tensor_z)
+c$$$            endif
+            psib = findPsib(g_def,i,j,k,igrid)
 
             !Diagonal scaling
             cnv = psit + psib 

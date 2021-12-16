@@ -942,8 +942,6 @@ c     Check coordinates
            enddo
          enddo
 
-         if (my_rank == 0) write(*,*) 'About to fill B'
-
          do k = klom,khip
            do j = jlom,jhip
              do i = ilom,ihip
@@ -957,8 +955,6 @@ c     Check coordinates
              enddo
            enddo
          enddo
-
-         if (my_rank == 0) write(*,*) 'B filled'
 
 c     -------------------------------------------------
 c     ---------------  ISLAND COALESCENCE -------------
