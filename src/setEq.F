@@ -907,7 +907,7 @@ c     --------------------------------------------------------------------
 
        case ('diamh')
 
-c     Check coordinates
+         !Check coordinates
          if (coords /= 'car' .and. coords /= 'lpk') then
            messg = 'Wrong coordinates for equilibrium '//equil
            call pstop('setEquilibrium',messg)
@@ -937,16 +937,6 @@ c     Check coordinates
      .                                     ,ig,jg,kg,x1,y1,z1)
 
                var(i,j,k,IRHO)=1.0d0 + 0.5d0*tanh((x1-hlx)/rshear)
-
-             enddo
-           enddo
-         enddo
-
-         do k = klom,khip
-           do j = jlom,jhip
-             do i = ilom,ihip
-               call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
-     .              ,ig,jg,kg,x1,y1,z1)
 
                bb(i,j,k,1)  = 0d0                                                                       
                bb(i,j,k,2)  = tanh((x1-hlx)/dlambda)
