@@ -803,15 +803,14 @@ cc          call XformVector_BC(gv%gparams,igr,vecnv,vecov,.false.)
 c       Hall electric field BC
 
           if (di > 0d0) then
-c$$$cc            prs1 = rho*tmpe*temp_ratio  !Ion pressure
-c$$$            prs1 = varray%array_var(IPRS)%array/jac*(a_p-1)  !Ion temperature
-c$$$            call XferBCs(grad(gv%gparams,igr,prs1),v0,.true.)
-c$$$
-c$$$            bcnd = vaux%vec_list(IEH)%bconds
-c$$$            vdum = XformVector(gv%gparams,igr,E_h,.true.)
-c$$$            call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vdum,E_h,v0,bcnd
-c$$$     .                ,igr,igr,igr,iorder=order
-c$$$     .                ,is_cnv=vaux%vec_list(IEH)%cnv)
+            prs1 = rho*tmpe*temp_ratio  !Ion pressure
+            call XferBCs(grad(gv%gparams,igr,prs1),v0,.true.)
+
+            bcnd = vaux%vec_list(IEH)%bconds
+            vdum = XformVector(gv%gparams,igr,E_h,.true.)
+            call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vdum,E_h,v0,bcnd
+     .                ,igr,igr,igr,iorder=order
+     .                ,is_cnv=vaux%vec_list(IEH)%cnv)
           endif
 
         case(IENI)
