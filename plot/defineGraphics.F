@@ -564,7 +564,10 @@ c$$$      graph(4)%array_graph(15)%descr = 'V.(b x grad(psi))'
       graph(4)%array_graph(17)%array => heat_src
       graph(4)%array_graph(17)%descr = 'Int. heat src'
 
-      graph(4)%array_graph(18:ngraph)%descr = ''
+      graph(4)%array_graph(18)%array => jmag
+      graph(4)%array_graph(18)%descr = '|J|'
+
+      graph(4)%array_graph(19:ngraph)%descr = ''
 
 cc      sel_gr(4,:) = (/ (i,i=6,14) /)
 cc      sel_gr(4,:) = (/ (i,i=1,9) /)

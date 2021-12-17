@@ -26,11 +26,11 @@ program pixeq_xfer
   type(var_array),pointer :: vref=>null(),vout=>null(),vref_0=>null()
 
   integer :: ic,jc,kc,if,jf,kf,ig,jg,kg,ivar,igx,igy,igz,grf,nxf,nyf,nzf
-  integer :: it,itm,send_buf(3),rec_buf(3),nx,ny,nz
+  integer :: it,itm,send_buf(3),rec_buf(3)
   real(8) :: gammat,dt,tt,volt,vol
 
   !Interpolation
-  real(8) :: xp,yp,zp,interp
+  real(8) :: interp
   real(8),allocatable,dimension(:) :: xx,yy,zz
 
   integer :: kx,ky,kz,nxs,nys,nzs,dim,flg,bcmod(6)
@@ -65,10 +65,10 @@ program pixeq_xfer
 
   !Defaults
   order = 2         !Order of interpolation
-  ifile = ''        !Input PIXIE3D file
-  ofile = ''        !Output PIXIE3D file
-  irecfile = ''     !Reference PIXIE3D record file
-  orecfile = ''     !Output PIXIE3D record file
+  ifile = ''        !PIXIE3D input file with input  mesh specs
+  ofile = ''        !PIXIE3D input file with output mesh specs
+  irecfile = ''     !Input  PIXIE3D record file (solution to interpolate)
+  orecfile = ''     !Output PIXIE3D record file (to store interpolated solution)
 
   open(unit=uinput,file='pixie3d.in',status='old')
   read(uinput,xfer,iostat=ierr)
@@ -158,6 +158,10 @@ program pixeq_xfer
   !Spline setup of reference solution!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+  nxl = gv%gparams%nlx
+  nyl = gv%gparams%nly
+  nzl = gv%gparams%nlz
+  
   nxs = nxl+2
   nys = nyl+2
   nzs = nzl+2
@@ -231,20 +235,6 @@ program pixeq_xfer
 
   !Init PIXIE3D variables
 !  call setAppBCs(vout,gv%aux)
-
-  nx = nxl
-  ny = nyl
-  nz = nzl
-  
-  if (extrude_dir(1)) then
-    nx = 1 ; xp = xmin
-  endif
-  if (extrude_dir(2)) then
-    ny = 1 ; yp = ymin
-  endif
-  if (extrude_dir(3)) then
-    nz = 1 ; zp = zmin
-  endif
 
   !!!!!!!!!!!!!!!!!!!
   !Write output file!
@@ -326,15 +316,29 @@ contains
     type(var_array),pointer :: vref,vout
 
     !Local variables
-    integer :: ivar
+    integer :: ivar,nx,ny,nz
 
-    real(8) :: db2val,db3val
+    real(8) :: db2val,db3val,xp,yp,zp
     external   db2val,db3val
 
     real(8),pointer,dimension(:,:,:) :: arrayf,arrayc
 
     !Begin program
   
+    nx = gv%gparams%nlx
+    ny = gv%gparams%nly
+    nz = gv%gparams%nlz
+  
+    if (extrude_dir(1)) then
+      nx = 1 ; xp = xmin
+    endif
+    if (extrude_dir(2)) then
+      ny = 1 ; yp = ymin
+    endif
+    if (extrude_dir(3)) then
+      nz = 1 ; zp = zmin
+    endif
+
     do ivar=1,vout%nvar
       vout%array_var(ivar)%descr  &
              = vref%array_var(ivar)%descr
