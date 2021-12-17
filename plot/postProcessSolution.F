@@ -187,6 +187,8 @@ c Find Cartesian components of ALL vectors
       call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,jx_car,jy_car,jz_car,'cnv','car')
 
+      jmag = sqrt(jx_car**2+jy_car**2+jz_car**2)
+      
 c Return if checking sources
 
 cc      if (chk_src) return

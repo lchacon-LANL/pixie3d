@@ -825,7 +825,7 @@ c ######################################################################
      .         ,vx_car,vy_car,vz_car
      .         ,divrgB,divrgJ,divrgV,Pflux
      .         ,qfactor,lambda,p_tot
-     .         ,vpar,vpsi,vperp,dumx,dumy,dumz
+     .         ,vpar,vpsi,vperp,dumx,dumy,dumz,jmag
 
         real(8),target,allocatable,dimension(:,:,:) ::
      .          bx_cov,by_cov,bz_cov
@@ -897,6 +897,7 @@ c     ##################################################################
      .         ,divrgV(ilom:ihip,jlom:jhip,klom:khip)
      .         ,Pflux (ilom:ihip,jlom:jhip,klom:khip)
      .         ,p_tot (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jmag  (ilom:ihip,jlom:jhip,klom:khip)
      .         ,heat_src(ilom:ihip,jlom:jhip,klom:khip))
 
       allocate (qfactor(ilom:ihip,jlom:jhip,klom:khip)
@@ -924,7 +925,7 @@ c     ##################################################################
       deallocate (bx_car,by_car,bz_car,jx_car,jy_car,jz_car
      .           ,vx_car,vy_car,vz_car,vpar,vpsi,vperp 
      .           ,divrgB,divrgJ,divrgV,Pflux,p_tot
-     .           ,dumx,dumy,dumz,heat_src)
+     .           ,dumx,dumy,dumz,heat_src,jmag)
 
       deallocate (qfactor,lambda)
 
@@ -2929,7 +2930,7 @@ c     Begin program
      .                                                   ,jcov(i,j,k,:))
         
         !Ion viscosity
-        ihs =ihs + viscous_heat_src(g_def,i,j,k,igr,nu,vcnv,vcnv,sym_st)
+cc        ihs =ihs + viscous_heat_src(g_def,i,j,k,igr,nu,vcnv,vcnv,sym_st)
 
         !Electron viscosity
         !Comment out for old TM Hall MHD performance results
