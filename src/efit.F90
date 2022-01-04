@@ -451,14 +451,6 @@
 
         allocate(ps(nxs),stat=alloc_stat)
 
-        allocate(fpol_coef(nxs) &
-                ,pres_coef(nxs) &
-                ,ffprim_coef(nxs)&
-                ,pprime_coef(nxs)&
-                ,qpsi_coef(nxs),stat=alloc_stat)
-
-        allocate(q((2*kx-1)*nxs))
-
         !Define poloidal flux domain
         dr = (sibry-simag)/(nxs-1)
         do ig = 1,nxs
@@ -474,6 +466,8 @@
 
         allocate(tps(nxs+kx),stat=alloc_stat)
 
+        allocate(q((2*kx-1)*nxs),stat=alloc_stat)
+
         call dbknot(ps,nxs,kx,tps)
         call dbintk(ps,fpol  ,tps,nxs,kx,fpol_coef  ,q,work)
         call dbintk(ps,pres  ,tps,nxs,kx,pres_coef  ,q,work)
@@ -482,13 +476,9 @@
         call dbintk(ps,qpsi  ,tps,nxs,kx,qpsi_coef  ,q,work)
 
         if (efit_dbg) write (*,*) "Finished!"
-        
+
         deallocate(q)
-      
-!     Destroy storage
         
-        deallocate(xs,zs,ps)
-         
       END SUBROUTINE efit_init
 
 !     efit_cleanup
@@ -503,7 +493,9 @@
                   ,pressw,pwprim,dmion,rhovn,STAT=istat)
    
         DEALLOCATE(work,tx,tz,tps,psi_coef,fpol_coef,ffprim_coef,pprime_coef &
-                  ,qpsi_coef,stat=istat)
+                  ,qpsi_coef,pres_coef,stat=istat)
+        
+        deallocate(xs,zs,ps)
 
         IF (istat .ne. 0) STOP 'Deallocation error in efit_cleanup'
 
@@ -1017,7 +1009,7 @@
 
 !     Free work space
 
-        DEALLOCATE(psi,bsub3,stat=istat)
+        DEALLOCATE(psi,bsub3,aa,stat=istat)
         
         call efit_cleanup
 
@@ -1147,9 +1139,9 @@
 
               open(unit=110,file="efit_gschk.bin",form='unformatted',status='unknown')
 
-              call contour(mag1g(1:nxd,1:nyd,1),nxd,nyd,xmin,xmax,ymin,ymax,0,110)
-              call contour(mag2g(1:nxd,1:nyd,1),nxd,nyd,xmin,xmax,ymin,ymax,1,110)
-              call contour(mag3g(1:nxd,1:nyd,1),nxd,nyd,xmin,xmax,ymin,ymax,1,110)
+              call contour(mag1g(1:nxg,1:nyg,1),nxg,nyg,xmin,xmax,ymin,ymax,0,110)
+              call contour(mag2g(1:nxg,1:nyg,1),nxg,nyg,xmin,xmax,ymin,ymax,1,110)
+              call contour(mag3g(1:nxg,1:nyg,1),nxg,nyg,xmin,xmax,ymin,ymax,1,110)
 
               close(110)
            endif

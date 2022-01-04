@@ -194,7 +194,9 @@ c     JxB volume force
 
       if (nc_eom_jxb) then
         cnv = crossProduct(gv%gparams,i,j,k,igx
-     .                    ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
+     $                    ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
+c$$$     $       +bcnv(i,j,k,:)*div(gv%gparams,i,j,k,nx,ny,nz
+c$$$     $                         ,igx,igy,igz,bcnv)
       else
         cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igx,bcnv,bcnv)
       endif
