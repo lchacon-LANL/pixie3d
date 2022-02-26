@@ -195,8 +195,6 @@ c     JxB volume force
       if (nc_eom_jxb) then
         cnv = crossProduct(gv%gparams,i,j,k,igx
      $                    ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
-c$$$     $       +bcnv(i,j,k,:)*div(gv%gparams,i,j,k,nx,ny,nz
-c$$$     $                         ,igx,igy,igz,bcnv)
       else
         cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igx,bcnv,bcnv)
       endif
@@ -397,11 +395,8 @@ c Begin program
               if (nc_eom_jxb) then
                 cnv = 0d0
               else
-                vec1 => bcnv
-                vec2 => bcnv
-                cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
-     .                             ,alt__eom(),eom_jxb_x)
-                nullify(vec1,vec2)
+                cnv = dtnsr_flx_ijk_new(gv%gparams,i,j,k,igr
+     .                                 ,eom_jxb_x_new,v1=bcnv,v2=bcnv)
               endif
 
               flx_x(i+1,j,k,IVX:IVZ) = cnv
@@ -410,11 +405,8 @@ c Begin program
               if (nc_eom_gp) then
                 cnv = 0d0
               else
-                sc1 => rho
-                sc2 => tmp
-                cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
-     .                             ,alt__eom(),eom_grad_p_x)
-                nullify(sc1,sc2)
+                cnv = dtnsr_flx_ijk_new(gv%gparams,i,j,k,igr
+     .                                 ,eom_grad_p_x_new,s1=rho,s2=tmp)
               endif
 
               flx_x(i+1,j,k,IVX:IVZ) = flx_x(i+1,j,k,IVX:IVZ) + cnv
@@ -550,11 +542,8 @@ c Begin program
               if (nc_eom_jxb) then
                 cnv = 0d0
               else
-                vec1 => bcnv
-                vec2 => bcnv
-                cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
-     .                             ,alt__eom(),eom_jxb_y)
-                nullify(vec1,vec2)
+                cnv = dtnsr_flx_ijk_new(gv%gparams,i,j,k,igr
+     .                                 ,eom_jxb_y_new,v1=bcnv,v2=bcnv)
               endif
 
               flx_y(i,j+1,k,IVX:IVZ) = cnv
@@ -563,11 +552,8 @@ c Begin program
               if (nc_eom_gp) then
                 cnv = 0d0
               else
-                sc1 => rho
-                sc2 => tmp
-                cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
-     .                             ,alt__eom(),eom_grad_p_y)
-                nullify(sc1,sc2)
+                cnv = dtnsr_flx_ijk_new(gv%gparams,i,j,k,igr
+     .                                 ,eom_grad_p_y_new,s1=rho,s2=tmp)
               endif
 
               flx_y(i,j+1,k,IVX:IVZ) = flx_y(i,j+1,k,IVX:IVZ) + cnv
@@ -702,11 +688,8 @@ c Begin program
               if (nc_eom_jxb) then
                 cnv = 0d0
               else
-                vec1 => bcnv
-                vec2 => bcnv
-                cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
-     .                             ,alt__eom(),eom_jxb_z)
-                nullify(vec1,vec2)
+                cnv = dtnsr_flx_ijk_new(gv%gparams,i,j,k,igr
+     .                                 ,eom_jxb_z_new,v1=bcnv,v2=bcnv)
               endif
 
               flx_z(i,j,k+1,IVX:IVZ) = cnv
@@ -715,11 +698,8 @@ c Begin program
               if (nc_eom_gp) then
                 cnv = 0d0
               else
-                sc1 => rho
-                sc2 => tmp
-                cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
-     .                             ,alt__eom(),eom_grad_p_z)
-                nullify(sc1,sc2)
+                cnv = dtnsr_flx_ijk_new(gv%gparams,i,j,k,igr
+     .                                ,eom_grad_p_z_new,s1=rho,s2=tmp)
               endif
 
               flx_z(i,j,k+1,IVX:IVZ) = flx_z(i,j,k+1,IVX:IVZ) + cnv
@@ -887,11 +867,10 @@ c Begin program
      .                    ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
                 if (alt__eom()) cnv(2) = cnv(2)*jac
               else
-                vec1 => bcnv
-                vec2 => bcnv
-                cnv = -dtnsr_src_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
-     .                       ,alt__eom(),eom_jxb_x,eom_jxb_y,eom_jxb_z)
-                nullify(vec1,vec2)
+                cnv = -dtnsr_src_ijk_new(gv%gparams,i,j,k,igr
+     .                                  ,eom_jxb_x_new
+     $                                  ,eom_jxb_y_new
+     $                                  ,eom_jxb_z_new,v1=bcnv,v2=bcnv)
               endif
 
               src(i,j,k,IVX:IVZ) = -cnv
@@ -903,12 +882,10 @@ c Begin program
 
                 if (alt__eom()) cnv(2) = cnv(2)*jac
               else
-                sc1 => rho
-                sc2 => tmp
-                cnv = dtnsr_src_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
-     .               ,alt__eom()
-     .               ,eom_grad_nT_x,eom_grad_nT_y,eom_grad_nT_z)
-                nullify(sc1,sc2)
+                cnv = dtnsr_src_ijk_new(gv%gparams,i,j,k,igr
+     .                                 ,eom_grad_nT_x_new
+     $                                 ,eom_grad_nT_y_new
+     $                                 ,eom_grad_nT_z_new,s1=rho,s2=tmp)
               endif
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
