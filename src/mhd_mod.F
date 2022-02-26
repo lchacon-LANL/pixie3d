@@ -2930,7 +2930,7 @@ c     Begin program
      .                                                   ,jcov(i,j,k,:))
         
         !Ion viscosity
-cc        ihs =ihs + viscous_heat_src(g_def,i,j,k,igr,nu,vcnv,vcnv,sym_st)
+        ihs =ihs + viscous_heat_src(g_def,i,j,k,igr,nu,vcnv,vcnv,sym_st)
 
         !Electron viscosity
         !Comment out for old TM Hall MHD performance results
@@ -3314,12 +3314,16 @@ c     Begin program
         project = .false.
         if (PRESENT(proj_parcmp)) project = proj_parcmp
 
-        vec1 => b1
-        vec2 => b2
-        cnv =-div_tensor(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                  ,alt__eom(),eom_jxb_x,eom_jxb_y,eom_jxb_z
-     .                  ,vol=vol)
-        nullify(vec1,vec2)
+c$$$        vec1 => b1
+c$$$        vec2 => b2
+c$$$        cnv =-div_tensor(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid
+c$$$     .                  ,alt__eom(),eom_jxb_x,eom_jxb_y,eom_jxb_z
+c$$$     .                  ,vol=vol)
+c$$$        nullify(vec1,vec2)
+        cnv =-div_tensor_new(g_def,i,j,k,igrid
+     $                      ,eom_jxb_x_new
+     $                      ,eom_jxb_y_new
+     $                      ,eom_jxb_z_new,vol=vol,v1=b1,v2=b2)
 
         !Project out parallel force (destroys conservation)
         if (project) then
@@ -3334,19 +3338,509 @@ c     End program
 
       end function EOM_jxb
 
-c     EOM_jxb_x
+c$$$c     EOM_jxb_x
+c$$$c     #############################################################
+c$$$      subroutine EOM_jxb_x(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+c$$$     .                    ,t11,t12,t13,flag)
+c$$$c     -------------------------------------------------------------
+c$$$c     Calculates tensor components t11-t13 for jxb force term in EOM.
+c$$$c     In the call sequence:
+c$$$c       * i,j,k: grid position
+c$$$c       * nx,ny,nz: grid size
+c$$$c       * igx,igy,igz: grid level (for MG evaluations)
+c$$$c       * alt_eom: whether to use alternate EOM in singular coord.
+c$$$c                  systems or not.
+c$$$c       * t11,t12,t13: tensor components.
+c$$$c       * flag: whether evaluation is a cell center i,j,k (flag=0)
+c$$$c               or at cell face i+1/2,j,k (flag /= 0)
+c$$$c     -------------------------------------------------------------
+c$$$
+c$$$        implicit none
+c$$$
+c$$$c     Call variables
+c$$$
+c$$$        type(grid_mg_def),pointer :: g_def
+c$$$
+c$$$        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
+c$$$        real(8)    :: t11,t12,t13
+c$$$        logical    :: alt_eom
+c$$$
+c$$$c     Local variables
+c$$$
+c$$$        integer    :: ig,jg,kg,ip
+c$$$        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
+c$$$     .               ,car0(3),carp(3),vec1h(3),vec2h(3)
+c$$$        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$        ip = i+1
+c$$$        if (flag == 0) ip = i
+c$$$
+c$$$        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (ip,j,k)
+c$$$     .               +g_def%gmetric%grid(igx)%jac (i ,j,k))
+c$$$        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(ip,j,k,1,:)
+c$$$     .               +g_def%gmetric%grid(igx)%gsup(i ,j,k,1,:))
+c$$$
+c$$$        if (flag /= 0) then
+c$$$          jacp = g_def%gmetric%grid(igx)%jac(ip,j,k)
+c$$$          jac0 = g_def%gmetric%grid(igx)%jac(i ,j,k)
+c$$$        else
+c$$$          jacp = jac
+c$$$          jac0 = jac
+c$$$        endif
+c$$$
+c$$$        if (alt_eom) then
+c$$$          if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) jac=SP_flsv
+c$$$          gsuper(2)
+c$$$     $       = 0.5*(jacp*g_def%gmetric%grid(igx)%gsup(ip,j,k,1,2)
+c$$$     $             +jac0*g_def%gmetric%grid(igx)%gsup(i ,j,k,1,2))/jac
+c$$$        endif
+c$$$        
+c$$$        ijac0 = 1d0/jac0
+c$$$        ijacp = 1d0/jacp
+c$$$
+c$$$        !Magnetic pressure
+c$$$c$$$  ===============================================        
+c$$$        car0 = XformToCar(g_def,i ,j,k,igx,vec1(i ,j,k,:),.false.)
+c$$$        carp = XformToCar(g_def,ip,j,k,igx,vec2(ip,j,k,:),.false.)
+c$$$        pmag = (carp(1)*car0(1)
+c$$$     .         +car0(1)*carp(1)
+c$$$     .         +carp(2)*car0(2)
+c$$$     .         +car0(2)*carp(2)
+c$$$     .         +carp(3)*car0(3)
+c$$$     .         +car0(3)*carp(3))*0.25
+c$$$c$$$  ===============================================        
+c$$$c$$$        cnv0 = vec1(i ,j,k,:)
+c$$$c$$$        cnvp = vec2(ip,j,k,:)
+c$$$c$$$
+c$$$c$$$        cov0 = XformToCov(g_def,i ,j,k,igx,cnv0)
+c$$$c$$$        covp = XformToCov(g_def,ip,j,k,igx,cnvp)
+c$$$c$$$
+c$$$c$$$        cnv0 = cnv0*ijac0
+c$$$c$$$        cnvp = cnvp*ijacp
+c$$$c$$$
+c$$$c$$$        pmag = (cnvp(1)*cov0(1)
+c$$$c$$$     .         +cnv0(1)*covp(1)
+c$$$c$$$     .         +cnvp(2)*cov0(2)
+c$$$c$$$     .         +cnv0(2)*covp(2)
+c$$$c$$$     .         +cnvp(3)*cov0(3)
+c$$$c$$$     .         +cnv0(3)*covp(3))*0.25
+c$$$        
+c$$$        !Assemble tensor
+c$$$c$$$  ===============================================                
+c$$$c$$$        if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
+c$$$c$$$
+c$$$c$$$        coeff = ijacp*ijac0*jac*jac
+c$$$c$$$
+c$$$c$$$        t11 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,1)
+c$$$c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,1))*coeff
+c$$$c$$$     .         +gsuper(1)*pmag*jac)
+c$$$c$$$
+c$$$c$$$        t12 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)
+c$$$c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,2))*coeff
+c$$$c$$$     .         +gsuper(2)*pmag*jac)
+c$$$c$$$
+c$$$c$$$        t13 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)
+c$$$c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,3))*coeff
+c$$$c$$$     .         +gsuper(3)*pmag*jac)
+c$$$c$$$
+c$$$c$$$        if (flag /= 0) then
+c$$$c$$$          ijac = 1d0/jac
+c$$$c$$$
+c$$$c$$$          t11 = t11*ijac
+c$$$c$$$          if (.not.alt_eom) t12 = t12*ijac
+c$$$c$$$          t13 = t13*ijac
+c$$$c$$$        endif
+c$$$c$$$  ===============================================        
+c$$$
+c$$$c$$$  ===============================================        
+c$$$c$$$        coeff = ijacp*ijac0*jac
+c$$$c$$$        t11 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,1)
+c$$$c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,1))*coeff
+c$$$c$$$     .         +gsuper(1)*pmag)
+c$$$c$$$
+c$$$c$$$        t12 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)
+c$$$c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,2))*coeff
+c$$$c$$$     .         +gsuper(2)*pmag)
+c$$$c$$$
+c$$$c$$$        t13 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)
+c$$$c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,3))*coeff
+c$$$c$$$     .         +gsuper(3)*pmag)
+c$$$c$$$  ===============================================        
+c$$$c$$$        vec1h = 0.5*(vec1(i,j,k,:)*ijac0+vec1(ip,j,k,:)*ijacp)
+c$$$c$$$        vec2h = 0.5*(vec2(i,j,k,:)*ijac0+vec2(ip,j,k,:)*ijacp)
+c$$$c$$$        
+c$$$c$$$        t11 = (-vec1h(1)*vec2h(1)*jac+gsuper(1)*pmag)
+c$$$c$$$        t12 = (-vec1h(1)*vec2h(2)*jac+gsuper(2)*pmag)
+c$$$c$$$        t13 = (-vec1h(1)*vec2h(3)*jac+gsuper(3)*pmag)
+c$$$c$$$  ===============================================        
+c$$$        t11 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,1)*ijacp
+c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,1)*ijac0)
+c$$$     .         +gsuper(1)*pmag)
+c$$$
+c$$$        t12 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)*ijacp
+c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,2)*ijac0)
+c$$$     .         +gsuper(2)*pmag)
+c$$$
+c$$$        t13 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)*ijacp
+c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,3)*ijac0)
+c$$$     .         +gsuper(3)*pmag)
+c$$$c$$$  ===============================================        
+c$$$c$$$        t11 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,1)*ijac0*ijacp
+c$$$c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,1)*ijac0*ijacp)*jac
+c$$$c$$$     .         +gsuper(1)*pmag)
+c$$$c$$$
+c$$$c$$$        t12 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)*ijacp
+c$$$c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,2)*ijac0)
+c$$$c$$$     .         +gsuper(2)*pmag)
+c$$$c$$$
+c$$$c$$$        t13 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)*ijac0*ijacp
+c$$$c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,3)*ijacp*ijac0)*jac
+c$$$c$$$     .        +gsuper(3)*pmag)
+c$$$c$$$  ===============================================        
+c$$$c$$$  Constant pressure test
+c$$$c$$$        t11 = (gsuper(1))
+c$$$c$$$        t12 = (gsuper(2))
+c$$$c$$$        t13 = (gsuper(3))
+c$$$c$$$  Constant pressure test
+c$$$
+c$$$        if (flag == 0) then
+c$$$          t11 = t11*jac
+c$$$          t13 = t13*jac
+c$$$        endif
+c$$$        if (flag == 0.or.alt_eom) t12 = t12*jac
+c$$$
+c$$$c     End program
+c$$$
+c$$$      end subroutine EOM_jxb_x
+c$$$
+c$$$c     EOM_jxb_y
+c$$$c     #############################################################
+c$$$      subroutine EOM_jxb_y(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+c$$$     .                    ,t21,t22,t23,flag)
+c$$$c     -------------------------------------------------------------
+c$$$c     Calculates tensor components t21-t23 for jxb force term in EOM.
+c$$$c     In the call sequence:
+c$$$c       * i,j,k: grid position
+c$$$c       * nx,ny,nz: grid size
+c$$$c       * igx,igy,igz: grid level (for MG evaluations)
+c$$$c       * alt_eom: whether to use alternate EOM in singular coord.
+c$$$c                  systems or not.
+c$$$c       * t21,t22,t23: tensor components.
+c$$$c       * flag: whether evaluation is a cell center i,j,k (flag=0)
+c$$$c               or at cell face i+1/2,j,k (flag /= 0)
+c$$$c     -------------------------------------------------------------
+c$$$
+c$$$        implicit none
+c$$$
+c$$$c     Call variables
+c$$$
+c$$$        type(grid_mg_def),pointer :: g_def
+c$$$
+c$$$        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
+c$$$        real(8)    :: t21,t22,t23
+c$$$        logical    :: alt_eom
+c$$$
+c$$$c     Local variables
+c$$$
+c$$$        integer    :: ig,jg,kg,jp
+c$$$        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
+c$$$     .               ,car0(3),carp(3),vec1h(3),vec2h(3)
+c$$$        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$        jp = j+1
+c$$$        if (flag == 0) jp = j
+c$$$
+c$$$        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,jp,k)
+c$$$     .               +g_def%gmetric%grid(igx)%jac (i,j ,k))
+c$$$        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,jp,k,2,:)
+c$$$     .               +g_def%gmetric%grid(igx)%gsup(i,j ,k,2,:))
+c$$$
+c$$$        if (flag /= 0) then
+c$$$          jacp = g_def%gmetric%grid(igx)%jac(i,jp,k)
+c$$$          jac0 = g_def%gmetric%grid(igx)%jac(i,j ,k)
+c$$$        else
+c$$$          jacp = jac
+c$$$          jac0 = jac
+c$$$        endif
+c$$$
+c$$$        if (alt_eom)
+c$$$     $     gsuper(2)
+c$$$     $       = 0.5*(jacp*g_def%gmetric%grid(igx)%gsup(i,jp,k,2,2)
+c$$$     $             +jac0*g_def%gmetric%grid(igx)%gsup(i,j ,k,2,2))/jac
+c$$$
+c$$$        ijac0 = 1d0/jac0
+c$$$        ijacp = 1d0/jacp
+c$$$
+c$$$        !Magnetic pressure
+c$$$c$$$  ===============================================        
+c$$$        car0 = XformToCar(g_def,i,j ,k,igx,vec1(i,j ,k,:),.false.)
+c$$$        carp = XformToCar(g_def,i,jp,k,igx,vec2(i,jp,k,:),.false.)
+c$$$        pmag = (carp(1)*car0(1)
+c$$$     .         +car0(1)*carp(1)
+c$$$     .         +carp(2)*car0(2)
+c$$$     .         +car0(2)*carp(2)
+c$$$     .         +carp(3)*car0(3)
+c$$$     .         +car0(3)*carp(3))*0.25
+c$$$c$$$  ===============================================        
+c$$$c$$$        cnv0 = vec1(i,j ,k,:)
+c$$$c$$$        cnvp = vec2(i,jp,k,:)
+c$$$c$$$
+c$$$c$$$        cov0 = XformToCov(g_def,i,j ,k,igx,cnv0)
+c$$$c$$$        covp = XformToCov(g_def,i,jp,k,igx,cnvp)
+c$$$c$$$
+c$$$c$$$        cnv0 = cnv0*ijac0
+c$$$c$$$        cnvp = cnvp*ijacp
+c$$$c$$$
+c$$$c$$$        pmag = (cnvp(1)*cov0(1)
+c$$$c$$$     .         +cnv0(1)*covp(1)
+c$$$c$$$     .         +cnvp(2)*cov0(2)
+c$$$c$$$     .         +cnv0(2)*covp(2)
+c$$$c$$$     .         +cnvp(3)*cov0(3)
+c$$$c$$$     .         +cnv0(3)*covp(3))*0.25
+c$$$
+c$$$        !Assemble tensor
+c$$$c$$$  ===============================================                
+c$$$c$$$        coeff = ijacp*ijac0*jac*jac
+c$$$c$$$
+c$$$c$$$        t21 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)      
+c$$$c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,1) )*coeff
+c$$$c$$$     .         +gsuper(1)*pmag*jac)
+c$$$c$$$
+c$$$c$$$        t22 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,2)      
+c$$$c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,2) )*coeff
+c$$$c$$$     .         +gsuper(2)*pmag*jac)
+c$$$c$$$
+c$$$c$$$        t23 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)
+c$$$c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,3) )*coeff
+c$$$c$$$     .         +gsuper(3)*pmag*jac)
+c$$$c$$$
+c$$$c$$$        if (flag /= 0) then
+c$$$c$$$          ijac = 1d0/jac
+c$$$c$$$
+c$$$c$$$          t21 = t21*ijac
+c$$$c$$$          if (.not.alt_eom) t22 = t22*ijac
+c$$$c$$$          t23 = t23*ijac
+c$$$c$$$        endif
+c$$$c$$$  ===============================================        
+c$$$
+c$$$c$$$  ===============================================        
+c$$$c$$$        coeff = ijacp*ijac0*jac
+c$$$c$$$        t21 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)      
+c$$$c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,1) )*coeff
+c$$$c$$$     .         +gsuper(1)*pmag)
+c$$$c$$$
+c$$$c$$$        t22 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,2)      
+c$$$c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,2) )*coeff
+c$$$c$$$     .         +gsuper(2)*pmag)
+c$$$c$$$
+c$$$c$$$        t23 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)
+c$$$c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,3) )*coeff
+c$$$c$$$     .         +gsuper(3)*pmag)
+c$$$c$$$  ===============================================        
+c$$$c$$$        vec1h = 0.5*(vec1(i,j,k,:)*ijac0+vec1(i,jp,k,:)*ijacp)
+c$$$c$$$        vec2h = 0.5*(vec2(i,j,k,:)*ijac0+vec2(i,jp,k,:)*ijacp)
+c$$$c$$$
+c$$$c$$$        t21 = (-vec1h(2)*vec2h(1)*jac+gsuper(1)*pmag)
+c$$$c$$$        t22 = (-vec1h(2)*vec2h(2)*jac+gsuper(2)*pmag)
+c$$$c$$$        t23 = (-vec1h(2)*vec2h(3)*jac+gsuper(3)*pmag)
+c$$$c$$$  ===============================================        
+c$$$        t21 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)*ijacp      
+c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,1)*ijac0 )
+c$$$     .         +gsuper(1)*pmag)
+c$$$
+c$$$        t22 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,2)*ijacp  
+c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,2)*ijac0 )
+c$$$     .         +gsuper(2)*pmag)
+c$$$
+c$$$        t23 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)*ijacp
+c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,3)*ijac0 )
+c$$$     .         +gsuper(3)*pmag)
+c$$$c$$$  ===============================================                
+c$$$c$$$  Constant pressure test
+c$$$c$$$        t21 = (gsuper(1))
+c$$$c$$$        t22 = (gsuper(2))
+c$$$c$$$        t23 = (gsuper(3))
+c$$$c$$$  Constant pressure test
+c$$$
+c$$$        if (flag == 0) then
+c$$$          t21 = t21*jac
+c$$$          t23 = t23*jac
+c$$$        endif
+c$$$        if (flag == 0.or.alt_eom) t22 = t22*jac
+c$$$
+c$$$c     End program
+c$$$
+c$$$      end subroutine EOM_jxb_y
+c$$$
+c$$$c     EOM_jxb_z
+c$$$c     #############################################################
+c$$$      subroutine EOM_jxb_z(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+c$$$     .                    ,t31,t32,t33,flag)
+c$$$c     -------------------------------------------------------------
+c$$$c     Calculates tensor components t31-t33 for jxb force term in EOM.
+c$$$c     In the call sequence:
+c$$$c       * i,j,k: grid position
+c$$$c       * nx,ny,nz: grid size
+c$$$c       * igx,igy,igz: grid level (for MG evaluations)
+c$$$c       * alt_eom: whether to use alternate EOM in singular coord.
+c$$$c                  systems or not.
+c$$$c       * t31,t32,t33: tensor components.
+c$$$c       * flag: whether evaluation is a cell center i,j,k (flag=0)
+c$$$c               or at cell face i+1/2,j,k (flag /= 0)
+c$$$c     -------------------------------------------------------------
+c$$$
+c$$$        implicit none
+c$$$
+c$$$c     Call variables
+c$$$
+c$$$        type(grid_mg_def),pointer :: g_def
+c$$$
+c$$$        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
+c$$$        real(8)    :: t31,t32,t33
+c$$$        logical    :: alt_eom
+c$$$
+c$$$c     Local variables
+c$$$
+c$$$        integer    :: ig,jg,kg,kp
+c$$$        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
+c$$$     .               ,car0(3),carp(3)
+c$$$        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$        kp = k+1
+c$$$        if (flag == 0) kp = k
+c$$$
+c$$$        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,j,kp)
+c$$$     .               +g_def%gmetric%grid(igx)%jac (i,j,k ))
+c$$$        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,j,kp,3,:)
+c$$$     .               +g_def%gmetric%grid(igx)%gsup(i,j,k ,3,:))
+c$$$
+c$$$        if (flag /= 0) then
+c$$$          jacp = g_def%gmetric%grid(igx)%jac(i,j,kp)
+c$$$          jac0 = g_def%gmetric%grid(igx)%jac(i,j,k )
+c$$$        else
+c$$$          jacp = jac
+c$$$          jac0 = jac
+c$$$        endif
+c$$$
+c$$$        if (alt_eom)
+c$$$     $     gsuper(2)
+c$$$     $       = 0.5*(jacp*g_def%gmetric%grid(igx)%gsup(i,j,kp,3,2)
+c$$$     $             +jac0*g_def%gmetric%grid(igx)%gsup(i,j,k ,3,2))/jac
+c$$$        
+c$$$        ijac0 = 1d0/jac0
+c$$$        ijacp = 1d0/jacp
+c$$$
+c$$$        !Magnetic pressure
+c$$$c$$$  ===============================================        
+c$$$        car0 = XformToCar(g_def,i,j,k ,igx,vec1(i,j,k ,:),.false.)
+c$$$        carp = XformToCar(g_def,i,j,kp,igx,vec2(i,j,kp,:),.false.)
+c$$$        pmag = (carp(1)*car0(1)
+c$$$     .         +car0(1)*carp(1)
+c$$$     .         +carp(2)*car0(2)
+c$$$     .         +car0(2)*carp(2)
+c$$$     .         +carp(3)*car0(3)
+c$$$     .         +car0(3)*carp(3))*0.25
+c$$$c$$$  ===============================================        
+c$$$c$$$        cnv0 = vec1(i,j,k ,:)
+c$$$c$$$        cnvp = vec2(i,j,kp,:)
+c$$$c$$$
+c$$$c$$$        cov0 = XformToCov(g_def,i,j,k ,igx,cnv0)
+c$$$c$$$        covp = XformToCov(g_def,i,j,kp,igx,cnvp)
+c$$$c$$$
+c$$$c$$$        cnv0 = cnv0*ijac0
+c$$$c$$$        cnvp = cnvp*ijacp
+c$$$c$$$
+c$$$c$$$        pmag = (cnvp(1)*cov0(1)
+c$$$c$$$     .         +cnv0(1)*covp(1)
+c$$$c$$$     .         +cnvp(2)*cov0(2)
+c$$$c$$$     .         +cnv0(2)*covp(2)
+c$$$c$$$     .         +cnvp(3)*cov0(3)
+c$$$c$$$     .         +cnv0(3)*covp(3))*0.25
+c$$$
+c$$$        !Assemble tensor
+c$$$c$$$  ===============================================                
+c$$$c$$$        coeff = ijacp*ijac0*jac*jac
+c$$$c$$$
+c$$$c$$$        t31 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)
+c$$$c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,1) )*coeff
+c$$$c$$$     .         +gsuper(1)*pmag*jac)
+c$$$c$$$
+c$$$c$$$        t32 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,2)      
+c$$$c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,2) )*coeff
+c$$$c$$$     .         +gsuper(2)*pmag*jac)
+c$$$c$$$
+c$$$c$$$        t33 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,3)
+c$$$c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,3) )*coeff
+c$$$c$$$     .         +gsuper(3)*pmag*jac)
+c$$$c$$$
+c$$$c$$$        if (flag /= 0) then
+c$$$c$$$          ijac = 1d0/jac
+c$$$c$$$
+c$$$c$$$          t31 = t31*ijac
+c$$$c$$$          if (.not.alt_eom) t32 = t32*ijac
+c$$$c$$$          t33 = t33*ijac
+c$$$c$$$        endif
+c$$$c$$$  ===============================================
+c$$$
+c$$$c$$$  ===============================================                
+c$$$c$$$        coeff = ijacp*ijac0*jac
+c$$$c$$$        t31 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)
+c$$$c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,1) )*coeff
+c$$$c$$$     .         +gsuper(1)*pmag)
+c$$$c$$$
+c$$$c$$$        t32 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,2)      
+c$$$c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,2) )*coeff
+c$$$c$$$     .         +gsuper(2)*pmag)
+c$$$c$$$
+c$$$c$$$        t33 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,3)
+c$$$c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,3) )*coeff
+c$$$c$$$     .         +gsuper(3)*pmag)
+c$$$c$$$  ===============================================                
+c$$$        t31 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)*ijacp
+c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,1)*ijac0 )
+c$$$     .         +gsuper(1)*pmag)                          
+c$$$                                                         
+c$$$        t32 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,2)*ijacp  
+c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,2)*ijac0 )
+c$$$     .         +gsuper(2)*pmag)                          
+c$$$                                                         
+c$$$        t33 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,3)*ijacp
+c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,3)*ijac0 )
+c$$$     .         +gsuper(3)*pmag)
+c$$$c$$$  ===============================================                
+c$$$
+c$$$c$$$  Constant pressure test
+c$$$c$$$        t31 = (gsuper(1))
+c$$$c$$$        t32 = (gsuper(2))
+c$$$c$$$        t33 = (gsuper(3))
+c$$$c$$$  Constant pressure test
+c$$$ 
+c$$$        if (flag == 0) then
+c$$$          t31 = t31*jac
+c$$$          t33 = t33*jac
+c$$$        endif
+c$$$        if (flag == 0.or.alt_eom) t32 = t32*jac
+c$$$
+c$$$c     End program
+c$$$
+c$$$      end subroutine EOM_jxb_z
+
+c     EOM_jxb_x_new
 c     #############################################################
-      subroutine EOM_jxb_x(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                    ,t11,t12,t13,flag)
+      subroutine EOM_jxb_x_new(g_def,i,j,k,igr,flx1,flag)
 c     -------------------------------------------------------------
 c     Calculates tensor components t11-t13 for jxb force term in EOM.
 c     In the call sequence:
+c       * g_def: grid definition
 c       * i,j,k: grid position
-c       * nx,ny,nz: grid size
-c       * igx,igy,igz: grid level (for MG evaluations)
-c       * alt_eom: whether to use alternate EOM in singular coord.
-c                  systems or not.
-c       * t11,t12,t13: tensor components.
+c       * igr: grid level (for MG evaluations)
+c       * flx1: tensor fluxes.
 c       * flag: whether evaluation is a cell center i,j,k (flag=0)
 c               or at cell face i+1/2,j,k (flag /= 0)
 c     -------------------------------------------------------------
@@ -3357,44 +3851,48 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
-        real(8)    :: t11,t12,t13
-        logical    :: alt_eom
+        integer    :: i,j,k,flag,igr
+        real(8)    :: flx1(3)
 
 c     Local variables
 
-        integer    :: ig,jg,kg,ip,igr
+        integer    :: ig,jg,kg,ip
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
      .               ,car0(3),carp(3),vec1h(3),vec2h(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
 
 c     Begin program
 
-        igr = igx
-
         ip = i+1
         if (flag == 0) ip = i
 
-        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (ip,j,k)
-     .               +g_def%gmetric%grid(igx)%jac (i ,j,k))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(ip,j,k,1,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i ,j,k,1,:))
+        jac    = 0.5*(g_def%gmetric%grid(igr)%jac (ip,j,k)
+     .               +g_def%gmetric%grid(igr)%jac (i ,j,k))
+        gsuper = 0.5*(g_def%gmetric%grid(igr)%gsup(ip,j,k,1,:)
+     .               +g_def%gmetric%grid(igr)%gsup(i ,j,k,1,:))
 
         if (flag /= 0) then
-          jacp = g_def%gmetric%grid(igx)%jac(ip,j,k)
-          jac0 = g_def%gmetric%grid(igx)%jac(i ,j,k)
+          jacp = g_def%gmetric%grid(igr)%jac(ip,j,k)
+          jac0 = g_def%gmetric%grid(igr)%jac(i ,j,k)
         else
           jacp = jac
           jac0 = jac
         endif
 
+        if (alt__eom()) then
+          if (isSP(g_def,ip,j,k,igr,igr,igr).and.flag /= 0) jac=SP_flsv
+          gsuper(2)
+     $       = 0.5*(jacp*g_def%gmetric%grid(igr)%gsup(ip,j,k,1,2)
+     $             +jac0*g_def%gmetric%grid(igr)%gsup(i ,j,k,1,2))/jac
+        endif
+        
         ijac0 = 1d0/jac0
         ijacp = 1d0/jacp
 
         !Magnetic pressure
 c$$$  ===============================================        
-c$$$        car0 = XformToCar(g_def,i ,j,k,igx,vec1(i ,j,k,:),.false.)
-c$$$        carp = XformToCar(g_def,ip,j,k,igx,vec2(ip,j,k,:),.false.)
+c$$$        car0 = XformToCar(g_def,i ,j,k,igr,vec1(i ,j,k,:),.false.)
+c$$$        carp = XformToCar(g_def,ip,j,k,igr,vec2(ip,j,k,:),.false.)
 c$$$        pmag = (carp(1)*car0(1)
 c$$$     .         +car0(1)*carp(1)
 c$$$     .         +carp(2)*car0(2)
@@ -3405,8 +3903,8 @@ c$$$  ===============================================
         cnv0 = vec1(i ,j,k,:)
         cnvp = vec2(ip,j,k,:)
 
-        cov0 = XformToCov(g_def,i ,j,k,igx,cnv0)
-        covp = XformToCov(g_def,ip,j,k,igx,cnvp)
+        cov0 = XformToCov(g_def,i ,j,k,igr,cnv0)
+        covp = XformToCov(g_def,ip,j,k,igr,cnvp)
 
         cnv0 = cnv0*ijac0
         cnvp = cnvp*ijacp
@@ -3418,92 +3916,43 @@ c$$$  ===============================================
      .         +cnvp(3)*cov0(3)
      .         +cnv0(3)*covp(3))*0.25
         
-        !Assemble tensor
-c$$$  ===============================================                
-c$$$        if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
-c$$$
-c$$$        coeff = ijacp*ijac0*jac**2
-c$$$
-c$$$        t11 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,1)
-c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,1))*coeff
-c$$$     .         +gsuper(1)*pmag*jac)
-c$$$
-c$$$        t12 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)
-c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,2))*coeff
-c$$$     .         +gsuper(2)*pmag*jac)
-c$$$
-c$$$        t13 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)
-c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,3))*coeff
-c$$$     .         +gsuper(3)*pmag*jac)
-c$$$
-c$$$        if (flag /= 0) then
-c$$$          ijac = 1d0/jac
-c$$$
-c$$$          t11 = t11*ijac
-c$$$          if (.not.alt_eom) t12 = t12*ijac
-c$$$          t13 = t13*ijac
-c$$$        endif
-c$$$  ===============================================        
-
+        !Assemble tensor fluxes
 c$$$  ===============================================        
 c$$$        coeff = ijacp*ijac0*jac
-c$$$        t11 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,1)
-c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,1))*coeff
-c$$$     .         +gsuper(1)*pmag)
-c$$$
-c$$$        t12 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)
-c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,2))*coeff
-c$$$     .         +gsuper(2)*pmag)
-c$$$
-c$$$        t13 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)
-c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,3))*coeff
-c$$$     .         +gsuper(3)*pmag)
+c$$$        flx1 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,:)      
+c$$$     .                +vec1(i ,j,k,1)*vec2(ip,j,k,:) )*coeff
+c$$$     .         +gsuper(:)*pmag)
 c$$$  ===============================================        
-c$$$        vec1h = 0.5*(vec1(i,j,k,:)*ijac0+vec1(ip,j,k,:)*ijacp)
-c$$$        vec2h = 0.5*(vec2(i,j,k,:)*ijac0+vec2(ip,j,k,:)*ijacp)
-c$$$        
-c$$$        t11 = (-vec1h(1)*vec2h(1)*jac+gsuper(1)*pmag)
-c$$$        t12 = (-vec1h(1)*vec2h(2)*jac+gsuper(2)*pmag)
-c$$$        t13 = (-vec1h(1)*vec2h(3)*jac+gsuper(3)*pmag)
+        flx1 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,:)*ijacp      
+     .                +vec1(i ,j,k,1)*vec2(ip,j,k,:)*ijac0 )
+     .         +gsuper(:)*pmag)
 c$$$  ===============================================        
-        t11 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,1)*ijac0
-     .               +vec1(i ,j,k,1)*vec2(ip,j,k,1)*ijacp)
-     .         +gsuper(1)*pmag)
-
-        t12 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)*ijac0
-     .               +vec1(i ,j,k,1)*vec2(ip,j,k,2)*ijacp)
-     .         +gsuper(2)*pmag)
-
-        t13 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)*ijac0
-     .               +vec1(i ,j,k,1)*vec2(ip,j,k,3)*ijacp)
-     .         +gsuper(3)*pmag)
-c$$$  ===============================================        
+c$$$  Constant pressure test
+c$$$        flx1 = gsuper
+c$$$  Constant pressure test
 
         if (flag == 0) then
-          t11 = t11*jac
-          if (alt_eom) t12 = t12*jac
-          t13 = t13*jac
+          flx1(1) = flx1(1)*jac
+          flx1(3) = flx1(3)*jac
         endif
+        if (flag == 0.or.alt__eom()) flx1(2) = flx1(2)*jac
 
 c     End program
 
-      end subroutine EOM_jxb_x
+      end subroutine EOM_jxb_x_new
 
-c     EOM_jxb_y
+c     EOM_jxb_y_new
 c     #############################################################
-      subroutine EOM_jxb_y(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                    ,t21,t22,t23,flag)
+      subroutine EOM_jxb_y_new(g_def,i,j,k,igr,flx2,flag)
 c     -------------------------------------------------------------
-c     Calculates tensor components t21-t23 for jxb force term in EOM.
+c     Calculates tensor components t11-t13 for jxb force term in EOM.
 c     In the call sequence:
+c       * g_def: grid definition
 c       * i,j,k: grid position
-c       * nx,ny,nz: grid size
-c       * igx,igy,igz: grid level (for MG evaluations)
-c       * alt_eom: whether to use alternate EOM in singular coord.
-c                  systems or not.
-c       * t21,t22,t23: tensor components.
+c       * igr: grid level (for MG evaluations)
+c       * flx1: tensor fluxes.
 c       * flag: whether evaluation is a cell center i,j,k (flag=0)
-c               or at cell face i+1/2,j,k (flag /= 0)
+c               or at cell face i,j+1/2,k (flag /= 0)
 c     -------------------------------------------------------------
 
         implicit none
@@ -3512,44 +3961,46 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
-        real(8)    :: t21,t22,t23
-        logical    :: alt_eom
+        integer    :: i,j,k,flag,igr
+        real(8)    :: flx2(3)
 
 c     Local variables
 
-        integer    :: ig,jg,kg,jp,igr
+        integer    :: ig,jg,kg,jp
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
      .               ,car0(3),carp(3),vec1h(3),vec2h(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
 
 c     Begin program
 
-        igr = igx
-
         jp = j+1
         if (flag == 0) jp = j
 
-        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,jp,k)
-     .               +g_def%gmetric%grid(igx)%jac (i,j ,k))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,jp,k,2,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i,j ,k,2,:))
+        jac    = 0.5*(g_def%gmetric%grid(igr)%jac (i,jp,k)
+     .               +g_def%gmetric%grid(igr)%jac (i,j ,k))
+        gsuper = 0.5*(g_def%gmetric%grid(igr)%gsup(i,jp,k,2,:)
+     .               +g_def%gmetric%grid(igr)%gsup(i,j ,k,2,:))
 
         if (flag /= 0) then
-          jacp = g_def%gmetric%grid(igx)%jac(i,jp,k)
-          jac0 = g_def%gmetric%grid(igx)%jac(i,j ,k)
+          jacp = g_def%gmetric%grid(igr)%jac(i,jp,k)
+          jac0 = g_def%gmetric%grid(igr)%jac(i,j ,k)
         else
           jacp = jac
           jac0 = jac
         endif
+
+        if (alt__eom())
+     $     gsuper(2)
+     $       = 0.5*(jacp*g_def%gmetric%grid(igr)%gsup(i,jp,k,2,2)
+     $             +jac0*g_def%gmetric%grid(igr)%gsup(i,j ,k,2,2))/jac
 
         ijac0 = 1d0/jac0
         ijacp = 1d0/jacp
 
         !Magnetic pressure
 c$$$  ===============================================        
-c$$$        car0 = XformToCar(g_def,i,j ,k,igx,vec1(i,j ,k,:),.false.)
-c$$$        carp = XformToCar(g_def,i,jp,k,igx,vec2(i,jp,k,:),.false.)
+c$$$        car0 = XformToCar(g_def,i,j ,k,igr,vec1(i,j ,k,:),.false.)
+c$$$        carp = XformToCar(g_def,i,jp,k,igr,vec2(i,jp,k,:),.false.)
 c$$$        pmag = (carp(1)*car0(1)
 c$$$     .         +car0(1)*carp(1)
 c$$$     .         +carp(2)*car0(2)
@@ -3560,8 +4011,8 @@ c$$$  ===============================================
         cnv0 = vec1(i,j ,k,:)
         cnvp = vec2(i,jp,k,:)
 
-        cov0 = XformToCov(g_def,i,j ,k,igx,cnv0)
-        covp = XformToCov(g_def,i,jp,k,igx,cnvp)
+        cov0 = XformToCov(g_def,i,j ,k,igr,cnv0)
+        covp = XformToCov(g_def,i,jp,k,igr,cnvp)
 
         cnv0 = cnv0*ijac0
         cnvp = cnvp*ijacp
@@ -3573,91 +4024,36 @@ c$$$  ===============================================
      .         +cnvp(3)*cov0(3)
      .         +cnv0(3)*covp(3))*0.25
 
-        !Assemble tensor
-c$$$  ===============================================                
-c$$$        coeff = ijacp*ijac0*jac**2
-c$$$
-c$$$        t21 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)      
-c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,1) )*coeff
-c$$$     .         +gsuper(1)*pmag*jac)
-c$$$
-c$$$        t22 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,2)      
-c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,2) )*coeff
-c$$$     .         +gsuper(2)*pmag*jac)
-c$$$
-c$$$        t23 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)
-c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,3) )*coeff
-c$$$     .         +gsuper(3)*pmag*jac)
-c$$$
-c$$$        if (flag /= 0) then
-c$$$          ijac = 1d0/jac
-c$$$
-c$$$          t21 = t21*ijac
-c$$$          if (.not.alt_eom) t22 = t22*ijac
-c$$$          t23 = t23*ijac
-c$$$        endif
-c$$$  ===============================================        
-
-c$$$  ===============================================        
-c$$$        coeff = ijacp*ijac0*jac
-c$$$        t21 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)      
-c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,1) )*coeff
-c$$$     .         +gsuper(1)*pmag)
-c$$$
-c$$$        t22 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,2)      
-c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,2) )*coeff
-c$$$     .         +gsuper(2)*pmag)
-c$$$
-c$$$        t23 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)
-c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,3) )*coeff
-c$$$     .         +gsuper(3)*pmag)
-c$$$  ===============================================        
-c$$$        vec1h = 0.5*(vec1(i,j,k,:)*ijac0+vec1(i,jp,k,:)*ijacp)
-c$$$        vec2h = 0.5*(vec2(i,j,k,:)*ijac0+vec2(i,jp,k,:)*ijacp)
-c$$$
-c$$$        t21 = (-vec1h(2)*vec2h(1)*jac+gsuper(1)*pmag)
-c$$$        t22 = (-vec1h(2)*vec2h(2)*jac+gsuper(2)*pmag)
-c$$$        t23 = (-vec1h(2)*vec2h(3)*jac+gsuper(3)*pmag)
-c$$$  ===============================================        
-        t21 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)*ijac0      
-     .               +vec1(i,j ,k,2)*vec2(i,jp,k,1)*ijacp )
-     .         +gsuper(1)*pmag)
-
-        t22 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,2)*ijac0  
-     .               +vec1(i,j ,k,2)*vec2(i,jp,k,2)*ijacp )
-     .         +gsuper(2)*pmag)
-
-        t23 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)*ijac0
-     .               +vec1(i,j ,k,2)*vec2(i,jp,k,3)*ijacp )
-     .         +gsuper(3)*pmag)
-
-c$$$  ===============================================                
+        !Assemble tensor fluxes
+        flx2 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,:)*ijacp      
+     .                +vec1(i,j ,k,2)*vec2(i,jp,k,:)*ijac0 )
+     .         +gsuper(:)*pmag)
+c$$$  Constant pressure test
+c$$$        flx2 = gsuper
+c$$$  Constant pressure test
 
         if (flag == 0) then
-          t21 = t21*jac
-          if (alt_eom) t22 = t22*jac
-          t23 = t23*jac
+          flx2(1) = flx2(1)*jac
+          flx2(3) = flx2(3)*jac
         endif
+        if (flag == 0.or.alt__eom()) flx2(2) = flx2(2)*jac
 
 c     End program
 
-      end subroutine EOM_jxb_y
+      end subroutine EOM_jxb_y_new
 
-c     EOM_jxb_z
+c     EOM_jxb_z_new
 c     #############################################################
-      subroutine EOM_jxb_z(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                    ,t31,t32,t33,flag)
+      subroutine EOM_jxb_z_new(g_def,i,j,k,igr,flx3,flag)
 c     -------------------------------------------------------------
-c     Calculates tensor components t31-t33 for jxb force term in EOM.
+c     Calculates tensor components t11-t13 for jxb force term in EOM.
 c     In the call sequence:
+c       * g_def: grid definition
 c       * i,j,k: grid position
-c       * nx,ny,nz: grid size
-c       * igx,igy,igz: grid level (for MG evaluations)
-c       * alt_eom: whether to use alternate EOM in singular coord.
-c                  systems or not.
-c       * t31,t32,t33: tensor components.
+c       * igr: grid level (for MG evaluations)
+c       * flx1: tensor fluxes.
 c       * flag: whether evaluation is a cell center i,j,k (flag=0)
-c               or at cell face i+1/2,j,k (flag /= 0)
+c               or at cell face i,j,k+1/2 (flag /= 0)
 c     -------------------------------------------------------------
 
         implicit none
@@ -3666,44 +4062,47 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
-        real(8)    :: t31,t32,t33
+        integer    :: i,j,k,flag,igr
+        real(8)    :: flx3(3)
         logical    :: alt_eom
 
 c     Local variables
 
-        integer    :: ig,jg,kg,kp,igr
+        integer    :: ig,jg,kg,kp
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
      .               ,car0(3),carp(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
 
 c     Begin program
 
-        igr = igx
-
         kp = k+1
         if (flag == 0) kp = k
 
-        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,j,kp)
-     .               +g_def%gmetric%grid(igx)%jac (i,j,k ))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,j,kp,3,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i,j,k ,3,:))
+        jac    = 0.5*(g_def%gmetric%grid(igr)%jac (i,j,kp)
+     .               +g_def%gmetric%grid(igr)%jac (i,j,k ))
+        gsuper = 0.5*(g_def%gmetric%grid(igr)%gsup(i,j,kp,3,:)
+     .               +g_def%gmetric%grid(igr)%gsup(i,j,k ,3,:))
 
         if (flag /= 0) then
-          jacp = g_def%gmetric%grid(igx)%jac(i,j,kp)
-          jac0 = g_def%gmetric%grid(igx)%jac(i,j,k )
+          jacp = g_def%gmetric%grid(igr)%jac(i,j,kp)
+          jac0 = g_def%gmetric%grid(igr)%jac(i,j,k )
         else
           jacp = jac
           jac0 = jac
         endif
 
+        if (alt__eom())
+     $     gsuper(2)
+     $       = 0.5*(jacp*g_def%gmetric%grid(igr)%gsup(i,j,kp,3,2)
+     $             +jac0*g_def%gmetric%grid(igr)%gsup(i,j,k ,3,2))/jac
+        
         ijac0 = 1d0/jac0
         ijacp = 1d0/jacp
 
         !Magnetic pressure
 c$$$  ===============================================        
-c$$$        car0 = XformToCar(g_def,i,j,k ,igx,vec1(i,j,k ,:),.false.)
-c$$$        carp = XformToCar(g_def,i,j,kp,igx,vec2(i,j,kp,:),.false.)
+c$$$        car0 = XformToCar(g_def,i,j,k ,igr,vec1(i,j,k ,:),.false.)
+c$$$        carp = XformToCar(g_def,i,j,kp,igr,vec2(i,j,kp,:),.false.)
 c$$$        pmag = (carp(1)*car0(1)
 c$$$     .         +car0(1)*carp(1)
 c$$$     .         +carp(2)*car0(2)
@@ -3714,8 +4113,8 @@ c$$$  ===============================================
         cnv0 = vec1(i,j,k ,:)
         cnvp = vec2(i,j,kp,:)
 
-        cov0 = XformToCov(g_def,i,j,k ,igx,cnv0)
-        covp = XformToCov(g_def,i,j,kp,igx,cnvp)
+        cov0 = XformToCov(g_def,i,j,k ,igr,cnv0)
+        covp = XformToCov(g_def,i,j,kp,igr,cnvp)
 
         cnv0 = cnv0*ijac0
         cnvp = cnvp*ijacp
@@ -3727,67 +4126,23 @@ c$$$  ===============================================
      .         +cnvp(3)*cov0(3)
      .         +cnv0(3)*covp(3))*0.25
 
-        !Assemble tensor
-c$$$  ===============================================                
-c$$$        coeff = ijacp*ijac0*jac**2
-c$$$
-c$$$        t31 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)
-c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,1) )*coeff
-c$$$     .         +gsuper(1)*pmag*jac)
-c$$$
-c$$$        t32 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,2)      
-c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,2) )*coeff
-c$$$     .         +gsuper(2)*pmag*jac)
-c$$$
-c$$$        t33 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,3)
-c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,3) )*coeff
-c$$$     .         +gsuper(3)*pmag*jac)
-c$$$
-c$$$        if (flag /= 0) then
-c$$$          ijac = 1d0/jac
-c$$$
-c$$$          t31 = t31*ijac
-c$$$          if (.not.alt_eom) t32 = t32*ijac
-c$$$          t33 = t33*ijac
-c$$$        endif
-c$$$  ===============================================
-
-c$$$  ===============================================                
-c$$$        coeff = ijacp*ijac0*jac
-c$$$        t31 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)
-c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,1) )*coeff
-c$$$     .         +gsuper(1)*pmag)
-c$$$
-c$$$        t32 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,2)      
-c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,2) )*coeff
-c$$$     .         +gsuper(2)*pmag)
-c$$$
-c$$$        t33 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,3)
-c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,3) )*coeff
-c$$$     .         +gsuper(3)*pmag)
-c$$$  ===============================================                
-        t31 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)*ijac0
-     .               +vec1(i,j,k ,3)*vec2(i,j,kp,1)*ijacp )
-     .         +gsuper(1)*pmag)                          
-                                                         
-        t32 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,2)*ijac0  
-     .               +vec1(i,j,k ,3)*vec2(i,j,kp,2)*ijacp )
-     .         +gsuper(2)*pmag)                          
-                                                         
-        t33 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,3)*ijac0
-     .               +vec1(i,j,k ,3)*vec2(i,j,kp,3)*ijacp )
-     .         +gsuper(3)*pmag)
-c$$$  ===============================================                
-
+        !Assemble tensor fluxes
+        flx3 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,:)*ijacp
+     .                +vec1(i,j,k ,3)*vec2(i,j,kp,:)*ijac0 )
+     .         +gsuper(:)*pmag)                          
+c$$$  Constant pressure test
+c$$$        flx3 = gsuper
+c$$$  Constant pressure test
+ 
         if (flag == 0) then
-          t31 = t31*jac
-          if (alt_eom) t32 = t32*jac
-          t33 = t33*jac
+          flx3(1) = flx3(1)*jac
+          flx3(3) = flx3(3)*jac
         endif
+        if (flag == 0.or.alt__eom()) flx3(2) = flx3(2)*jac
 
 c     End program
 
-      end subroutine EOM_jxb_z
+      end subroutine EOM_jxb_z_new
 
 c     EOM_gp
 c     ###################################################################
@@ -3807,7 +4162,7 @@ c     Call variables
 
         integer    :: igrid,i,j,k,nx,ny,nz
         real(8)    :: cnv(3)
-        real(8),target :: pp(0:nx+1,0:ny+1,0:nz+1)
+        real(8),pointer,dimension(:,:,:) :: pp
         logical    :: nc_eom_gp
         logical,optional,intent(IN) :: vol
 
@@ -3848,30 +4203,223 @@ c     Begin program
 
           if (vol_wgt) cnv = cnv*g_def%gmetric%grid(igrid)%dvol(i,j,k)
         else
-          sc2 => pp
-          cnv = div_tensor(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt__eom()
-     .                    ,eom_grad_p_x,eom_grad_p_y,eom_grad_p_z
-     .                    ,vol=vol_wgt)
-          nullify(sc2)
+c$$$          sc2 => pp
+c$$$          cnv = div_tensor(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt__eom()
+c$$$     .                    ,eom_grad_p_x,eom_grad_p_y,eom_grad_p_z
+c$$$     .                    ,vol=vol_wgt)
+c$$$          nullify(sc2)
+          cnv = div_tensor_new(g_def,i,j,k,igx
+     .                        ,eom_grad_p_x_new
+     .                        ,eom_grad_p_y_new
+     .                        ,eom_grad_p_z_new
+     .                        ,vol=vol_wgt,s2=pp)
         endif
 
 c     End program
 
       end function EOM_gp
       
-c     EOM_grad_p_x
+c$$$c     EOM_grad_p_x
+c$$$c     #############################################################
+c$$$      subroutine EOM_grad_p_x(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+c$$$     .                       ,t11,t12,t13,flag)
+c$$$c     -------------------------------------------------------------
+c$$$c     Calculates tensor components t11-t13 for force term in EOM.
+c$$$c     In the call sequence:
+c$$$c       * i,j,k: grid position
+c$$$c       * nx,ny,nz: grid size
+c$$$c       * igx,igy,igz: grid level (for MG evaluations)
+c$$$c       * alt_eom: whether to use alternate EOM in singular coord.
+c$$$c                  systems or not.
+c$$$c       * t11,t12,t13: tensor components.
+c$$$c       * flag: whether evaluation is a cell center i,j,k (flag=0)
+c$$$c               or at cell face i+1/2,j,k (flag /= 0)
+c$$$c     -------------------------------------------------------------
+c$$$
+c$$$        implicit none
+c$$$
+c$$$c     Call variables
+c$$$
+c$$$        type(grid_mg_def),pointer :: g_def
+c$$$
+c$$$        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
+c$$$        real(8)    :: t11,t12,t13
+c$$$        logical    :: alt_eom
+c$$$
+c$$$c     Local variables
+c$$$
+c$$$        integer    :: ig,jg,kg,ip,igr
+c$$$        real(8)    :: x,y,z
+c$$$        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,gsuper(3)
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$        igr = igx
+c$$$
+c$$$        ip = i+1
+c$$$        if (flag == 0) ip = i
+c$$$
+c$$$        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (ip,j,k)
+c$$$     .               +g_def%gmetric%grid(igx)%jac (i ,j,k))
+c$$$        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(ip,j,k,1,:)
+c$$$     .               +g_def%gmetric%grid(igx)%gsup(i ,j,k,1,:))
+c$$$
+c$$$        if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
+c$$$
+c$$$        ptot = 0.5*jac*(sc2(i,j,k)+sc2(ip,j,k))
+c$$$
+c$$$        t11 = gsuper(1)*ptot
+c$$$        t12 = gsuper(2)*ptot
+c$$$        t13 = gsuper(3)*ptot
+c$$$
+c$$$        if (flag /= 0) then
+c$$$          ijac = 1d0/jac
+c$$$
+c$$$          t11 = t11*ijac
+c$$$          if (.not.alt_eom) t12 = t12*ijac
+c$$$          t13 = t13*ijac
+c$$$        endif
+c$$$
+c$$$c     End program
+c$$$
+c$$$      end subroutine EOM_grad_p_x
+c$$$
+c$$$c     EOM_grad_p_y
+c$$$c     #############################################################
+c$$$      subroutine EOM_grad_p_y(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+c$$$     .                    ,t21,t22,t23,flag)
+c$$$c     -------------------------------------------------------------
+c$$$c     Calculates tensor components t21-t23 for force term in EOM.
+c$$$c     In the call sequence:
+c$$$c       * i,j,k: grid position
+c$$$c       * nx,ny,nz: grid size
+c$$$c       * igx,igy,igz: grid level (for MG evaluations)
+c$$$c       * alt_eom: whether to use alternate EOM in singular coord.
+c$$$c                  systems or not.
+c$$$c       * t21,t22,t23: tensor components.
+c$$$c       * flag: whether evaluation is a cell center i,j,k (flag=0)
+c$$$c               or at cell face i+1/2,j,k (flag /= 0)
+c$$$c     -------------------------------------------------------------
+c$$$
+c$$$        implicit none
+c$$$
+c$$$c     Call variables
+c$$$
+c$$$        type(grid_mg_def),pointer :: g_def
+c$$$
+c$$$        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
+c$$$        real(8)    :: t21,t22,t23
+c$$$        logical    :: alt_eom
+c$$$
+c$$$c     Local variables
+c$$$
+c$$$        integer    :: ig,jg,kg,jp,igr
+c$$$        real(8)    :: x,y,z
+c$$$        real(8)    :: jac,ijac,ptot,gsuper(3)
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$        igr = igx
+c$$$
+c$$$        jp = j+1
+c$$$        if (flag == 0) jp = j
+c$$$
+c$$$        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,jp,k)
+c$$$     .               +g_def%gmetric%grid(igx)%jac (i,j ,k))
+c$$$        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,jp,k,2,:)
+c$$$     .               +g_def%gmetric%grid(igx)%gsup(i,j ,k,2,:))
+c$$$
+c$$$        ptot = 0.5*jac*(sc2(i,j,k)+sc2(i,jp,k))
+c$$$
+c$$$        t21 = gsuper(1)*ptot
+c$$$        t22 = gsuper(2)*ptot
+c$$$        t23 = gsuper(3)*ptot
+c$$$
+c$$$        if (flag /= 0) then
+c$$$          ijac = 1d0/jac
+c$$$
+c$$$          t21 = t21*ijac
+c$$$          if (.not.alt_eom) t22 = t22*ijac
+c$$$          t23 = t23*ijac
+c$$$        endif
+c$$$
+c$$$c     End program
+c$$$
+c$$$      end subroutine EOM_grad_p_y
+c$$$
+c$$$c     EOM_grad_p_z
+c$$$c     #############################################################
+c$$$      subroutine EOM_grad_p_z(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+c$$$     .                       ,t31,t32,t33,flag)
+c$$$c     -------------------------------------------------------------
+c$$$c     Calculates tensor components t31-t33 for force term in EOM.
+c$$$c     In the call sequence:
+c$$$c       * i,j,k: grid position
+c$$$c       * nx,ny,nz: grid size
+c$$$c       * igx,igy,igz: grid level (for MG evaluations)
+c$$$c       * alt_eom: whether to use alternate EOM in singular coord.
+c$$$c                  systems or not.
+c$$$c       * t31,t32,t33: tensor components.
+c$$$c       * flag: whether evaluation is a cell center i,j,k (flag=0)
+c$$$c               or at cell face i+1/2,j,k (flag /= 0)
+c$$$c     -------------------------------------------------------------
+c$$$
+c$$$        implicit none
+c$$$
+c$$$c     Call variables
+c$$$
+c$$$        type(grid_mg_def),pointer :: g_def
+c$$$
+c$$$        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
+c$$$        real(8)    :: t31,t32,t33
+c$$$        logical    :: alt_eom
+c$$$
+c$$$c     Local variables
+c$$$
+c$$$        integer    :: ig,jg,kg,kp,igr
+c$$$        real(8)    :: x,y,z
+c$$$        real(8)    :: jac,ijac,ptot,gsuper(3)
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$        igr = igx
+c$$$
+c$$$        kp = k+1
+c$$$        if (flag == 0) kp = k
+c$$$
+c$$$        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,j,kp)
+c$$$     .               +g_def%gmetric%grid(igx)%jac (i,j,k ))
+c$$$        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,j,kp,3,:)
+c$$$     .               +g_def%gmetric%grid(igx)%gsup(i,j,k ,3,:))
+c$$$
+c$$$        ptot = 0.5*jac*(sc2(i,j,k)+sc2(i,j,kp))
+c$$$
+c$$$        t31 = gsuper(1)*ptot
+c$$$        t32 = gsuper(2)*ptot
+c$$$        t33 = gsuper(3)*ptot
+c$$$
+c$$$        if (flag /= 0) then
+c$$$          ijac = 1d0/jac
+c$$$
+c$$$          t31 = t31*ijac
+c$$$          if (.not.alt_eom) t32 = t32*ijac
+c$$$          t33 = t33*ijac
+c$$$        endif
+c$$$
+c$$$c     End program
+c$$$
+c$$$      end subroutine EOM_grad_p_z
+
+c     EOM_grad_p_x_new
 c     #############################################################
-      subroutine EOM_grad_p_x(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                       ,t11,t12,t13,flag)
+      subroutine EOM_grad_p_x_new(g_def,i,j,k,igr,flx1,flag)
 c     -------------------------------------------------------------
-c     Calculates tensor components t11-t13 for force term in EOM.
+c     Calculates tensor components t11-t13 for grad_p force term in EOM.
 c     In the call sequence:
+c       * g_def: grid definition
 c       * i,j,k: grid position
-c       * nx,ny,nz: grid size
-c       * igx,igy,igz: grid level (for MG evaluations)
-c       * alt_eom: whether to use alternate EOM in singular coord.
-c                  systems or not.
-c       * t11,t12,t13: tensor components.
+c       * igr: grid level (for MG evaluations)
+c       * flx1: tensor fluxes.
 c       * flag: whether evaluation is a cell center i,j,k (flag=0)
 c               or at cell face i+1/2,j,k (flag /= 0)
 c     -------------------------------------------------------------
@@ -3882,63 +4430,70 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
-        real(8)    :: t11,t12,t13
-        logical    :: alt_eom
+        integer    :: i,j,k,flag,igr
+        real(8)    :: flx1(3)
 
 c     Local variables
 
-        integer    :: ig,jg,kg,ip,igr
-        real(8)    :: x,y,z
-        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,gsuper(3)
+        integer    :: ig,jg,kg,ip
+        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
+     .               ,car0(3),carp(3),vec1h(3),vec2h(3)
+        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,coeff
 
 c     Begin program
-
-        igr = igx
 
         ip = i+1
         if (flag == 0) ip = i
 
-        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (ip,j,k)
-     .               +g_def%gmetric%grid(igx)%jac (i ,j,k))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(ip,j,k,1,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i ,j,k,1,:))
-
-        if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
-
-        ptot = 0.5*jac*(sc2(i,j,k)+sc2(ip,j,k))
-
-        t11 = gsuper(1)*ptot
-        t12 = gsuper(2)*ptot
-        t13 = gsuper(3)*ptot
+        jac    = 0.5*(g_def%gmetric%grid(igr)%jac (ip,j,k)
+     .               +g_def%gmetric%grid(igr)%jac (i ,j,k))
+        gsuper = 0.5*(g_def%gmetric%grid(igr)%gsup(ip,j,k,1,:)
+     .               +g_def%gmetric%grid(igr)%gsup(i ,j,k,1,:))
 
         if (flag /= 0) then
-          ijac = 1d0/jac
-
-          t11 = t11*ijac
-          if (.not.alt_eom) t12 = t12*ijac
-          t13 = t13*ijac
+          jacp = g_def%gmetric%grid(igr)%jac(ip,j,k)
+          jac0 = g_def%gmetric%grid(igr)%jac(i ,j,k)
+        else
+          jacp = jac
+          jac0 = jac
         endif
+
+        if (alt__eom()) then
+          if (isSP(g_def,ip,j,k,igr,igr,igr).and.flag /= 0) jac=SP_flsv
+          gsuper(2)
+     $       = 0.5*(jacp*g_def%gmetric%grid(igr)%gsup(ip,j,k,1,2)
+     $             +jac0*g_def%gmetric%grid(igr)%gsup(i ,j,k,1,2))/jac
+        endif
+        
+        ijac0 = 1d0/jac0
+        ijacp = 1d0/jacp
+
+        !Assemble tensor fluxes
+        ptot = 0.5*(sc2(i,j,k)+sc2(ip,j,k))
+        flx1 = gsuper*ptot
+
+        if (flag == 0) then
+          flx1(1) = flx1(1)*jac
+          flx1(3) = flx1(3)*jac
+        endif
+        if (flag == 0.or.alt__eom()) flx1(2) = flx1(2)*jac
 
 c     End program
 
-      end subroutine EOM_grad_p_x
+      end subroutine EOM_grad_p_x_new
 
-c     EOM_grad_p_y
+c     EOM_grad_p_y_new
 c     #############################################################
-      subroutine EOM_grad_p_y(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                    ,t21,t22,t23,flag)
+      subroutine EOM_grad_p_y_new(g_def,i,j,k,igr,flx2,flag)
 c     -------------------------------------------------------------
-c     Calculates tensor components t21-t23 for force term in EOM.
+c     Calculates tensor components t11-t13 for grad_p force term in EOM.
 c     In the call sequence:
+c       * g_def: grid definition
 c       * i,j,k: grid position
-c       * nx,ny,nz: grid size
-c       * igx,igy,igz: grid level (for MG evaluations)
-c       * alt_eom: whether to use alternate EOM in singular coord.
-c                  systems or not.
-c       * t21,t22,t23: tensor components.
+c       * igr: grid level (for MG evaluations)
+c       * flx1: tensor fluxes.
 c       * flag: whether evaluation is a cell center i,j,k (flag=0)
-c               or at cell face i+1/2,j,k (flag /= 0)
+c               or at cell face i,j+1/2,k (flag /= 0)
 c     -------------------------------------------------------------
 
         implicit none
@@ -3947,61 +4502,68 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
-        real(8)    :: t21,t22,t23
-        logical    :: alt_eom
+        integer    :: i,j,k,flag,igr
+        real(8)    :: flx2(3)
 
 c     Local variables
 
-        integer    :: ig,jg,kg,jp,igr
-        real(8)    :: x,y,z
-        real(8)    :: jac,ijac,ptot,gsuper(3)
+        integer    :: ig,jg,kg,jp
+        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
+     .               ,car0(3),carp(3),vec1h(3),vec2h(3)
+        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,coeff
 
 c     Begin program
-
-        igr = igx
 
         jp = j+1
         if (flag == 0) jp = j
 
-        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,jp,k)
-     .               +g_def%gmetric%grid(igx)%jac (i,j ,k))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,jp,k,2,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i,j ,k,2,:))
-
-        ptot = 0.5*jac*(sc2(i,j,k)+sc2(i,jp,k))
-
-        t21 = gsuper(1)*ptot
-        t22 = gsuper(2)*ptot
-        t23 = gsuper(3)*ptot
+        jac    = 0.5*(g_def%gmetric%grid(igr)%jac (i,jp,k)
+     .               +g_def%gmetric%grid(igr)%jac (i,j ,k))
+        gsuper = 0.5*(g_def%gmetric%grid(igr)%gsup(i,jp,k,2,:)
+     .               +g_def%gmetric%grid(igr)%gsup(i,j ,k,2,:))
 
         if (flag /= 0) then
-          ijac = 1d0/jac
-
-          t21 = t21*ijac
-          if (.not.alt_eom) t22 = t22*ijac
-          t23 = t23*ijac
+          jacp = g_def%gmetric%grid(igr)%jac(i,jp,k)
+          jac0 = g_def%gmetric%grid(igr)%jac(i,j ,k)
+        else
+          jacp = jac
+          jac0 = jac
         endif
+
+        if (alt__eom())
+     $     gsuper(2)
+     $       = 0.5*(jacp*g_def%gmetric%grid(igr)%gsup(i,jp,k,2,2)
+     $             +jac0*g_def%gmetric%grid(igr)%gsup(i,j ,k,2,2))/jac
+
+        ijac0 = 1d0/jac0
+        ijacp = 1d0/jacp
+
+        !Assemble tensor fluxes
+        ptot = 0.5*(sc2(i,j,k)+sc2(i,jp,k))
+        flx2 = gsuper*ptot
+
+        if (flag == 0) then
+          flx2(1) = flx2(1)*jac
+          flx2(3) = flx2(3)*jac
+        endif
+        if (flag == 0.or.alt__eom()) flx2(2) = flx2(2)*jac
 
 c     End program
 
-      end subroutine EOM_grad_p_y
+      end subroutine EOM_grad_p_y_new
 
-c     EOM_grad_p_z
+c     EOM_grad_p_z_new
 c     #############################################################
-      subroutine EOM_grad_p_z(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                       ,t31,t32,t33,flag)
+      subroutine EOM_grad_p_z_new(g_def,i,j,k,igr,flx3,flag)
 c     -------------------------------------------------------------
-c     Calculates tensor components t31-t33 for force term in EOM.
+c     Calculates tensor components t11-t13 for grad_p force term in EOM.
 c     In the call sequence:
+c       * g_def: grid definition
 c       * i,j,k: grid position
-c       * nx,ny,nz: grid size
-c       * igx,igy,igz: grid level (for MG evaluations)
-c       * alt_eom: whether to use alternate EOM in singular coord.
-c                  systems or not.
-c       * t31,t32,t33: tensor components.
+c       * igr: grid level (for MG evaluations)
+c       * flx1: tensor fluxes.
 c       * flag: whether evaluation is a cell center i,j,k (flag=0)
-c               or at cell face i+1/2,j,k (flag /= 0)
+c               or at cell face i,j,k+1/2 (flag /= 0)
 c     -------------------------------------------------------------
 
         implicit none
@@ -4010,45 +4572,56 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
-        real(8)    :: t31,t32,t33
+        integer    :: i,j,k,flag,igr
+        real(8)    :: flx3(3)
         logical    :: alt_eom
 
 c     Local variables
 
-        integer    :: ig,jg,kg,kp,igr
-        real(8)    :: x,y,z
-        real(8)    :: jac,ijac,ptot,gsuper(3)
+        integer    :: ig,jg,kg,kp
+        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
+     .               ,car0(3),carp(3)
+        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,coeff
 
 c     Begin program
-
-        igr = igx
 
         kp = k+1
         if (flag == 0) kp = k
 
-        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,j,kp)
-     .               +g_def%gmetric%grid(igx)%jac (i,j,k ))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,j,kp,3,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i,j,k ,3,:))
-
-        ptot = 0.5*jac*(sc2(i,j,k)+sc2(i,j,kp))
-
-        t31 = gsuper(1)*ptot
-        t32 = gsuper(2)*ptot
-        t33 = gsuper(3)*ptot
+        jac    = 0.5*(g_def%gmetric%grid(igr)%jac (i,j,kp)
+     .               +g_def%gmetric%grid(igr)%jac (i,j,k ))
+        gsuper = 0.5*(g_def%gmetric%grid(igr)%gsup(i,j,kp,3,:)
+     .               +g_def%gmetric%grid(igr)%gsup(i,j,k ,3,:))
 
         if (flag /= 0) then
-          ijac = 1d0/jac
-
-          t31 = t31*ijac
-          if (.not.alt_eom) t32 = t32*ijac
-          t33 = t33*ijac
+          jacp = g_def%gmetric%grid(igr)%jac(i,j,kp)
+          jac0 = g_def%gmetric%grid(igr)%jac(i,j,k )
+        else
+          jacp = jac
+          jac0 = jac
         endif
+
+        if (alt__eom())
+     $     gsuper(2)
+     $       = 0.5*(jacp*g_def%gmetric%grid(igr)%gsup(i,j,kp,3,2)
+     $             +jac0*g_def%gmetric%grid(igr)%gsup(i,j,k ,3,2))/jac
+        
+        ijac0 = 1d0/jac0
+        ijacp = 1d0/jacp
+
+        ptot = 0.5*(sc2(i,j,k)+sc2(i,j,kp))
+
+        flx3 = gsuper*ptot
+ 
+        if (flag == 0) then
+          flx3(1) = flx3(1)*jac
+          flx3(3) = flx3(3)*jac
+        endif
+        if (flag == 0.or.alt__eom()) flx3(2) = flx3(2)*jac
 
 c     End program
 
-      end subroutine EOM_grad_p_z
+      end subroutine EOM_grad_p_z_new
 
 c     EOM_gnT
 c     ###################################################################
@@ -4068,8 +4641,7 @@ c     Call variables
 
         integer    :: igrid,i,j,k,nx,ny,nz
         real(8)    :: cnv(3)
-        real(8),target :: rr(0:nx+1,0:ny+1,0:nz+1)
-     $                   ,tt(0:nx+1,0:ny+1,0:nz+1)
+        real(8),pointer,dimension(:,:,:) :: rr,tt
         logical    :: nc_eom_gp
         logical,optional,intent(IN) :: vol
 
@@ -4117,31 +4689,227 @@ c     Begin program
           if (vol_wgt) cnv = cnv*g_def%gmetric%grid(igrid)%dvol(i,j,k)
 
         else
-          sc1 => rr
-          sc2 => tt
-          cnv = div_tensor(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt__eom()
-     .                    ,eom_grad_nT_x,eom_grad_nT_y,eom_grad_nT_z
-     .                    ,vol=vol_wgt)
-          nullify(sc1,sc2)
+c$$$          sc1 => rr
+c$$$          sc2 => tt
+c$$$          cnv = div_tensor(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt__eom()
+c$$$     .                    ,eom_grad_nT_x,eom_grad_nT_y,eom_grad_nT_z
+c$$$     .                    ,vol=vol_wgt)
+c$$$          nullify(sc1,sc2)
+          cnv = div_tensor_new(g_def,i,j,k,igrid
+     .                        ,eom_grad_nT_x_new
+     $                        ,eom_grad_nT_y_new
+     $                        ,eom_grad_nT_z_new
+     .                        ,vol=vol_wgt,s1=rr,s2=tt)
         endif
 
 c     End program
 
       end function EOM_gnT
 
-c     EOM_grad_nT_x
+c$$$c     EOM_grad_nT_x
+c$$$c     #############################################################
+c$$$      subroutine EOM_grad_nT_x(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+c$$$     .                       ,t11,t12,t13,flag)
+c$$$c     -------------------------------------------------------------
+c$$$c     Calculates tensor components t11-t13 for grad(nT) term in EOM.
+c$$$c     In the call sequence:
+c$$$c       * i,j,k: grid position
+c$$$c       * nx,ny,nz: grid size
+c$$$c       * igx,igy,igz: grid level (for MG evaluations)
+c$$$c       * alt_eom: whether to use alternate EOM in singular coord.
+c$$$c                  systems or not.
+c$$$c       * t11,t12,t13: tensor components.
+c$$$c       * flag: whether evaluation is a cell center i,j,k (flag=0)
+c$$$c               or at cell face i+1/2,j,k (flag /= 0)
+c$$$c     -------------------------------------------------------------
+c$$$
+c$$$        implicit none
+c$$$
+c$$$c     Call variables
+c$$$
+c$$$        type(grid_mg_def),pointer :: g_def
+c$$$
+c$$$        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
+c$$$        real(8)    :: t11,t12,t13
+c$$$        logical    :: alt_eom
+c$$$
+c$$$c     Local variables
+c$$$
+c$$$        integer    :: ig,jg,kg,ip,igr
+c$$$        real(8)    :: x,y,z
+c$$$        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,gsuper(3)
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$        igr = igx
+c$$$
+c$$$        ip = i+1
+c$$$        if (flag == 0) ip = i
+c$$$
+c$$$        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (ip,j,k)
+c$$$     .               +g_def%gmetric%grid(igx)%jac (i ,j,k))
+c$$$        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(ip,j,k,1,:)
+c$$$     .               +g_def%gmetric%grid(igx)%gsup(i ,j,k,1,:))
+c$$$
+c$$$        if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
+c$$$
+c$$$        ptot = 0.5*jac*(sc1(ip,j,k)*sc2(i ,j,k)
+c$$$     .                 +sc1(i ,j,k)*sc2(ip,j,k))
+c$$$
+c$$$        t11 = gsuper(1)*ptot
+c$$$        t12 = gsuper(2)*ptot
+c$$$        t13 = gsuper(3)*ptot
+c$$$
+c$$$        if (flag /= 0) then
+c$$$          ijac = 1d0/jac
+c$$$
+c$$$          t11 = t11*ijac
+c$$$          if (.not.alt_eom) t12 = t12*ijac
+c$$$          t13 = t13*ijac
+c$$$        endif
+c$$$
+c$$$c     End program
+c$$$
+c$$$      end subroutine EOM_grad_nT_x
+c$$$
+c$$$c     EOM_grad_nT_y
+c$$$c     #############################################################
+c$$$      subroutine EOM_grad_nT_y(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+c$$$     .                    ,t21,t22,t23,flag)
+c$$$c     -------------------------------------------------------------
+c$$$c     Calculates tensor components t21-t23 for grad(nT) term in EOM.
+c$$$c     In the call sequence:
+c$$$c       * i,j,k: grid position
+c$$$c       * nx,ny,nz: grid size
+c$$$c       * igx,igy,igz: grid level (for MG evaluations)
+c$$$c       * alt_eom: whether to use alternate EOM in singular coord.
+c$$$c                  systems or not.
+c$$$c       * t21,t22,t23: tensor components.
+c$$$c       * flag: whether evaluation is a cell center i,j,k (flag=0)
+c$$$c               or at cell face i+1/2,j,k (flag /= 0)
+c$$$c     -------------------------------------------------------------
+c$$$
+c$$$        implicit none
+c$$$
+c$$$c     Call variables
+c$$$
+c$$$        type(grid_mg_def),pointer :: g_def
+c$$$
+c$$$        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
+c$$$        real(8)    :: t21,t22,t23
+c$$$        logical    :: alt_eom
+c$$$
+c$$$c     Local variables
+c$$$
+c$$$        integer    :: ig,jg,kg,jp,igr
+c$$$        real(8)    :: x,y,z
+c$$$        real(8)    :: jac,ijac,ptot,gsuper(3)
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$        igr = igx
+c$$$
+c$$$        jp = j+1
+c$$$        if (flag == 0) jp = j
+c$$$
+c$$$        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,jp,k)
+c$$$     .               +g_def%gmetric%grid(igx)%jac (i,j ,k))
+c$$$        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,jp,k,2,:)
+c$$$     .               +g_def%gmetric%grid(igx)%gsup(i,j ,k,2,:))
+c$$$
+c$$$        ptot = 0.5*jac*(sc1(i,jp,k)*sc2(i,j ,k)
+c$$$     .                 +sc1(i,j ,k)*sc2(i,jp,k))
+c$$$
+c$$$        t21 = gsuper(1)*ptot
+c$$$        t22 = gsuper(2)*ptot
+c$$$        t23 = gsuper(3)*ptot
+c$$$
+c$$$        if (flag /= 0) then
+c$$$          ijac = 1d0/jac
+c$$$
+c$$$          t21 = t21*ijac
+c$$$          if (.not.alt_eom) t22 = t22*ijac
+c$$$          t23 = t23*ijac
+c$$$        endif
+c$$$
+c$$$c     End program
+c$$$
+c$$$      end subroutine EOM_grad_nT_y
+c$$$
+c$$$c     EOM_grad_nT_z
+c$$$c     #############################################################
+c$$$      subroutine EOM_grad_nT_z(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+c$$$     .                       ,t31,t32,t33,flag)
+c$$$c     -------------------------------------------------------------
+c$$$c     Calculates tensor components t31-t33 for grad(nT) term in EOM.
+c$$$c     In the call sequence:
+c$$$c       * i,j,k: grid position
+c$$$c       * nx,ny,nz: grid size
+c$$$c       * igx,igy,igz: grid level (for MG evaluations)
+c$$$c       * alt_eom: whether to use alternate EOM in singular coord.
+c$$$c                  systems or not.
+c$$$c       * t31,t32,t33: tensor components.
+c$$$c       * flag: whether evaluation is a cell center i,j,k (flag=0)
+c$$$c               or at cell face i+1/2,j,k (flag /= 0)
+c$$$c     -------------------------------------------------------------
+c$$$
+c$$$        implicit none
+c$$$
+c$$$c     Call variables
+c$$$
+c$$$        type(grid_mg_def),pointer :: g_def
+c$$$
+c$$$        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
+c$$$        real(8)    :: t31,t32,t33
+c$$$        logical    :: alt_eom
+c$$$
+c$$$c     Local variables
+c$$$
+c$$$        integer    :: ig,jg,kg,kp,igr
+c$$$        real(8)    :: x,y,z
+c$$$        real(8)    :: jac,ijac,ptot,gsuper(3)
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$        igr = igx
+c$$$
+c$$$        kp = k+1
+c$$$        if (flag == 0) kp = k
+c$$$
+c$$$        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,j,kp)
+c$$$     .               +g_def%gmetric%grid(igx)%jac (i,j,k ))
+c$$$        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,j,kp,3,:)
+c$$$     .               +g_def%gmetric%grid(igx)%gsup(i,j,k ,3,:))
+c$$$
+c$$$        ptot = 0.5*jac*(sc1(i,j,kp)*sc2(i,j,k )
+c$$$     .                 +sc1(i,j,k )*sc2(i,j,kp))
+c$$$
+c$$$        t31 = gsuper(1)*ptot
+c$$$        t32 = gsuper(2)*ptot
+c$$$        t33 = gsuper(3)*ptot
+c$$$
+c$$$        if (flag /= 0) then
+c$$$          ijac = 1d0/jac
+c$$$
+c$$$          t31 = t31*ijac
+c$$$          if (.not.alt_eom) t32 = t32*ijac
+c$$$          t33 = t33*ijac
+c$$$        endif
+c$$$
+c$$$c     End program
+c$$$
+c$$$      end subroutine EOM_grad_nT_z
+
+c     EOM_grad_nT_x_new
 c     #############################################################
-      subroutine EOM_grad_nT_x(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                       ,t11,t12,t13,flag)
+      subroutine EOM_grad_nT_x_new(g_def,i,j,k,igr,flx1,flag)
 c     -------------------------------------------------------------
-c     Calculates tensor components t11-t13 for grad(nT) term in EOM.
+c     Calculates tensor components t11-t13 for grad_nT force term in EOM.
 c     In the call sequence:
+c       * g_def: grid definition
 c       * i,j,k: grid position
-c       * nx,ny,nz: grid size
-c       * igx,igy,igz: grid level (for MG evaluations)
-c       * alt_eom: whether to use alternate EOM in singular coord.
-c                  systems or not.
-c       * t11,t12,t13: tensor components.
+c       * igr: grid level (for MG evaluations)
+c       * flx1: tensor fluxes.
 c       * flag: whether evaluation is a cell center i,j,k (flag=0)
 c               or at cell face i+1/2,j,k (flag /= 0)
 c     -------------------------------------------------------------
@@ -4152,64 +4920,71 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
-        real(8)    :: t11,t12,t13
-        logical    :: alt_eom
+        integer    :: i,j,k,flag,igr
+        real(8)    :: flx1(3)
 
 c     Local variables
 
-        integer    :: ig,jg,kg,ip,igr
-        real(8)    :: x,y,z
-        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,gsuper(3)
+        integer    :: ig,jg,kg,ip
+        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
+     .               ,car0(3),carp(3),vec1h(3),vec2h(3)
+        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,coeff
 
 c     Begin program
-
-        igr = igx
 
         ip = i+1
         if (flag == 0) ip = i
 
-        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (ip,j,k)
-     .               +g_def%gmetric%grid(igx)%jac (i ,j,k))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(ip,j,k,1,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i ,j,k,1,:))
-
-        if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
-
-        ptot = 0.5*jac*(sc1(ip,j,k)*sc2(i ,j,k)
-     .                 +sc1(i ,j,k)*sc2(ip,j,k))
-
-        t11 = gsuper(1)*ptot
-        t12 = gsuper(2)*ptot
-        t13 = gsuper(3)*ptot
+        jac    = 0.5*(g_def%gmetric%grid(igr)%jac (ip,j,k)
+     .               +g_def%gmetric%grid(igr)%jac (i ,j,k))
+        gsuper = 0.5*(g_def%gmetric%grid(igr)%gsup(ip,j,k,1,:)
+     .               +g_def%gmetric%grid(igr)%gsup(i ,j,k,1,:))
 
         if (flag /= 0) then
-          ijac = 1d0/jac
-
-          t11 = t11*ijac
-          if (.not.alt_eom) t12 = t12*ijac
-          t13 = t13*ijac
+          jacp = g_def%gmetric%grid(igr)%jac(ip,j,k)
+          jac0 = g_def%gmetric%grid(igr)%jac(i ,j,k)
+        else
+          jacp = jac
+          jac0 = jac
         endif
+
+        if (alt__eom()) then
+          if (isSP(g_def,ip,j,k,igr,igr,igr).and.flag /= 0) jac=SP_flsv
+          gsuper(2)
+     $       = 0.5*(jacp*g_def%gmetric%grid(igr)%gsup(ip,j,k,1,2)
+     $             +jac0*g_def%gmetric%grid(igr)%gsup(i ,j,k,1,2))/jac
+        endif
+        
+        ijac0 = 1d0/jac0
+        ijacp = 1d0/jacp
+
+        !Assemble tensor fluxes
+        ptot = 0.5*(sc1(ip,j,k)*sc2(i ,j,k)
+     .             +sc1(i ,j,k)*sc2(ip,j,k))
+        flx1 = gsuper*ptot
+
+        if (flag == 0) then
+          flx1(1) = flx1(1)*jac
+          flx1(3) = flx1(3)*jac
+        endif
+        if (flag == 0.or.alt__eom()) flx1(2) = flx1(2)*jac
 
 c     End program
 
-      end subroutine EOM_grad_nT_x
+      end subroutine EOM_grad_nT_x_new
 
-c     EOM_grad_nT_y
+c     EOM_grad_nT_y_new
 c     #############################################################
-      subroutine EOM_grad_nT_y(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                    ,t21,t22,t23,flag)
+      subroutine EOM_grad_nT_y_new(g_def,i,j,k,igr,flx2,flag)
 c     -------------------------------------------------------------
-c     Calculates tensor components t21-t23 for grad(nT) term in EOM.
+c     Calculates tensor components t11-t13 for grad_nT force term in EOM.
 c     In the call sequence:
+c       * g_def: grid definition
 c       * i,j,k: grid position
-c       * nx,ny,nz: grid size
-c       * igx,igy,igz: grid level (for MG evaluations)
-c       * alt_eom: whether to use alternate EOM in singular coord.
-c                  systems or not.
-c       * t21,t22,t23: tensor components.
+c       * igr: grid level (for MG evaluations)
+c       * flx1: tensor fluxes.
 c       * flag: whether evaluation is a cell center i,j,k (flag=0)
-c               or at cell face i+1/2,j,k (flag /= 0)
+c               or at cell face i,j+1/2,k (flag /= 0)
 c     -------------------------------------------------------------
 
         implicit none
@@ -4218,62 +4993,69 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
-        real(8)    :: t21,t22,t23
-        logical    :: alt_eom
+        integer    :: i,j,k,flag,igr
+        real(8)    :: flx2(3)
 
 c     Local variables
 
-        integer    :: ig,jg,kg,jp,igr
-        real(8)    :: x,y,z
-        real(8)    :: jac,ijac,ptot,gsuper(3)
+        integer    :: ig,jg,kg,jp
+        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
+     .               ,car0(3),carp(3),vec1h(3),vec2h(3)
+        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,coeff
 
 c     Begin program
-
-        igr = igx
 
         jp = j+1
         if (flag == 0) jp = j
 
-        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,jp,k)
-     .               +g_def%gmetric%grid(igx)%jac (i,j ,k))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,jp,k,2,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i,j ,k,2,:))
-
-        ptot = 0.5*jac*(sc1(i,jp,k)*sc2(i,j ,k)
-     .                 +sc1(i,j ,k)*sc2(i,jp,k))
-
-        t21 = gsuper(1)*ptot
-        t22 = gsuper(2)*ptot
-        t23 = gsuper(3)*ptot
+        jac    = 0.5*(g_def%gmetric%grid(igr)%jac (i,jp,k)
+     .               +g_def%gmetric%grid(igr)%jac (i,j ,k))
+        gsuper = 0.5*(g_def%gmetric%grid(igr)%gsup(i,jp,k,2,:)
+     .               +g_def%gmetric%grid(igr)%gsup(i,j ,k,2,:))
 
         if (flag /= 0) then
-          ijac = 1d0/jac
-
-          t21 = t21*ijac
-          if (.not.alt_eom) t22 = t22*ijac
-          t23 = t23*ijac
+          jacp = g_def%gmetric%grid(igr)%jac(i,jp,k)
+          jac0 = g_def%gmetric%grid(igr)%jac(i,j ,k)
+        else
+          jacp = jac
+          jac0 = jac
         endif
+
+        if (alt__eom())
+     $     gsuper(2)
+     $       = 0.5*(jacp*g_def%gmetric%grid(igr)%gsup(i,jp,k,2,2)
+     $             +jac0*g_def%gmetric%grid(igr)%gsup(i,j ,k,2,2))/jac
+
+        ijac0 = 1d0/jac0
+        ijacp = 1d0/jacp
+
+        !Assemble tensor fluxes
+        ptot = 0.5*(sc1(i,jp,k)*sc2(i,j ,k)
+     .             +sc1(i,j ,k)*sc2(i,jp,k))
+        flx2 = gsuper*ptot
+
+        if (flag == 0) then
+          flx2(1) = flx2(1)*jac
+          flx2(3) = flx2(3)*jac
+        endif
+        if (flag == 0.or.alt__eom()) flx2(2) = flx2(2)*jac
 
 c     End program
 
-      end subroutine EOM_grad_nT_y
+      end subroutine EOM_grad_nT_y_new
 
-c     EOM_grad_nT_z
+c     EOM_grad_nT_z_new
 c     #############################################################
-      subroutine EOM_grad_nT_z(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                       ,t31,t32,t33,flag)
+      subroutine EOM_grad_nT_z_new(g_def,i,j,k,igr,flx3,flag)
 c     -------------------------------------------------------------
-c     Calculates tensor components t31-t33 for grad(nT) term in EOM.
+c     Calculates tensor components t11-t13 for grad_nT force term in EOM.
 c     In the call sequence:
+c       * g_def: grid definition
 c       * i,j,k: grid position
-c       * nx,ny,nz: grid size
-c       * igx,igy,igz: grid level (for MG evaluations)
-c       * alt_eom: whether to use alternate EOM in singular coord.
-c                  systems or not.
-c       * t31,t32,t33: tensor components.
+c       * igr: grid level (for MG evaluations)
+c       * flx1: tensor fluxes.
 c       * flag: whether evaluation is a cell center i,j,k (flag=0)
-c               or at cell face i+1/2,j,k (flag /= 0)
+c               or at cell face i,j,k+1/2 (flag /= 0)
 c     -------------------------------------------------------------
 
         implicit none
@@ -4282,46 +5064,57 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
-        real(8)    :: t31,t32,t33
+        integer    :: i,j,k,flag,igr
+        real(8)    :: flx3(3)
         logical    :: alt_eom
 
 c     Local variables
 
-        integer    :: ig,jg,kg,kp,igr
-        real(8)    :: x,y,z
-        real(8)    :: jac,ijac,ptot,gsuper(3)
+        integer    :: ig,jg,kg,kp
+        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
+     .               ,car0(3),carp(3)
+        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,coeff
 
 c     Begin program
-
-        igr = igx
 
         kp = k+1
         if (flag == 0) kp = k
 
-        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,j,kp)
-     .               +g_def%gmetric%grid(igx)%jac (i,j,k ))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,j,kp,3,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i,j,k ,3,:))
-
-        ptot = 0.5*jac*(sc1(i,j,kp)*sc2(i,j,k )
-     .                 +sc1(i,j,k )*sc2(i,j,kp))
-
-        t31 = gsuper(1)*ptot
-        t32 = gsuper(2)*ptot
-        t33 = gsuper(3)*ptot
+        jac    = 0.5*(g_def%gmetric%grid(igr)%jac (i,j,kp)
+     .               +g_def%gmetric%grid(igr)%jac (i,j,k ))
+        gsuper = 0.5*(g_def%gmetric%grid(igr)%gsup(i,j,kp,3,:)
+     .               +g_def%gmetric%grid(igr)%gsup(i,j,k ,3,:))
 
         if (flag /= 0) then
-          ijac = 1d0/jac
-
-          t31 = t31*ijac
-          if (.not.alt_eom) t32 = t32*ijac
-          t33 = t33*ijac
+          jacp = g_def%gmetric%grid(igr)%jac(i,j,kp)
+          jac0 = g_def%gmetric%grid(igr)%jac(i,j,k )
+        else
+          jacp = jac
+          jac0 = jac
         endif
+
+        if (alt__eom())
+     $     gsuper(2)
+     $       = 0.5*(jacp*g_def%gmetric%grid(igr)%gsup(i,j,kp,3,2)
+     $             +jac0*g_def%gmetric%grid(igr)%gsup(i,j,k ,3,2))/jac
+        
+        ijac0 = 1d0/jac0
+        ijacp = 1d0/jacp
+
+        ptot = 0.5*(sc1(i,j,kp)*sc2(i,j,k )
+     .             +sc1(i,j,k )*sc2(i,j,kp))
+
+        flx3 = gsuper*ptot
+ 
+        if (flag == 0) then
+          flx3(1) = flx3(1)*jac
+          flx3(3) = flx3(3)*jac
+        endif
+        if (flag == 0.or.alt__eom()) flx3(2) = flx3(2)*jac
 
 c     End program
 
-      end subroutine EOM_grad_nT_z
+      end subroutine EOM_grad_nT_z_new
 
 c     EOM_diff_x
 c     #############################################################

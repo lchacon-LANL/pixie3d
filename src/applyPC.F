@@ -1315,6 +1315,7 @@ c Local variables
       integer    :: i,j,k,ii,isig,iig,ivar,ip,im,nx,ny,nz
       real(8)    :: cov(3),cnv(3),idx,idy,idz,dvol,nabla_v(3,3)
      .             ,nabla_vv0(3,3),mul,vlap(3),advc(3),jac
+      real(8),pointer,dimension(:,:,:)   :: d_prs
       real(8),pointer,dimension(:,:,:,:) :: dj_cnv
      .                                     ,dj_cov
      .                                     ,db_cnv
@@ -1376,6 +1377,7 @@ c Allocate variables
      .        ,dE_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,drho  (0:nx+1,0:ny+1,0:nz+1,1)
      .        ,dprs  (0:nx+1,0:ny+1,0:nz+1,1)
+     .        ,d_prs (0:nx+1,0:ny+1,0:nz+1)
 #if defined(vec_pot)
      .        ,da_cov(0:nx+1,0:ny+1,0:nz+1,3)
 #endif
@@ -1391,7 +1393,12 @@ c Find drho, dprs arrays with BCs
       call fillArray(gv%gparams,igrid,1,xxx(:,IPRS:IPRS),dprs
      .              ,bcs(:,IPRS:IPRS),order_bc,icomp=(/IPRS/))
 
-      if (.not.solve_prs) dprs = a_p*(tmpe0*drho + dprs*rho0)
+      if (.not.solve_prs) then
+        d_prs = a_p*(tmpe0(:,:,:,1)*drho(:,:,:,1)
+     $              + dprs(:,:,:,1)*rho0(:,:,:,1))
+      else
+        d_prs = dprs(:,:,:,1)
+      endif
       
 #if !defined(vec_pot)
 c Find dB* (w/ BCs)
@@ -1413,7 +1420,7 @@ c Find dB* from dA*
       db_cov = XformVector(gv%gparams,igrid,db_cnv,.false.)
 
       if (pinch_flow) then      !Jt = alpha*Bt in cnv representation
-        call J_pinch_bc(gv%gparams,igrid,bcnv0,dprs(:,:,:,1)
+        call J_pinch_bc(gv%gparams,igrid,bcnv0,d_prs
      .                 ,eta0(:,:,:,1),E_0,v0,dbcnv=db_cnv)
       endif
 
@@ -1436,7 +1443,7 @@ c Find dv (w/ Bcs)
 
       if (pinch_flow) then
         v0(nx+1,:,:,:) = 0d0
-        call ExB_flow_bc(gv%gparams,igrid,bcnv0,dprs(:,:,:,1)
+        call ExB_flow_bc(gv%gparams,igrid,bcnv0,d_prs
      .                  ,eta0(:,:,:,1),E_0,v0,dbcov=db_cov)
         v0(nx+1,:,:,:) = 0.5*v0(nx+1,:,:,:)
       endif
@@ -1498,7 +1505,7 @@ c Find rhs_v'
               endif
 
               cnv = cnv - EOM_gp(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                          ,dprs(:,:,:,1),nc_eom_gp,vol=.false.)
+     .                          ,d_prs,nc_eom_gp,vol=.false.)
 
               !Substract div_pe piece corresponding to (-di*j/rho)
               if (part == 'lfz'.and.(.not.no_eom_divpe)) then
@@ -1569,7 +1576,7 @@ c Free memory
      .          ,dve_cov
      .          ,dE_cnv
      .          ,drho  
-     .          ,dprs  
+     .          ,dprs,d_prs  
 #if defined(vec_pot)
      .          ,da_cov
 #endif
