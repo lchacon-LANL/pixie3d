@@ -1498,14 +1498,11 @@ c Find rhs_v'
      .               +crossProduct(gv%gparams,i,j,k,igrid
      .                    ,dj_cov(i,j,k,:),bcov0(i,j,k,:),.false.)
               else
-                cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                       ,db_cnv,bcnv0)
-     .               +EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                       ,bcnv0,db_cnv)
+                cnv = EOM_jxb(gv%gparams,i,j,k,igrid,db_cnv,bcnv0)
+     .               +EOM_jxb(gv%gparams,i,j,k,igrid,bcnv0,db_cnv)
               endif
 
-              cnv = cnv - EOM_gp(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                          ,d_prs,nc_eom_gp,vol=.false.)
+              cnv = cnv - EOM_gp(gv%gparams,i,j,k,igrid,d_prs,nc_eom_gp)
 
               !Substract div_pe piece corresponding to (-di*j/rho)
               if (part == 'lfz'.and.(.not.no_eom_divpe)) then

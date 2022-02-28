@@ -85,6 +85,7 @@ c Namelists
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
      .                   ,subtract_E0,e_cons_vstar,post_smooth_B
      .                   ,regularize_A,use_p_classic_eq,post_filter_hel
+     .                   ,binom_alph
      .                ,prt_file,equ_file,map_file,dcon
      .                !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -122,7 +123,7 @@ c Namelists
      .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
      .                   ,heta_is_rhoheta,subtract_E0,e_cons_vstar
      .                   ,regularize_A,use_p_classic_eq,post_filter_hel
-     .                   ,solve_prs
+     .                   ,solve_prs,binom_alph
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
@@ -515,6 +516,8 @@ c     #####################################################################
                                !   tensor or not
       vlap_etaj  = .false.     ! Whether to use eta*lap(A) instead of eta*j in resistive term
 
+      binom_alph = 0d0         ! Binomial smoothing constant of v in Ohm's law (0.5 to kill Nyquist mode)
+      
       nu_is_rhonu= .false.     ! Whether we use rho*nu or just nu in ion viscosity term
       heta_is_rhoheta= .true.  ! Whether we use rho*heta or just heta in e viscosity term
       subtract_E0= .false.     ! Whether we subtract initial E in Ohm's law

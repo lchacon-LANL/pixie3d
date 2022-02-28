@@ -146,8 +146,12 @@ c Faraday's law <<<<<<<<<<<<<<<<<<<<<<
 #if !defined(vec_pot)
 
       !Magnetic field
-      ff(IBX:IBZ) = curl(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,E_ni)
-
+      if (solenoidal) then
+        ff(IBX:IBZ) = curl(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,E_ni)
+      else
+        ff(IBX:IBZ) = curl(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,E_ni)
+     $              - curl_vxb(gv%gparams,i,j,k,igx,vcnv,bcnv)
+      endif
 #else
 
       !Vector potential
@@ -196,7 +200,7 @@ c     JxB volume force
         cnv = crossProduct(gv%gparams,i,j,k,igx
      $                    ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
       else
-        cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igx,bcnv,bcnv)
+        cnv = EOM_jxb(gv%gparams,i,j,k,igx,bcnv,bcnv)
       endif
 
       ff(IVX:IVZ) = -cnv
@@ -204,9 +208,9 @@ c     JxB volume force
 c     grad(p) volume force
 
       if (use_p_eom) then
-        cnv = EOM_gp (gv%gparams,i,j,k,nx,ny,nz,igx,prs    ,nc_eom_gp)
+        cnv = EOM_gp (gv%gparams,i,j,k,igx,prs    ,nc_eom_gp)
       else
-        cnv = EOM_gnT(gv%gparams,i,j,k,nx,ny,nz,igx,rho,tmp,nc_eom_gp)
+        cnv = EOM_gnT(gv%gparams,i,j,k,igx,rho,tmp,nc_eom_gp)
       endif
 
       ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
@@ -406,7 +410,7 @@ c Begin program
                 cnv = 0d0
               else
                 cnv = dtnsr_flx_ijk_new(gv%gparams,i,j,k,igr
-     .                                 ,eom_grad_p_x_new,s1=rho,s2=tmp)
+     .                                 ,eom_gp_x_new,s1=rho,s2=tmp)
               endif
 
               flx_x(i+1,j,k,IVX:IVZ) = flx_x(i+1,j,k,IVX:IVZ) + cnv
@@ -553,7 +557,7 @@ c Begin program
                 cnv = 0d0
               else
                 cnv = dtnsr_flx_ijk_new(gv%gparams,i,j,k,igr
-     .                                 ,eom_grad_p_y_new,s1=rho,s2=tmp)
+     .                                 ,eom_gp_y_new,s1=rho,s2=tmp)
               endif
 
               flx_y(i,j+1,k,IVX:IVZ) = flx_y(i,j+1,k,IVX:IVZ) + cnv
@@ -699,7 +703,7 @@ c Begin program
                 cnv = 0d0
               else
                 cnv = dtnsr_flx_ijk_new(gv%gparams,i,j,k,igr
-     .                                ,eom_grad_p_z_new,s1=rho,s2=tmp)
+     .                                ,eom_gp_z_new,s1=rho,s2=tmp)
               endif
 
               flx_z(i,j,k+1,IVX:IVZ) = flx_z(i,j,k+1,IVX:IVZ) + cnv
@@ -820,14 +824,13 @@ c Begin program
                 cnv = crossProduct(gv%gparams,i,j,k,igr
      .                    ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
               else
-                cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igr,bcnv,bcnv)
+                cnv = EOM_jxb(gv%gparams,i,j,k,igr,bcnv,bcnv)
               endif
 
               src(i,j,k,IVX:IVZ) = -cnv
 
               !grad(p) volume force
-              cnv = EOM_gnT(gv%gparams,i,j,k,nx,ny,nz,igr,rho,tmp
-     .                     ,nc_eom_gp)
+              cnv = EOM_gnT(gv%gparams,i,j,k,igr,rho,tmp,nc_eom_gp)
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
 
@@ -877,15 +880,14 @@ c Begin program
 
               !Grad(p)
               if (nc_eom_gp) then
-                cnv=EOM_gnT(gv%gparams,i,j,k,nx,ny,nz,igr,rho,tmp
-     .                     ,nc_eom_gp)
+                cnv=EOM_gnT(gv%gparams,i,j,k,igr,rho,tmp,nc_eom_gp)
 
                 if (alt__eom()) cnv(2) = cnv(2)*jac
               else
                 cnv = dtnsr_src_ijk_new(gv%gparams,i,j,k,igr
-     .                                 ,eom_grad_nT_x_new
-     $                                 ,eom_grad_nT_y_new
-     $                                 ,eom_grad_nT_z_new,s1=rho,s2=tmp)
+     .                                 ,eom_gnT_x_new
+     $                                 ,eom_gnT_y_new
+     $                                 ,eom_gnT_z_new,s1=rho,s2=tmp)
               endif
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
