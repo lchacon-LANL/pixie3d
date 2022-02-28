@@ -945,6 +945,253 @@ c ######################################################################
 
       contains
 
+c     curl_vxb
+c     ###################################################################
+      function curl_vxb(g_def,i,j,k,igrid,v,b,vol) result(cnv)
+
+c     -------------------------------------------------------------------
+c     Finds contravariant components of curl(vxb) at cell centers.
+c     -------------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        type(grid_mg_def),pointer :: g_def
+
+        integer    :: i,j,k,igrid
+        real(8)    :: cnv(3)
+        real(8),pointer,dimension(:,:,:,:) :: v,b
+        logical,optional,intent(IN) :: vol
+
+c     Local variables
+
+c     Begin program
+
+        cnv = div_tensor_new(g_def,i,j,k,igrid
+     $                      ,curl_vxb_x_new
+     $                      ,curl_vxb_y_new
+     $                      ,curl_vxb_z_new,vol=vol,v1=v,v2=b)
+
+c     End program
+
+      end function curl_vxb
+
+c     curl_vxb_x_new
+c     #############################################################
+      subroutine curl_vxb_x_new(g_def,i,j,k,igr,flx1,flag,v1,v2,s1,s2)
+c     -------------------------------------------------------------
+c     Calculates tensor components t11-t13 for jxb force term in EOM.
+c     In the call sequence:
+c       * g_def: grid definition
+c       * i,j,k: grid position
+c       * igr: grid level (for MG evaluations)
+c       * flx1: tensor fluxes.
+c       * flag: whether evaluation is a cell center i,j,k (flag=0)
+c               or at cell face i+1/2,j,k (flag /= 0)
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        type(grid_mg_def),pointer :: g_def
+
+        integer    :: i,j,k,flag,igr
+        real(8)    :: flx1(3)
+
+        real(8),dimension(:,:,:  ),pointer,optional :: s1,s2
+        real(8),dimension(:,:,:,:),pointer,optional :: v1,v2
+      
+c     Local variables
+
+        integer    :: ig,jg,kg,ip
+        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
+
+        real(8),dimension(:,:,:,:),pointer :: v,b
+
+c     Begin program
+
+        if (flag == 0) then
+          flx1 = 0d0            !To ensure antisymmetry
+          return
+        endif
+        
+        ip = i+1
+        if (flag == 0) ip = i
+
+        jac    = 0.5*(g_def%gmetric%grid(igr)%jac (ip,j,k)
+     .               +g_def%gmetric%grid(igr)%jac (i ,j,k))
+
+        if (flag /= 0) then
+          jacp = g_def%gmetric%grid(igr)%jac(ip,j,k)
+          jac0 = g_def%gmetric%grid(igr)%jac(i ,j,k)
+        else
+          jacp = jac
+          jac0 = jac
+        endif
+
+        ijac0 = 1d0/jac0
+        ijacp = 1d0/jacp
+
+        v => v1
+        b => v2
+        
+        !Assemble tensor fluxes
+        coeff = ijac0*ijacp*jac
+c$$$        coeff = 1d0/jac
+        flx1 = (-0.5*( v(ip,j,k,1)*b(i ,j,k,:)      
+     .                +v(i ,j,k,1)*b(ip,j,k,:))
+     .          +0.5*( b(ip,j,k,1)*v(i ,j,k,:)      
+     .                +b(i ,j,k,1)*v(ip,j,k,:)))*coeff
+        
+c     End program
+
+      end subroutine curl_vxb_x_new
+
+c     curl_vxb_y_new
+c     #############################################################
+      subroutine curl_vxb_y_new(g_def,i,j,k,igr,flx2,flag,v1,v2,s1,s2)
+c     -------------------------------------------------------------
+c     Calculates tensor components t11-t13 for jxb force term in EOM.
+c     In the call sequence:
+c       * g_def: grid definition
+c       * i,j,k: grid position
+c       * igr: grid level (for MG evaluations)
+c       * flx1: tensor fluxes.
+c       * flag: whether evaluation is a cell center i,j,k (flag=0)
+c               or at cell face i,j+1/2,k (flag /= 0)
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        type(grid_mg_def),pointer :: g_def
+
+        integer    :: i,j,k,flag,igr
+        real(8)    :: flx2(3)
+
+        real(8),dimension(:,:,:  ),pointer,optional :: s1,s2
+        real(8),dimension(:,:,:,:),pointer,optional :: v1,v2
+      
+c     Local variables
+
+        integer    :: ig,jg,kg,jp
+        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
+
+        real(8),dimension(:,:,:,:),pointer :: v,b
+
+c     Begin program
+
+        if (flag == 0) then
+          flx2 = 0d0            !To ensure antisymmetry
+          return
+        endif
+        
+        jp = j+1
+        if (flag == 0) jp = j
+
+        jac    = 0.5*(g_def%gmetric%grid(igr)%jac (i,jp,k)
+     .               +g_def%gmetric%grid(igr)%jac (i,j ,k))
+
+        if (flag /= 0) then
+          jacp = g_def%gmetric%grid(igr)%jac(i,jp,k)
+          jac0 = g_def%gmetric%grid(igr)%jac(i,j ,k)
+        else
+          jacp = jac
+          jac0 = jac
+        endif
+
+        ijac0 = 1d0/jac0
+        ijacp = 1d0/jacp
+
+        v => v1
+        b => v2
+
+        !Assemble tensor fluxes
+        coeff = ijac0*ijacp*jac
+        flx2 = (-0.5*( v(i,jp,k,2)*b(i,j ,k,:)      
+     .                +v(i,j ,k,2)*b(i,jp,k,:))
+     .          +0.5*( b(i,jp,k,2)*v(i,j ,k,:)      
+     .                +b(i,j ,k,2)*v(i,jp,k,:)))*coeff
+
+c     End program
+
+      end subroutine curl_vxb_y_new
+
+c     curl_vxb_z_new
+c     #############################################################
+      subroutine curl_vxb_z_new(g_def,i,j,k,igr,flx3,flag,v1,v2,s1,s2)
+c     -------------------------------------------------------------
+c     Calculates tensor components t11-t13 for jxb force term in EOM.
+c     In the call sequence:
+c       * g_def: grid definition
+c       * i,j,k: grid position
+c       * igr: grid level (for MG evaluations)
+c       * flx1: tensor fluxes.
+c       * flag: whether evaluation is a cell center i,j,k (flag=0)
+c               or at cell face i,j,k+1/2 (flag /= 0)
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        type(grid_mg_def),pointer :: g_def
+
+        integer    :: i,j,k,flag,igr
+        real(8)    :: flx3(3)
+        logical    :: alt_eom
+
+        real(8),dimension(:,:,:  ),pointer,optional :: s1,s2
+        real(8),dimension(:,:,:,:),pointer,optional :: v1,v2
+      
+c     Local variables
+
+        integer    :: ig,jg,kg,kp
+        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
+
+        real(8),dimension(:,:,:,:),pointer :: v,b
+
+c     Begin program
+
+        if (flag == 0) then
+          flx3 = 0d0            !To ensure antisymmetry
+          return
+        endif
+        
+        kp = k+1
+        if (flag == 0) kp = k
+
+        jac    = 0.5*(g_def%gmetric%grid(igr)%jac (i,j,kp)
+     .               +g_def%gmetric%grid(igr)%jac (i,j,k ))
+
+        if (flag /= 0) then
+          jacp = g_def%gmetric%grid(igr)%jac(i,j,kp)
+          jac0 = g_def%gmetric%grid(igr)%jac(i,j,k )
+        else
+          jacp = jac
+          jac0 = jac
+        endif
+        
+        ijac0 = 1d0/jac0
+        ijacp = 1d0/jacp
+
+        v => v1
+        b => v2
+        
+        !Assemble tensor fluxes
+        coeff = ijac0*ijacp*jac
+        flx3 = (-0.5*( v(i,j,kp,3)*b(i,j,k ,:)      
+     .                +v(i,j,k ,3)*b(i,j,kp,:))
+     .          +0.5*( b(i,j,kp,3)*v(i,j,k ,:)      
+     .                +b(i,j,k ,3)*v(i,j,kp,:)))*coeff
+
+c     End program
+
+      end subroutine curl_vxb_z_new
+
 c     curl_bxv
 c     ###################################################################
       function curl_bxv(g_def,i,j,k,igr,vv,bb,half_elem) result(cnv)
@@ -2625,9 +2872,11 @@ c ######################################################################
      .            ,post_smooth_B    =.false. !Whether to smooth at postprocessing stage
      .            ,limit_dt_flow_cfl=.false. !Whether to limit Dt according to flow CFL
      .            ,post_filter_hel  =.false. !Whether to filter helical simulations
-
+        
         logical,private :: symm_pi
 
+        real(8) :: binom_alph=0d0
+        
         INTERFACE res
           module procedure res_mesh
         END INTERFACE
@@ -2644,8 +2893,101 @@ c ######################################################################
           module procedure vis_mesh,vis_ijk
         END INTERFACE
 
-      contains
+        INTERFACE binomial
+          module procedure binomial_scl,binomial_vec
+        END INTERFACE
 
+      contains
+        
+c     binomial_scl
+c     ##################################################################
+      subroutine binomial_scl(field)
+
+c     ------------------------------------------------------------------
+c     Apply binomial filter to "field"
+c     ------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: field(0:,0:,0:)
+
+c     Local variables
+
+      integer :: nx,ny,nz
+
+c     Begin program
+
+      nx = size(field,1)-2
+      ny = size(field,2)-2
+      nz = size(field,3)-2
+
+      field(1:nx, :  , :  ) =  field(0:nx-1,:   ,:   )*0.25d0
+     .                      +  field(1:nx  ,:   ,:   )*0.5d0
+     .                      +  field(2:nx+1,:   ,:   )*0.25d0
+
+      field(1:nx,1:ny, :  ) =  field(1:nx,0:ny-1,:   )*0.25d0
+     .                      +  field(1:nx,1:ny  ,:   )*0.5d0
+     .                      +  field(1:nx,2:ny+1,:   )*0.25d0
+
+      field(1:nx,1:ny,1:nz) =  field(1:nx,1:ny,0:nz-1)*0.25d0
+     .                      +  field(1:nx,1:ny,1:nz  )*0.5d0
+     .                      +  field(1:nx,1:ny,2:nz+1)*0.25d0
+
+c     End program
+
+      end subroutine binomial_scl
+
+c     binomial_vec
+c     ##################################################################
+      subroutine binomial_vec(vec,alpha)
+
+c     ------------------------------------------------------------------
+c     Apply binomial filter to "field"
+c     ------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: vec(0:,0:,0:,:)
+      real(8),optional :: alpha
+
+c     Local variables
+
+      integer :: nx,ny,nz
+      real(8) :: co,cc,alph
+
+c     Begin program
+
+      if (PRESENT(alpha)) then
+        alph = alpha
+      else
+        alph = 0.5d0
+      endif
+      
+      nx = size(vec,1)-2
+      ny = size(vec,2)-2
+      nz = size(vec,3)-2
+
+      co = 0.5*alph
+      cc = 1d0-alph
+      
+      vec(1:nx, :  , :  ,:) =  vec(0:nx-1,:      ,:,:)*co
+     .                      +  vec(1:nx  ,:      ,:,:)*cc
+     .                      +  vec(2:nx+1,:      ,:,:)*co
+      vec(1:nx,1:ny, :  ,:) =  vec(1:nx,0:ny-1   ,:,:)*co
+     .                      +  vec(1:nx,1:ny     ,:,:)*cc
+     .                      +  vec(1:nx,2:ny+1   ,:,:)*co
+      vec(1:nx,1:ny,1:nz,:) =  vec(1:nx,1:ny,0:nz-1,:)*co
+     .                      +  vec(1:nx,1:ny,1:nz  ,:)*cc
+     .                      +  vec(1:nx,1:ny,2:nz+1,:)*co
+
+c     End program
+
+      end subroutine binomial_vec
+      
 c     form_ve
 c     ###################################################################
       function form_ve(v,j,rho) result(ve)
@@ -3285,7 +3627,7 @@ c     End program
 
 c     EOM_jxb
 c     ###################################################################
-      function EOM_jxb(g_def,i,j,k,nx,ny,nz,igrid,b1,b2,vol,proj_parcmp)
+      function EOM_jxb(g_def,i,j,k,igrid,b1,b2,vol,proj_parcmp)
      .         result(cnv)
 
 c     -------------------------------------------------------------------
@@ -3299,7 +3641,7 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,nx,ny,nz,igrid
+        integer    :: i,j,k,igrid
         real(8)    :: cnv(3)
         real(8),pointer,dimension(:,:,:,:) :: b1,b2
         logical,optional,intent(IN) :: vol,proj_parcmp
@@ -3833,7 +4175,7 @@ c$$$      end subroutine EOM_jxb_z
 
 c     EOM_jxb_x_new
 c     #############################################################
-      subroutine EOM_jxb_x_new(g_def,i,j,k,igr,flx1,flag)
+      subroutine EOM_jxb_x_new(g_def,i,j,k,igr,flx1,flag,v1,v2,s1,s2)
 c     -------------------------------------------------------------
 c     Calculates tensor components t11-t13 for jxb force term in EOM.
 c     In the call sequence:
@@ -3854,12 +4196,17 @@ c     Call variables
         integer    :: i,j,k,flag,igr
         real(8)    :: flx1(3)
 
+        real(8),dimension(:,:,:  ),pointer,optional :: s1,s2
+        real(8),dimension(:,:,:,:),pointer,optional :: v1,v2
+      
 c     Local variables
 
         integer    :: ig,jg,kg,ip
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
      .               ,car0(3),carp(3),vec1h(3),vec2h(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
+
+        real(8),dimension(:,:,:,:),pointer :: vec1,vec2
 
 c     Begin program
 
@@ -3889,6 +4236,9 @@ c     Begin program
         ijac0 = 1d0/jac0
         ijacp = 1d0/jacp
 
+        vec1 => v1
+        vec2 => v2
+        
         !Magnetic pressure
 c$$$  ===============================================        
 c$$$        car0 = XformToCar(g_def,i ,j,k,igr,vec1(i ,j,k,:),.false.)
@@ -3918,18 +4268,15 @@ c$$$  ===============================================
         
         !Assemble tensor fluxes
 c$$$  ===============================================        
-c$$$        coeff = ijacp*ijac0*jac
-c$$$        flx1 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,:)      
-c$$$     .                +vec1(i ,j,k,1)*vec2(ip,j,k,:) )*coeff
-c$$$     .         +gsuper(:)*pmag)
-c$$$  ===============================================        
-        flx1 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,:)*ijacp      
-     .                +vec1(i ,j,k,1)*vec2(ip,j,k,:)*ijac0 )
+        coeff = ijacp*ijac0*jac
+        flx1 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,:)      
+     .                +vec1(i ,j,k,1)*vec2(ip,j,k,:) )*coeff
      .         +gsuper(:)*pmag)
 c$$$  ===============================================        
-c$$$  Constant pressure test
-c$$$        flx1 = gsuper
-c$$$  Constant pressure test
+c$$$        flx1 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,:)*ijacp      
+c$$$     .                +vec1(i ,j,k,1)*vec2(ip,j,k,:)*ijac0 )
+c$$$     .         +gsuper(:)*pmag)
+c$$$  ===============================================        
 
         if (flag == 0) then
           flx1(1) = flx1(1)*jac
@@ -3943,7 +4290,7 @@ c     End program
 
 c     EOM_jxb_y_new
 c     #############################################################
-      subroutine EOM_jxb_y_new(g_def,i,j,k,igr,flx2,flag)
+      subroutine EOM_jxb_y_new(g_def,i,j,k,igr,flx2,flag,v1,v2,s1,s2)
 c     -------------------------------------------------------------
 c     Calculates tensor components t11-t13 for jxb force term in EOM.
 c     In the call sequence:
@@ -3964,12 +4311,17 @@ c     Call variables
         integer    :: i,j,k,flag,igr
         real(8)    :: flx2(3)
 
+        real(8),dimension(:,:,:  ),pointer,optional :: s1,s2
+        real(8),dimension(:,:,:,:),pointer,optional :: v1,v2
+      
 c     Local variables
 
         integer    :: ig,jg,kg,jp
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
      .               ,car0(3),carp(3),vec1h(3),vec2h(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
+
+        real(8),dimension(:,:,:,:),pointer :: vec1,vec2
 
 c     Begin program
 
@@ -3996,6 +4348,9 @@ c     Begin program
 
         ijac0 = 1d0/jac0
         ijacp = 1d0/jacp
+
+        vec1 => v1
+        vec2 => v2
 
         !Magnetic pressure
 c$$$  ===============================================        
@@ -4025,12 +4380,10 @@ c$$$  ===============================================
      .         +cnv0(3)*covp(3))*0.25
 
         !Assemble tensor fluxes
-        flx2 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,:)*ijacp      
-     .                +vec1(i,j ,k,2)*vec2(i,jp,k,:)*ijac0 )
+        coeff = ijacp*ijac0*jac
+        flx2 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,:)     
+     .                +vec1(i,j ,k,2)*vec2(i,jp,k,:))*coeff
      .         +gsuper(:)*pmag)
-c$$$  Constant pressure test
-c$$$        flx2 = gsuper
-c$$$  Constant pressure test
 
         if (flag == 0) then
           flx2(1) = flx2(1)*jac
@@ -4044,7 +4397,7 @@ c     End program
 
 c     EOM_jxb_z_new
 c     #############################################################
-      subroutine EOM_jxb_z_new(g_def,i,j,k,igr,flx3,flag)
+      subroutine EOM_jxb_z_new(g_def,i,j,k,igr,flx3,flag,v1,v2,s1,s2)
 c     -------------------------------------------------------------
 c     Calculates tensor components t11-t13 for jxb force term in EOM.
 c     In the call sequence:
@@ -4066,12 +4419,17 @@ c     Call variables
         real(8)    :: flx3(3)
         logical    :: alt_eom
 
+        real(8),dimension(:,:,:  ),pointer,optional :: s1,s2
+        real(8),dimension(:,:,:,:),pointer,optional :: v1,v2
+      
 c     Local variables
 
         integer    :: ig,jg,kg,kp
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
      .               ,car0(3),carp(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
+
+        real(8),dimension(:,:,:,:),pointer :: vec1,vec2
 
 c     Begin program
 
@@ -4099,6 +4457,9 @@ c     Begin program
         ijac0 = 1d0/jac0
         ijacp = 1d0/jacp
 
+        vec1 => v1
+        vec2 => v2
+        
         !Magnetic pressure
 c$$$  ===============================================        
 c$$$        car0 = XformToCar(g_def,i,j,k ,igr,vec1(i,j,k ,:),.false.)
@@ -4127,12 +4488,10 @@ c$$$  ===============================================
      .         +cnv0(3)*covp(3))*0.25
 
         !Assemble tensor fluxes
-        flx3 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,:)*ijacp
-     .                +vec1(i,j,k ,3)*vec2(i,j,kp,:)*ijac0 )
+        coeff = ijacp*ijac0*jac
+        flx3 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,:)
+     .                +vec1(i,j,k ,3)*vec2(i,j,kp,:) )*coeff
      .         +gsuper(:)*pmag)                          
-c$$$  Constant pressure test
-c$$$        flx3 = gsuper
-c$$$  Constant pressure test
  
         if (flag == 0) then
           flx3(1) = flx3(1)*jac
@@ -4146,8 +4505,7 @@ c     End program
 
 c     EOM_gp
 c     ###################################################################
-      function EOM_gp(g_def,i,j,k,nx,ny,nz,igrid,pp,nc_eom_gp,vol)
-     .         result(cnv)
+      function EOM_gp(g_def,i,j,k,igrid,pp,nc_eom_gp,vol) result(cnv)
 
 c     -------------------------------------------------------------------
 c     Finds contravariant components (a1,a2,a3) of the EOM force term
@@ -4160,7 +4518,7 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: igrid,i,j,k,nx,ny,nz
+        integer    :: igrid,i,j,k
         real(8)    :: cnv(3)
         real(8),pointer,dimension(:,:,:) :: pp
         logical    :: nc_eom_gp
@@ -4205,13 +4563,13 @@ c     Begin program
         else
 c$$$          sc2 => pp
 c$$$          cnv = div_tensor(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt__eom()
-c$$$     .                    ,eom_grad_p_x,eom_grad_p_y,eom_grad_p_z
+c$$$     .                    ,eom_gp_x,eom_gp_y,eom_gp_z
 c$$$     .                    ,vol=vol_wgt)
 c$$$          nullify(sc2)
           cnv = div_tensor_new(g_def,i,j,k,igx
-     .                        ,eom_grad_p_x_new
-     .                        ,eom_grad_p_y_new
-     .                        ,eom_grad_p_z_new
+     .                        ,eom_gp_x_new
+     .                        ,eom_gp_y_new
+     .                        ,eom_gp_z_new
      .                        ,vol=vol_wgt,s2=pp)
         endif
 
@@ -4219,9 +4577,9 @@ c     End program
 
       end function EOM_gp
       
-c$$$c     EOM_grad_p_x
+c$$$c     EOM_gp_x
 c$$$c     #############################################################
-c$$$      subroutine EOM_grad_p_x(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+c$$$      subroutine EOM_gp_x(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
 c$$$     .                       ,t11,t12,t13,flag)
 c$$$c     -------------------------------------------------------------
 c$$$c     Calculates tensor components t11-t13 for force term in EOM.
@@ -4282,11 +4640,11 @@ c$$$        endif
 c$$$
 c$$$c     End program
 c$$$
-c$$$      end subroutine EOM_grad_p_x
+c$$$      end subroutine EOM_gp_x
 c$$$
-c$$$c     EOM_grad_p_y
+c$$$c     EOM_gp_y
 c$$$c     #############################################################
-c$$$      subroutine EOM_grad_p_y(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+c$$$      subroutine EOM_gp_y(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
 c$$$     .                    ,t21,t22,t23,flag)
 c$$$c     -------------------------------------------------------------
 c$$$c     Calculates tensor components t21-t23 for force term in EOM.
@@ -4345,11 +4703,11 @@ c$$$        endif
 c$$$
 c$$$c     End program
 c$$$
-c$$$      end subroutine EOM_grad_p_y
+c$$$      end subroutine EOM_gp_y
 c$$$
-c$$$c     EOM_grad_p_z
+c$$$c     EOM_gp_z
 c$$$c     #############################################################
-c$$$      subroutine EOM_grad_p_z(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+c$$$      subroutine EOM_gp_z(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
 c$$$     .                       ,t31,t32,t33,flag)
 c$$$c     -------------------------------------------------------------
 c$$$c     Calculates tensor components t31-t33 for force term in EOM.
@@ -4408,13 +4766,13 @@ c$$$        endif
 c$$$
 c$$$c     End program
 c$$$
-c$$$      end subroutine EOM_grad_p_z
+c$$$      end subroutine EOM_gp_z
 
-c     EOM_grad_p_x_new
+c     EOM_gp_x_new
 c     #############################################################
-      subroutine EOM_grad_p_x_new(g_def,i,j,k,igr,flx1,flag)
+      subroutine EOM_gp_x_new(g_def,i,j,k,igr,flx1,flag,v1,v2,s1,s2)
 c     -------------------------------------------------------------
-c     Calculates tensor components t11-t13 for grad_p force term in EOM.
+c     Calculates tensor components t11-t13 for gp force term in EOM.
 c     In the call sequence:
 c       * g_def: grid definition
 c       * i,j,k: grid position
@@ -4433,12 +4791,17 @@ c     Call variables
         integer    :: i,j,k,flag,igr
         real(8)    :: flx1(3)
 
+        real(8),dimension(:,:,:  ),pointer,optional :: s1,s2
+        real(8),dimension(:,:,:,:),pointer,optional :: v1,v2
+      
 c     Local variables
 
         integer    :: ig,jg,kg,ip
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
      .               ,car0(3),carp(3),vec1h(3),vec2h(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,coeff
+
+        real(8),dimension(:,:,:),pointer :: sc2
 
 c     Begin program
 
@@ -4468,9 +4831,14 @@ c     Begin program
         ijac0 = 1d0/jac0
         ijacp = 1d0/jacp
 
+        sc2 => s2
+        
         !Assemble tensor fluxes
         ptot = 0.5*(sc2(i,j,k)+sc2(ip,j,k))
         flx1 = gsuper*ptot
+c$$$  Constant pressure test
+c$$$        flx1 = gsuper
+c$$$  Constant pressure test
 
         if (flag == 0) then
           flx1(1) = flx1(1)*jac
@@ -4480,13 +4848,13 @@ c     Begin program
 
 c     End program
 
-      end subroutine EOM_grad_p_x_new
+      end subroutine EOM_gp_x_new
 
-c     EOM_grad_p_y_new
+c     EOM_gp_y_new
 c     #############################################################
-      subroutine EOM_grad_p_y_new(g_def,i,j,k,igr,flx2,flag)
+      subroutine EOM_gp_y_new(g_def,i,j,k,igr,flx2,flag,v1,v2,s1,s2)
 c     -------------------------------------------------------------
-c     Calculates tensor components t11-t13 for grad_p force term in EOM.
+c     Calculates tensor components t11-t13 for gp force term in EOM.
 c     In the call sequence:
 c       * g_def: grid definition
 c       * i,j,k: grid position
@@ -4505,12 +4873,17 @@ c     Call variables
         integer    :: i,j,k,flag,igr
         real(8)    :: flx2(3)
 
+        real(8),dimension(:,:,:  ),pointer,optional :: s1,s2
+        real(8),dimension(:,:,:,:),pointer,optional :: v1,v2
+      
 c     Local variables
 
         integer    :: ig,jg,kg,jp
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
      .               ,car0(3),carp(3),vec1h(3),vec2h(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,coeff
+
+        real(8),dimension(:,:,:),pointer :: sc2
 
 c     Begin program
 
@@ -4538,9 +4911,14 @@ c     Begin program
         ijac0 = 1d0/jac0
         ijacp = 1d0/jacp
 
+        sc2 => s2
+
         !Assemble tensor fluxes
         ptot = 0.5*(sc2(i,j,k)+sc2(i,jp,k))
         flx2 = gsuper*ptot
+c$$$  Constant pressure test
+c$$$        flx2 = gsuper
+c$$$  Constant pressure test
 
         if (flag == 0) then
           flx2(1) = flx2(1)*jac
@@ -4550,13 +4928,13 @@ c     Begin program
 
 c     End program
 
-      end subroutine EOM_grad_p_y_new
+      end subroutine EOM_gp_y_new
 
-c     EOM_grad_p_z_new
+c     EOM_gp_z_new
 c     #############################################################
-      subroutine EOM_grad_p_z_new(g_def,i,j,k,igr,flx3,flag)
+      subroutine EOM_gp_z_new(g_def,i,j,k,igr,flx3,flag,v1,v2,s1,s2)
 c     -------------------------------------------------------------
-c     Calculates tensor components t11-t13 for grad_p force term in EOM.
+c     Calculates tensor components t11-t13 for gp force term in EOM.
 c     In the call sequence:
 c       * g_def: grid definition
 c       * i,j,k: grid position
@@ -4576,12 +4954,17 @@ c     Call variables
         real(8)    :: flx3(3)
         logical    :: alt_eom
 
+        real(8),dimension(:,:,:  ),pointer,optional :: s1,s2
+        real(8),dimension(:,:,:,:),pointer,optional :: v1,v2
+      
 c     Local variables
 
         integer    :: ig,jg,kg,kp
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
      .               ,car0(3),carp(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,coeff
+
+        real(8),dimension(:,:,:),pointer :: sc2
 
 c     Begin program
 
@@ -4609,9 +4992,15 @@ c     Begin program
         ijac0 = 1d0/jac0
         ijacp = 1d0/jacp
 
+        sc2 => s2
+        
+        !Assemble tensor fluxes
         ptot = 0.5*(sc2(i,j,k)+sc2(i,j,kp))
 
         flx3 = gsuper*ptot
+c$$$  Constant pressure test
+c$$$        flx3 = gsuper
+c$$$  Constant pressure test
  
         if (flag == 0) then
           flx3(1) = flx3(1)*jac
@@ -4621,12 +5010,11 @@ c     Begin program
 
 c     End program
 
-      end subroutine EOM_grad_p_z_new
+      end subroutine EOM_gp_z_new
 
 c     EOM_gnT
-c     ###################################################################
-      function EOM_gnT(g_def,i,j,k,nx,ny,nz,igrid,rr,tt,nc_eom_gp,vol)
-     .         result(cnv)
+c     ##################################################################
+      function EOM_gnT(g_def,i,j,k,igrid,rr,tt,nc_eom_gp,vol)result(cnv)
 
 c     -------------------------------------------------------------------
 c     Finds contravariant components (a1,a2,a3) of the EOM force term
@@ -4639,7 +5027,7 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: igrid,i,j,k,nx,ny,nz
+        integer    :: igrid,i,j,k
         real(8)    :: cnv(3)
         real(8),pointer,dimension(:,:,:) :: rr,tt
         logical    :: nc_eom_gp
@@ -4692,13 +5080,13 @@ c     Begin program
 c$$$          sc1 => rr
 c$$$          sc2 => tt
 c$$$          cnv = div_tensor(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt__eom()
-c$$$     .                    ,eom_grad_nT_x,eom_grad_nT_y,eom_grad_nT_z
+c$$$     .                    ,eom_gnT_x,eom_gnT_y,eom_gnT_z
 c$$$     .                    ,vol=vol_wgt)
 c$$$          nullify(sc1,sc2)
           cnv = div_tensor_new(g_def,i,j,k,igrid
-     .                        ,eom_grad_nT_x_new
-     $                        ,eom_grad_nT_y_new
-     $                        ,eom_grad_nT_z_new
+     .                        ,eom_gnT_x_new
+     $                        ,eom_gnT_y_new
+     $                        ,eom_gnT_z_new
      .                        ,vol=vol_wgt,s1=rr,s2=tt)
         endif
 
@@ -4706,9 +5094,9 @@ c     End program
 
       end function EOM_gnT
 
-c$$$c     EOM_grad_nT_x
+c$$$c     EOM_gnT_x
 c$$$c     #############################################################
-c$$$      subroutine EOM_grad_nT_x(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+c$$$      subroutine EOM_gnT_x(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
 c$$$     .                       ,t11,t12,t13,flag)
 c$$$c     -------------------------------------------------------------
 c$$$c     Calculates tensor components t11-t13 for grad(nT) term in EOM.
@@ -4770,11 +5158,11 @@ c$$$        endif
 c$$$
 c$$$c     End program
 c$$$
-c$$$      end subroutine EOM_grad_nT_x
+c$$$      end subroutine EOM_gnT_x
 c$$$
-c$$$c     EOM_grad_nT_y
+c$$$c     EOM_gnT_y
 c$$$c     #############################################################
-c$$$      subroutine EOM_grad_nT_y(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+c$$$      subroutine EOM_gnT_y(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
 c$$$     .                    ,t21,t22,t23,flag)
 c$$$c     -------------------------------------------------------------
 c$$$c     Calculates tensor components t21-t23 for grad(nT) term in EOM.
@@ -4834,11 +5222,11 @@ c$$$        endif
 c$$$
 c$$$c     End program
 c$$$
-c$$$      end subroutine EOM_grad_nT_y
+c$$$      end subroutine EOM_gnT_y
 c$$$
-c$$$c     EOM_grad_nT_z
+c$$$c     EOM_gnT_z
 c$$$c     #############################################################
-c$$$      subroutine EOM_grad_nT_z(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+c$$$      subroutine EOM_gnT_z(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
 c$$$     .                       ,t31,t32,t33,flag)
 c$$$c     -------------------------------------------------------------
 c$$$c     Calculates tensor components t31-t33 for grad(nT) term in EOM.
@@ -4898,13 +5286,13 @@ c$$$        endif
 c$$$
 c$$$c     End program
 c$$$
-c$$$      end subroutine EOM_grad_nT_z
+c$$$      end subroutine EOM_gnT_z
 
-c     EOM_grad_nT_x_new
+c     EOM_gnT_x_new
 c     #############################################################
-      subroutine EOM_grad_nT_x_new(g_def,i,j,k,igr,flx1,flag)
+      subroutine EOM_gnT_x_new(g_def,i,j,k,igr,flx1,flag,v1,v2,s1,s2)
 c     -------------------------------------------------------------
-c     Calculates tensor components t11-t13 for grad_nT force term in EOM.
+c     Calculates tensor components t11-t13 for gnT force term in EOM.
 c     In the call sequence:
 c       * g_def: grid definition
 c       * i,j,k: grid position
@@ -4923,12 +5311,17 @@ c     Call variables
         integer    :: i,j,k,flag,igr
         real(8)    :: flx1(3)
 
+        real(8),dimension(:,:,:  ),pointer,optional :: s1,s2
+        real(8),dimension(:,:,:,:),pointer,optional :: v1,v2
+      
 c     Local variables
 
         integer    :: ig,jg,kg,ip
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
      .               ,car0(3),carp(3),vec1h(3),vec2h(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,coeff
+
+        real(8),dimension(:,:,:),pointer :: sc1,sc2
 
 c     Begin program
 
@@ -4958,6 +5351,8 @@ c     Begin program
         ijac0 = 1d0/jac0
         ijacp = 1d0/jacp
 
+        sc1 => s1
+        sc2 => s2
         !Assemble tensor fluxes
         ptot = 0.5*(sc1(ip,j,k)*sc2(i ,j,k)
      .             +sc1(i ,j,k)*sc2(ip,j,k))
@@ -4971,13 +5366,13 @@ c     Begin program
 
 c     End program
 
-      end subroutine EOM_grad_nT_x_new
+      end subroutine EOM_gnT_x_new
 
-c     EOM_grad_nT_y_new
+c     EOM_gnT_y_new
 c     #############################################################
-      subroutine EOM_grad_nT_y_new(g_def,i,j,k,igr,flx2,flag)
+      subroutine EOM_gnT_y_new(g_def,i,j,k,igr,flx2,flag,v1,v2,s1,s2)
 c     -------------------------------------------------------------
-c     Calculates tensor components t11-t13 for grad_nT force term in EOM.
+c     Calculates tensor components t11-t13 for gnT force term in EOM.
 c     In the call sequence:
 c       * g_def: grid definition
 c       * i,j,k: grid position
@@ -4996,12 +5391,17 @@ c     Call variables
         integer    :: i,j,k,flag,igr
         real(8)    :: flx2(3)
 
+        real(8),dimension(:,:,:  ),pointer,optional :: s1,s2
+        real(8),dimension(:,:,:,:),pointer,optional :: v1,v2
+      
 c     Local variables
 
         integer    :: ig,jg,kg,jp
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
      .               ,car0(3),carp(3),vec1h(3),vec2h(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,coeff
+
+        real(8),dimension(:,:,:),pointer :: sc1,sc2
 
 c     Begin program
 
@@ -5029,6 +5429,8 @@ c     Begin program
         ijac0 = 1d0/jac0
         ijacp = 1d0/jacp
 
+        sc1 => s1
+        sc2 => s2
         !Assemble tensor fluxes
         ptot = 0.5*(sc1(i,jp,k)*sc2(i,j ,k)
      .             +sc1(i,j ,k)*sc2(i,jp,k))
@@ -5042,13 +5444,13 @@ c     Begin program
 
 c     End program
 
-      end subroutine EOM_grad_nT_y_new
+      end subroutine EOM_gnT_y_new
 
-c     EOM_grad_nT_z_new
+c     EOM_gnT_z_new
 c     #############################################################
-      subroutine EOM_grad_nT_z_new(g_def,i,j,k,igr,flx3,flag)
+      subroutine EOM_gnT_z_new(g_def,i,j,k,igr,flx3,flag,v1,v2,s1,s2)
 c     -------------------------------------------------------------
-c     Calculates tensor components t11-t13 for grad_nT force term in EOM.
+c     Calculates tensor components t11-t13 for gnT force term in EOM.
 c     In the call sequence:
 c       * g_def: grid definition
 c       * i,j,k: grid position
@@ -5068,12 +5470,17 @@ c     Call variables
         real(8)    :: flx3(3)
         logical    :: alt_eom
 
+        real(8),dimension(:,:,:  ),pointer,optional :: s1,s2
+        real(8),dimension(:,:,:,:),pointer,optional :: v1,v2
+      
 c     Local variables
 
         integer    :: ig,jg,kg,kp
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
      .               ,car0(3),carp(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,coeff
+
+        real(8),dimension(:,:,:),pointer :: sc1,sc2
 
 c     Begin program
 
@@ -5101,6 +5508,9 @@ c     Begin program
         ijac0 = 1d0/jac0
         ijacp = 1d0/jacp
 
+        sc1 => s1
+        sc2 => s2
+        !Assemble tensor fluxes
         ptot = 0.5*(sc1(i,j,kp)*sc2(i,j,k )
      .             +sc1(i,j,k )*sc2(i,j,kp))
 
@@ -5114,7 +5524,7 @@ c     Begin program
 
 c     End program
 
-      end subroutine EOM_grad_nT_z_new
+      end subroutine EOM_gnT_z_new
 
 c     EOM_diff_x
 c     #############################################################
@@ -5631,6 +6041,19 @@ c     Local variables
       integer :: nx,ny,nz,i,j,k,ig,jg,kg,ieq,bcnd(6,3)
       real(8) :: eps,betap,qa,jbs,cov(3),cnv(3),bnorm,x1,y1,z1
 
+      real(8) :: svcnv(0:size(vcnv,1)-1
+     .                ,0:size(vcnv,2)-1
+     .                ,0:size(vcnv,3)-1
+     .                ,  size(vcnv,4)  )
+      real(8) :: svcov(0:size(vcnv,1)-1
+     .                ,0:size(vcnv,2)-1
+     .                ,0:size(vcnv,3)-1
+     .                ,  size(vcnv,4)  )
+      real(8) :: v0   (0:size(vcnv,1)-1
+     .                ,0:size(vcnv,2)-1
+     .                ,0:size(vcnv,3)-1
+     .                ,  size(vcnv,4)  )
+
 c     Begin program
 
       nx = size(vcnv,1)-2
@@ -5692,7 +6115,21 @@ cc        endif
 
 c     VxB term
 
-      E_res = E_res - crossProduct(g_def,igr,vcnv,bcnv,.true.)
+      if (solenoidal) then
+        svcnv = vcnv
+
+        if (binom_alph > 0d0) then
+          call binomial(svcnv,alpha=binom_alph)
+          
+          call XferBCs(vcnv,v0,.true.)
+
+          call setBC(gv%gparams,IVX,3,nx,ny,nz,svcnv,svcov,v0
+     .              ,gv%aux%vec_list(IVCNV)%bconds,igr,igr,igr
+     .              ,iorder=1)
+        endif
+      
+        E_res = E_res - crossProduct(g_def,igr,svcnv,bcnv,.true.)
+      endif
       
 c     External field
 

@@ -19,7 +19,7 @@ c####################################################################
      .                             ,E_fld_ehall,EOM_divPi,hres,diff_mesh
      .                             ,nc_eom_v,nc_eom_jxb
      .                             ,pinch_flow,sym_st,subtract_E0
-     .                             ,form_ve,solenoidal
+     .                             ,form_ve,solenoidal,binom_alph
 
         use xdraw_io
 
@@ -1179,8 +1179,12 @@ c$$$        vaux%vec_list(IEH)%bc_dep_list(3,3) = 1 !non-trivial
 
       vaux%vec_list(IENI)%bc_dep_list(4,1) = IVCOV*AUX
       vaux%vec_list(IENI)%bc_dep_list(4,2) = VECTOR
-      vaux%vec_list(IENI)%bc_dep_list(4,3) = 0 !trivial
-
+      if (binom_alph > 0d0) then
+        vaux%vec_list(IENI)%bc_dep_list(4,3) = 1 !non-trivial
+      else
+        vaux%vec_list(IENI)%bc_dep_list(4,3) = 0 !trivial
+      endif
+      
 #if defined(vec_pot)
       vaux%vec_list(IENI)%bc_dep_list(5,1) = IACOV*AUX
       vaux%vec_list(IENI)%bc_dep_list(5,2) = VECTOR
@@ -1628,8 +1632,12 @@ c     Current variables
 
       vaux%vec_list(IENI)%dom_dep_list(4,1) = IVCOV*AUX
       vaux%vec_list(IENI)%dom_dep_list(4,2) = VECTOR
-      vaux%vec_list(IENI)%dom_dep_list(4,3) = 0 !trivial
-
+      if (binom_alph > 0d0) then
+        vaux%vec_list(IENI)%dom_dep_list(4,3) = 1 !non-trivial
+      else
+        vaux%vec_list(IENI)%dom_dep_list(4,3) = 0 !trivial
+      endif
+      
 #if defined(vec_pot)
       vaux%vec_list(IENI)%dom_dep_list(5,1) = IACOV*AUX
       vaux%vec_list(IENI)%dom_dep_list(5,2) = VECTOR
