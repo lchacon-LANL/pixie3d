@@ -908,11 +908,9 @@ cc        numerical_grid = (nh2 > 1)  !Analytical grid metrics are wrong for nh2
 
       !Postprocessing stage
 #if !defined(vec_pot)
-cc      post_smooth_B = .false.
       post_divclean = .not.((.not.pc_B_solve)
      .                .or.   pc_divclean
-     .                .or.  (.not.solenoidal)
-     .                .or.  (pc_type == 'id')
+     .                .or.  (pc_type == 'id'.and.solenoidal)
      .                .or.  (nxd==1.and.nyd==1)
      .                .or.  (nxd==1.and.nzd==1)
      .                .or.  (nyd==1.and.nzd==1)
