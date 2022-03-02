@@ -819,7 +819,7 @@ c ######################################################################
      .         ,bx,by,bz
 #endif
 
-        real(8),target,allocatable,dimension(:,:,:) ::
+        real(8),pointer,dimension(:,:,:) ::
      .          bx_car,by_car,bz_car
      .         ,jx_car,jy_car,jz_car
      .         ,vx_car,vy_car,vz_car
@@ -827,7 +827,7 @@ c ######################################################################
      .         ,qfactor,lambda,p_tot
      .         ,vpar,vpsi,vperp,dumx,dumy,dumz,jmag
 
-        real(8),target,allocatable,dimension(:,:,:) ::
+        real(8),pointer,dimension(:,:,:) ::
      .          bx_cov,by_cov,bz_cov
      .         ,jx,jy,jz,jx_cov,jy_cov,jz_cov
      .         ,vx,vy,vz,vx_cov,vy_cov,vz_cov

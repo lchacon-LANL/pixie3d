@@ -325,6 +325,20 @@ c Hall electric field components (covariant)
         dumy  = di*E_h(:,:,:,2)
         dumz  = di*E_h(:,:,:,3)
       else
+c diag ****
+        p_tot = rho*tmp
+        do k = kming,kmaxg
+          do j = jming,jmaxg
+            do i = iming,imaxg
+              call getCurvilinearCoordinates(gv%gparams,i,j,k
+     .                                   ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
+              E_ni(i,j,k,:) = crossProduct(gv%gparams,i,j,k,igx
+     $                             ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
+     $                  -EOM_gp (gv%gparams,i,j,k,igx,p_tot,nc_eom_gp)
+            enddo
+          enddo
+        enddo
+c diag ****
         dumx  = E_ni(:,:,:,1)
         dumy  = E_ni(:,:,:,2)
         dumz  = E_ni(:,:,:,3)

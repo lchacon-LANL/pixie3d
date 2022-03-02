@@ -552,13 +552,13 @@ c$$$      graph(4)%array_graph(15)%descr = 'V.(b x grad(psi))'
         graph(4)%array_graph(16)%descr = 'Eh_3'
       else
         graph(4)%array_graph(14)%array => dumx
-        graph(4)%array_graph(14)%descr = 'E_1'
+        graph(4)%array_graph(14)%descr = 'F_1'!'E_1'
 
         graph(4)%array_graph(15)%array => dumy
-        graph(4)%array_graph(15)%descr = 'E_2'
+        graph(4)%array_graph(15)%descr = 'F_2'!'E_2'
 
         graph(4)%array_graph(16)%array => dumz
-        graph(4)%array_graph(16)%descr = 'E_3'
+        graph(4)%array_graph(16)%descr = 'F_3'!'E_3'
       endif
 
       graph(4)%array_graph(17)%array => heat_src
