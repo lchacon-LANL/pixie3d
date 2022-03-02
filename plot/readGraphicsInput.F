@@ -25,11 +25,10 @@ c Local variables
 
       !For compatibility
       namelist /graphdef/ sel_diag,sel_graph,ndplot,dplot
-     .                   ,hdf_plot,hdf_debug
+     .                   ,hdf_plot,hdf_debug,car_diag_plots
      .                   ,prof_conf,cont_conf,clean
      .                   ,iplot,jplot,kplot,poincare,xdraw_plot
      .                   ,adios_plot,temp_acc,acc_ref_file
-
 
       namelist /plots/    clean,poincare
 
@@ -37,12 +36,13 @@ c Begin program
 
 c Graphics defaults
 
-      ndplot = 0          ! Postprocessing interval (# of time steps; integer)
-      dplot  = 0d0        !       "          "      (time interval; real)
-      hdf_plot =.false.   ! Whether an HDF5 file is to be created
-      hdf_debug=.false.   ! Debugging option in HDF5
-      adios_plot =.false. ! Whether an ADIOS-BP file is to be created
-      xdraw_plot = .true. ! Whether to dump XDRAW files
+      ndplot = 0            ! Postprocessing interval (# of time steps; integer)
+      dplot  = 0d0          !       "          "      (time interval; real)
+      hdf_plot =.false.     ! Whether an HDF5 file is to be created
+      hdf_debug=.false.     ! Debugging option in HDF5
+      adios_plot =.false.   ! Whether an ADIOS-BP file is to be created
+      xdraw_plot = .true.   ! Whether to dump XDRAW files
+      car_diag_plots=.true. ! Whether diagnostic plots are in Cartesian geom or not
 
       !Local (point) diagnostic configuration (XDRAW)
       iplot = 1

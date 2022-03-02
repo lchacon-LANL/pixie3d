@@ -10,6 +10,8 @@ c ######################################################################
 
         logical :: poincare=.false.,fourier=.false.,test=.false.
 
+        logical :: car_diag_plots=.true.
+        
         integer :: u_equf=1000,u_prtf=2000
         character(100) :: equ_file,prt_file
 
@@ -825,7 +827,8 @@ c ######################################################################
      .         ,vx_car,vy_car,vz_car
      .         ,divrgB,divrgJ,divrgV,Pflux
      .         ,qfactor,lambda,p_tot
-     .         ,vpar,vpsi,vperp,dumx,dumy,dumz,jmag
+     .         ,vpar,vpsi,vperp,jmag
+     .         ,f1,f2,f3,E1,E2,E3
 
         real(8),pointer,dimension(:,:,:) ::
      .          bx_cov,by_cov,bz_cov
@@ -889,9 +892,12 @@ c     ##################################################################
      .         ,vpar  (ilom:ihip,jlom:jhip,klom:khip)
      .         ,vpsi  (ilom:ihip,jlom:jhip,klom:khip)
      .         ,vperp (ilom:ihip,jlom:jhip,klom:khip)
-     .         ,dumx  (ilom:ihip,jlom:jhip,klom:khip)
-     .         ,dumy  (ilom:ihip,jlom:jhip,klom:khip)
-     .         ,dumz  (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,E1    (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,E2    (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,E3    (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,F1    (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,F2    (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,F3    (ilom:ihip,jlom:jhip,klom:khip)
      .         ,divrgB(ilom:ihip,jlom:jhip,klom:khip)
      .         ,divrgJ(ilom:ihip,jlom:jhip,klom:khip)
      .         ,divrgV(ilom:ihip,jlom:jhip,klom:khip)
@@ -925,7 +931,7 @@ c     ##################################################################
       deallocate (bx_car,by_car,bz_car,jx_car,jy_car,jz_car
      .           ,vx_car,vy_car,vz_car,vpar,vpsi,vperp 
      .           ,divrgB,divrgJ,divrgV,Pflux,p_tot
-     .           ,dumx,dumy,dumz,heat_src,jmag)
+     .           ,E1,E2,E3,F1,F2,F3,heat_src,jmag)
 
       deallocate (qfactor,lambda)
 
