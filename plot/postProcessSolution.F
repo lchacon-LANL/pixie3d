@@ -23,6 +23,8 @@ c--------------------------------------------------------------------
 
       use poincare_io
 
+      use app_iosetup, ONLY: car_diag_plots
+
 #if defined(RFX)
       use rfx
 #endif
@@ -321,31 +323,48 @@ cc            endif
 c Hall electric field components (covariant)
 
       if (di > 0d0) then
-        dumx  = di*E_h(:,:,:,1)
-        dumy  = di*E_h(:,:,:,2)
-        dumz  = di*E_h(:,:,:,3)
+        E1  = di*E_h(:,:,:,1)
+        E2  = di*E_h(:,:,:,2)
+        E3  = di*E_h(:,:,:,3)
       else
-c diag ****
-        p_tot = rho*tmp
-        do k = kming,kmaxg
-          do j = jming,jmaxg
-            do i = iming,imaxg
-              call getCurvilinearCoordinates(gv%gparams,i,j,k
-     .                                   ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
-              E_ni(i,j,k,:) = crossProduct(gv%gparams,i,j,k,igx
-     $                             ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
-     $                  -EOM_gp (gv%gparams,i,j,k,igx,p_tot,nc_eom_gp)
-            enddo
-          enddo
-        enddo
-c diag ****
-        dumx  = E_ni(:,:,:,1)
-        dumy  = E_ni(:,:,:,2)
-        dumz  = E_ni(:,:,:,3)
+        E1  = E_ni(:,:,:,1)
+        E2  = E_ni(:,:,:,2)
+        E3  = E_ni(:,:,:,3)
       endif
 
-      call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
-     .                    ,dumx,dumy,dumz,'cov','car')
+      if (car_diag_plots)
+     .  call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+     .                      ,E1,E2,E3,'cov','car')
+      
+c Pressure diagnostics
+
+      p_tot = rho*tmp
+
+c JxB-g(P) diagnostice (cnv)
+
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            cnv = crossProduct(gv%gparams,i,j,k,igx
+     $                        ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
+            if (use_p_eom) then
+              cnv = cnv
+     $             -EOM_gp (gv%gparams,i,j,k,igx,p_tot,nc_eom_gp)
+            else
+              cnv = cnv
+     $             -EOM_gnT(gv%gparams,i,j,k,igx,rho,tmp,nc_eom_gp)
+            endif
+
+            F1(i,j,k) = cnv(1)
+            F2(i,j,k) = cnv(2)
+            F3(i,j,k) = cnv(3)
+          enddo
+        enddo
+      enddo
+
+      if (car_diag_plots)
+     .  call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+     .                    ,F1,F2,F3,'cov','car')
       
 c Ohm's law diagnostic
 
@@ -416,10 +435,7 @@ c Divergence diagnostics
       divrgB = div(gv%gparams,igx,bcnv)
       divrgV = div(gv%gparams,igx,vcnv)
 
-c Pressure diagnostics
-
-      !Total pressure
-      p_tot = rho*tmp
+c Heat source diagnostics
 
       !Internal heat source
       if ((.not.adiabatic).and.(gamma > 1d0)) then

@@ -44,6 +44,8 @@ c--------------------------------------------------------------------
 
       use transport_params
 
+      use app_iosetup, ONLY: car_diag_plots
+
       implicit none
 
 c Call variables
@@ -485,7 +487,7 @@ c Define graphics group #4: Diagnostics
 #if defined(RFX)
       graph(4)%cartesian=.false.
 #else
-      graph(4)%cartesian=.true.
+      graph(4)%cartesian = car_diag_plots
 #endif
       graph(4)%descr='Diagnostics'
 
@@ -542,32 +544,41 @@ c$$$      graph(4)%array_graph(15)%array => vperp
 c$$$      graph(4)%array_graph(15)%descr = 'V.(b x grad(psi))'
 
       if (di > 0d0) then
-        graph(4)%array_graph(14)%array => dumx
+        graph(4)%array_graph(14)%array => E1
         graph(4)%array_graph(14)%descr = 'Eh_1'
 
-        graph(4)%array_graph(15)%array => dumy
+        graph(4)%array_graph(15)%array => E2
         graph(4)%array_graph(15)%descr = 'Eh_2'
 
-        graph(4)%array_graph(16)%array => dumz
+        graph(4)%array_graph(16)%array => E3
         graph(4)%array_graph(16)%descr = 'Eh_3'
       else
-        graph(4)%array_graph(14)%array => dumx
-        graph(4)%array_graph(14)%descr = 'F_1'!'E_1'
+        graph(4)%array_graph(14)%array => E1
+        graph(4)%array_graph(14)%descr = 'E_1'
 
-        graph(4)%array_graph(15)%array => dumy
-        graph(4)%array_graph(15)%descr = 'F_2'!'E_2'
+        graph(4)%array_graph(15)%array => E2
+        graph(4)%array_graph(15)%descr = 'E_2'
 
-        graph(4)%array_graph(16)%array => dumz
-        graph(4)%array_graph(16)%descr = 'F_3'!'E_3'
+        graph(4)%array_graph(16)%array => E3
+        graph(4)%array_graph(16)%descr = 'E_3'
       endif
 
-      graph(4)%array_graph(17)%array => heat_src
-      graph(4)%array_graph(17)%descr = 'Int. heat src'
+      graph(4)%array_graph(17)%array => F1
+      graph(4)%array_graph(17)%descr = 'F_1' 
 
-      graph(4)%array_graph(18)%array => jmag
-      graph(4)%array_graph(18)%descr = '|J|'
+      graph(4)%array_graph(18)%array => F2
+      graph(4)%array_graph(18)%descr = 'F_2' 
 
-      graph(4)%array_graph(19:ngraph)%descr = ''
+      graph(4)%array_graph(19)%array => F3
+      graph(4)%array_graph(19)%descr = 'F_3' 
+        
+      graph(4)%array_graph(20)%array => heat_src
+      graph(4)%array_graph(20)%descr = 'Int. heat src'
+
+      graph(4)%array_graph(21)%array => jmag
+      graph(4)%array_graph(21)%descr = '|J|'
+
+      graph(4)%array_graph(22:ngraph)%descr = ''
 
 cc      sel_gr(4,:) = (/ (i,i=6,14) /)
 cc      sel_gr(4,:) = (/ (i,i=1,9) /)
