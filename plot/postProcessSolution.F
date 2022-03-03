@@ -345,8 +345,13 @@ c JxB-g(P) diagnostice (cnv)
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
-            cnv = crossProduct(gv%gparams,i,j,k,igx
-     $                        ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
+            if (nc_eom_jxb) then
+              cnv = crossProduct(gv%gparams,i,j,k,igx
+     $                          ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
+            else
+              cnv = EOM_jxb(gv%gparams,i,j,k,igx,bcnv,bcnv)
+            endif
+
             if (use_p_eom) then
               cnv = cnv
      $             -EOM_gp (gv%gparams,i,j,k,igx,p_tot,nc_eom_gp)
@@ -358,6 +363,8 @@ c JxB-g(P) diagnostice (cnv)
             F1(i,j,k) = cnv(1)
             F2(i,j,k) = cnv(2)
             F3(i,j,k) = cnv(3)
+            if (alt__eom().and.(.not.car_diag_plots))
+     $     F2(i,j,k) = F2(i,j,k)*gv%gparams%gmetric%grid(igx)%jac(i,j,k)
           enddo
         enddo
       enddo
