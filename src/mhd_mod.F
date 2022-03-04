@@ -229,7 +229,7 @@ c     #############################################################
       function vis_rfx(rr) result(vis)
 c     -------------------------------------------------------------
 c     This function computes the viscosity profile at a radius rr.
-c     (Daniele's RFX profile).
+c     vis = (1 + aa*x^bb)^cc (Daniele's RFX profile).
 c     -------------------------------------------------------------
 
       implicit none
@@ -242,7 +242,6 @@ c     Local variables
 
 c     Begin program
 
-      !Viscosity profile (1 + aa*x^bb)^cc
       vis = (1. + aa_nu*rr**bb_nu)**cc_nu
 
 c     End program
@@ -6592,7 +6591,7 @@ c     Call variables
 c     Local variables
 
       integer :: ig,jg,kg
-      real(8) :: rr,th,zz
+      real(8) :: rr,th,zz,x1,x2,x3
 
 c     Begin program
 
@@ -6601,7 +6600,9 @@ c     Begin program
         call find_polar_coords(g_def,igrid,i,j,k,rr,th,zz,coords)
         vscty = nu*vis_rfx(rr)
       case default
-        vscty = nu
+        call getCurvilinearCoordinates(g_def,i,j,k,igrid,igrid,igrid
+     $                                ,ig,jg,kg,x1,x2,x3)
+        vscty = nu*vis_rfx(x1)
       end select
 
       if (nu_is_rhonu) vscty = rho*vscty

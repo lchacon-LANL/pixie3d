@@ -719,6 +719,7 @@ c     #####################################################################
       if (tst_flg) test = .true.
 
       if (refine_eq) then
+        aa_nu = 0d0 ; bb_nu = 0d0 ; cc_nu = 0d0 !Flat nu profile
         dd  = 0d0        !To avoid dens decay
         chi = 0d0        !To avoid temp decay due to perpendicular xport
         nu  = 1d0        !To damp flow
