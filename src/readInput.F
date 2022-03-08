@@ -18,6 +18,8 @@ c----------------------------------------------------------------------
 
       use rw_bc
 
+      use pixie3d_io
+
       implicit none
 
 c Call variables
@@ -177,6 +179,10 @@ c Read initialization parameters
 
       call read_namelists
 
+c Dump initial IO headers
+      
+      if (.not.test) call output_header
+
 c Obtain eta, nu from Prandtl, Hartmann
 
       if (hrtmn.gt.0d0.and.prndtl.gt.0d0) then
@@ -231,7 +237,7 @@ c Init boundary conditions
 
 c Write initialization parameters to standard output
 
-      call write_namelists
+      if (.not.test) call write_namelists
 
 c Initialize graphics
 
@@ -317,7 +323,7 @@ c     #####################################################################
 
       implicit none
 
-      if (my_rank == 0 .and. (.not. test)) then
+      if (my_rank == 0) then
         write (*,*) '------------------'
         write (*,*) 'GRID configuration'
         write (*,*) '------------------'

@@ -70,9 +70,18 @@ endif
 
 # PIXIE3D setup
 
-REL1=$(shell git describe --tags `git rev-list --tags --max-count=1`)-$(shell git rev-parse --short HEAD)
+GIT_BRANCH=$(shell git branch --show-current)
+GIT_COMMIT_HASH=$(shell git rev-parse --short HEAD)
+GIT_COMMIT_TAG=$(shell git describe --tags `git rev-list --tags --max-count=1`)
+GIT_COMMIT_DATE=$(shell git show -s --format=%cd --date=format:'%Y-%m-%d' $(GIT_COMMIT_HASH))
 
-CPPFLAGS += $(PREPROC)REL1=\"$(REL1)\"
+REL1=$(GIT_COMMIT_TAG)-$(GIT_COMMIT_HASH)
+
+CPPFLAGS += $(PREPROC)REL1=\"$(REL1)\" $(PREPROC)GIT_BRANCH=\"$(GIT_BRANCH)\"
+CPPFLAGS += $(PREPROC)GIT_COMMIT_HASH=\"$(GIT_COMMIT_HASH)\"
+CPPFLAGS += $(PREPROC)GIT_COMMIT_DATE=\"$(GIT_COMMIT_DATE)\"
+
+CPPFLAGS += $(PREPROC)COMPILE_HOST=\"$(MACHINE)\"
 
 SUBDIRS = eq src plot
 
