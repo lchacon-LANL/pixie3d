@@ -16,7 +16,7 @@ override CPPFLAGS += -D_equ
 
 #Modules
 
-MODS := mhd_mod.F BC_mod.F PC_mod.F rw_mod.F
+MODS := io_mod.F90 mhd_mod.F BC_mod.F PC_mod.F rw_mod.F
 
 #Define subdirectories for common code
 
@@ -41,6 +41,7 @@ LNK_FILES = ../src/applyBC.F\
 	    ../src/mhd_mod.F\
 	    ../src/PC_mod.F\
 	    ../src/rw_mod.F\
+	    ../src/io_mod.F90\
 	    ../src/readInput.F
 
 #Exclusions
