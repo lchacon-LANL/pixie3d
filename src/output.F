@@ -72,17 +72,17 @@ c Output
           case (1)
             advective = ' UPWIND'
           case (2)
-            advective = '    ZIP'
+            advective = ' ZIP   '
           case (3)
-            advective = '  QUICK'
+            advective = ' QUICK '
           case (4)
-            advective = '  SMART'
+            advective = ' SMART '
           case (5)
             advective = ' SSMART'
           case (6)
             advective = ' HORDER'
           case (7)
-            advective = '  Gamma'
+            advective = ' Gamma '
 cc            advective = '   TVD'
           end select
 
@@ -90,29 +90,29 @@ cc            advective = '   TVD'
           case (1)
             vadvective = ' UPWIND'
           case (2)
-            vadvective = '    ZIP'
+            vadvective = ' ZIP   '
           case (3)
-            vadvective = '  QUICK'
+            vadvective = ' QUICK '
           case (4)
-            vadvective = '  SMART'
+            vadvective = ' SMART '
           case (5)
             vadvective = ' SSMART'
           case (6)
             vadvective = ' HORDER'
           case (7)
-            vadvective = '  Gamma'
+            vadvective = ' Gamma '
 cc            vadvective = '   TVD'
           end select
 
           if (cnfactor <= 5d-1) then
             if     (sm_flag.eq.0 .and. cnfactor > 0d0) then
-              tsmeth = '  Theta'
+              tsmeth = ' Theta'
             elseif (sm_flag.eq.0 .and. cnfactor == 0d0) then
-              tsmeth = '  BDF1(BE)'
+              tsmeth = ' BDF1(BE)'
             elseif (sm_flag.eq.1) then
               tsmeth = ' Rannacher'
             elseif (sm_flag.eq.2) then
-              tsmeth = '  BDF2'
+              tsmeth = ' BDF2'
             endif
           elseif (cnfactor <= 1d0) then
             tsmeth = ' Explicit'
@@ -137,11 +137,11 @@ cc            vadvective = '   TVD'
 
           select case(xport_order)
           case(2)
-            pxo = '  2nd     '
+            pxo = ' 2nd      '
           case(4)
-            pxo = '  4th-7pt '
+            pxo = ' 4th-7pt  '
           case(-4)
-            pxo = '  4th-5pt '
+            pxo = ' 4th-5pt  '
           end select
           
 #if defined(petsc) && defined(coarse_MG)
@@ -198,9 +198,9 @@ c End program
      .        /,'  Number of grid levels:....',i5,',',i5,',',i5
 #endif
      .        /,'  Preconditioning method:...',a,
-     .        /,'  Timestep adaption.........',l4,
-     .        /,'  External source...........',l4,
-     .        /,'  Numerical grid............',l4
+     .        /,'  Timestep adaption.........',l2,
+     .        /,'  External source...........',l2,
+     .        /,'  Numerical grid............',l2
      .        /,'  Scalar advection scheme...',a
      .        /,'  Velocity advection scheme.',a
      .        /,'  Anisotropic transport sch.',a
@@ -237,29 +237,29 @@ c     -----------------------------------------------------------------
 
 c     Initial message
 
-      write (release,'(a)') REL1
-
-      write (*,*)
-      write (*,*) '****************************************************'
-      write (*,*) '******       PIXIE3D Extended MHD code        ******'
-      write (*,*) '******         V. '//release(1:28)//         '******'
-      write (*,*) '******                                        ******'
-      write (*,*) '******         Developer: L. Chacon           ******'
-      write (*,*) '****** Los Alamos National Laboratory (12-)   ******'
-      write (*,*) '****** Oak Ridge  National Laboratory (08-12) ******'
-      write (*,*) '****** Los Alamos National Laboratory (04-08) ******'
-      write (*,*) '******             LA-CC 07-005               ******'
-      write (*,*) '******                                        ******'
-      write (*,*) '******        with contributions from:        ******'
-      write (*,*) '******                                        ******'
-      write (*,*) '******       Daniele Bonfiglio, CNR-RFX       ******'
-      write (*,*) '******    Mark Berrill, Bobby Philip, ORNL    ******'
-      write (*,*) '****************************************************'
+c$$$      write (release,'(a)') REL1
+c$$$
+c$$$      write (*,*)
+c$$$      write (*,*) '****************************************************'
+c$$$      write (*,*) '******       PIXIE3D Extended MHD code        ******'
+c$$$      write (*,*) '******         V. '//release(1:28)//         '******'
+c$$$      write (*,*) '******                                        ******'
+c$$$      write (*,*) '******         Developer: L. Chacon           ******'
+c$$$      write (*,*) '****** Los Alamos National Laboratory (12-)   ******'
+c$$$      write (*,*) '****** Oak Ridge  National Laboratory (08-12) ******'
+c$$$      write (*,*) '****** Los Alamos National Laboratory (04-08) ******'
+c$$$      write (*,*) '******             LA-CC 07-005               ******'
+c$$$      write (*,*) '******                                        ******'
+c$$$      write (*,*) '******        with contributions from:        ******'
+c$$$      write (*,*) '******                                        ******'
+c$$$      write (*,*) '******       Daniele Bonfiglio, CNR-RFX       ******'
+c$$$      write (*,*) '******    Mark Berrill, Bobby Philip, ORNL    ******'
+c$$$      write (*,*) '****************************************************'
 
 c     Warnings
 
       write (*,*)
-      write (*,*) '****************** NOTICES ******************'
+      write (*,*) '****************** CONFIG SUMMARY ******************'
 
 #if defined(vec_pot) 
       write (*,*) 'Using VECTOR POTENTIAL formulation'
@@ -317,8 +317,7 @@ c     Warnings
       if (.not.pc_divclean) write (*,*) 'Div-cleaning postprocessed'
 #endif
       if (refine_eq) write (*,*) 'Running Equilibrium-checking mode'
-      write (*,*) '****************** NOTICES ******************'
-
+      write (*,*) '****************************************************'
 
       if (advect == 5) then
         write (*,*)
