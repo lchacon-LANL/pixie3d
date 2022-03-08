@@ -70,7 +70,7 @@ endif
 
 # PIXIE3D setup
 
-GIT_BRANCH=$(shell git branch --show-current)
+GIT_BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
 GIT_COMMIT_HASH=$(shell git rev-parse --short HEAD)
 GIT_COMMIT_TAG=$(shell git describe --tags `git rev-list --tags --max-count=1`)
 GIT_COMMIT_DATE=$(shell git show -s --format=%cd --date=format:'%Y-%m-%d' $(GIT_COMMIT_HASH))
