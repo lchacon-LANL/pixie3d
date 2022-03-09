@@ -185,10 +185,12 @@ else
 endif
 endif
 endif
+ifneq ($(VECPOT),t)
 ifdef BOPT
 	$(MAKE) --no-print-directory -e -C eq/test_parallel test
 else
 	$(MAKE) --no-print-directory -e -C eq/test_serial test
+endif
 endif
 
 rebuild-tests: ;
@@ -213,10 +215,12 @@ else
 endif
 endif
 endif
+ifneq ($(VECPOT),t)
 ifdef BOPT
 	$(MAKE) --no-print-directory -e -C eq/test_parallel rebuild
 else
 	$(MAKE) --no-print-directory -e -C eq/test_serial rebuild
+endif
 endif
 
 # COMMON CONTRIBUTED LIBRARIES

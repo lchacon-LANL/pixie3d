@@ -19,27 +19,27 @@
   Grid mesh:................  128x   32x    1
   Number of processors:.....    2,    1,    1
   Preconditioning method:... Identity
-  Timestep adaption.........   F
-  External source...........   F
-  Numerical grid............   F
-  Scalar advection scheme...    ZIP   
-  Velocity advection scheme.    ZIP   
-  Anisotropic transport sch.  4th-7pt 
-  TS scheme.................  Theta   
+  Timestep adaption......... F
+  External source........... F
+  Numerical grid............ F
+  Scalar advection scheme... ZIP      
+  Velocity advection scheme. ZIP      
+  Anisotropic transport sch. 4th-7pt  
+  TS scheme................. Theta    
 
     itime      time     dt     #CFL   vx_max   vy_max   vz_max    GMRES Newton CN factor  GMRES-DC
          1      0.01  5.0E-03 5.7E+01  1.2E-02  2.3E-07  5.8E-09     3     3     0.500        0
          2      0.01  5.0E-03 5.7E+01  1.2E-02  7.1E-07  2.3E-08     3     3     0.500        0
          3      0.01  5.0E-03 5.7E+01  1.2E-02  1.4E-06  5.2E-08     6     4     0.500        0
          4      0.02  5.0E-03 5.7E+01  1.2E-02  2.3E-06  9.2E-08    11     5     0.500        0
-         5      0.03  5.0E-03 5.7E+01  1.2E-02  3.3E-06  1.4E-07    11     5     0.500        0
+         5      0.03  5.0E-03 5.7E+01  1.2E-02  3.3E-06  1.4E-07    13     5     0.500        0
          6      0.03  5.0E-03 5.7E+01  1.2E-02  4.6E-06  2.1E-07    12     5     0.500        0
-         7      0.04  5.0E-03 5.7E+01  1.2E-02  6.2E-06  2.8E-07    13     5     0.500        0
-         8      0.04  5.0E-03 5.7E+01  1.2E-02  7.9E-06  3.7E-07    11     5     0.500        0
-         9      0.04  5.0E-03 5.7E+01  1.2E-02  9.8E-06  4.6E-07    12     5     0.500        0
-        10      0.05  5.0E-03 5.7E+01  1.2E-02  1.2E-05  5.7E-07    11     5     0.500        0
+         7      0.04  5.0E-03 5.7E+01  1.2E-02  6.1E-06  2.8E-07    13     5     0.500        0
+         8      0.04  5.0E-03 5.7E+01  1.2E-02  7.9E-06  3.7E-07    13     5     0.500        0
+         9      0.04  5.0E-03 5.7E+01  1.2E-02  9.8E-06  4.6E-07    11     5     0.500        0
+        10      0.05  5.0E-03 5.7E+01  1.2E-02  1.2E-05  5.7E-07    13     5     0.500        0
 
 Final statistics
 
  itime  Newt/ndt  GMRES/ndt  GMRES/Newt
-   10       4.5        9.3        2.1
+   10       4.5        9.8        2.2

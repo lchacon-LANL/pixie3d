@@ -2,25 +2,25 @@
   Grid mesh:................   32x   32x    1
   Number of grid levels:....    4,    4,    1
   Preconditioning method:... Identity
-  Timestep adaption.........   F
-  External source...........   F
-  Numerical grid............   T
-  Scalar advection scheme...  SMART   
-  Velocity advection scheme.  SMART   
-  Anisotropic transport sch.  4th-7pt 
-  TS scheme.................  BDF2    
+  Timestep adaption......... F
+  External source........... F
+  Numerical grid............ T
+  Scalar advection scheme... SMART    
+  Velocity advection scheme. SMART    
+  Anisotropic transport sch. 4th-7pt  
+  TS scheme................. BDF2     
 
     itime      time     dt     #CFL   vx_max   vy_max   vz_max    GMRES Newton CN factor
          1      0.00  1.0E-03 3.3E+02  6.0E-05  1.6E-05  2.3E-08    14     6     0.000
          2      0.01  9.0E-03 3.0E+03  6.0E-04  1.6E-04  1.2E-06    26     6     0.000
          3      0.02  1.0E-02 3.3E+03  1.2E-03  3.2E-04  4.7E-06    25     6     0.000
          4      0.03  1.0E-02 3.3E+03  1.8E-03  4.8E-04  1.1E-05    19     5     0.000
-         5      0.04  1.0E-02 3.3E+03  2.4E-03  6.5E-04  1.9E-05    16     5     0.000
-         6      0.05  1.0E-02 3.3E+03  3.0E-03  8.1E-04  2.9E-05    14     4     0.000
-         7      0.06  1.0E-02 3.3E+03  3.6E-03  9.7E-04  4.2E-05    15     4     0.000
+         5      0.04  1.0E-02 3.3E+03  2.4E-03  6.4E-04  1.9E-05    16     5     0.000
+         6      0.05  1.0E-02 3.3E+03  3.0E-03  8.0E-04  2.9E-05    14     4     0.000
+         7      0.06  1.0E-02 3.3E+03  3.6E-03  9.6E-04  4.2E-05    15     4     0.000
          8      0.07  1.0E-02 3.3E+03  4.2E-03  1.1E-03  5.7E-05    12     4     0.000
          9      0.08  1.0E-02 3.3E+03  4.7E-03  1.3E-03  7.4E-05    13     4     0.000
-        10      0.09  1.0E-02 3.3E+03  5.3E-03  1.5E-03  9.4E-05    15     4     0.000
+        10      0.09  1.0E-02 3.3E+03  5.3E-03  1.4E-03  9.4E-05    15     4     0.000
         11      0.10  1.0E-02 3.3E+03  5.9E-03  1.6E-03  1.2E-04    11     4     0.000
 
 Final statistics

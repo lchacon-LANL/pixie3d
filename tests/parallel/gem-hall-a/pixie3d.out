@@ -2,13 +2,13 @@
   Grid mesh:................   64x   64x    1
   Number of processors:.....    2,    2,    1
   Preconditioning method:... Identity
-  Timestep adaption.........   F
-  External source...........   F
-  Numerical grid............   T
-  Scalar advection scheme...  SMART   
-  Velocity advection scheme.  SMART   
-  Anisotropic transport sch.  4th-7pt 
-  TS scheme.................  BDF2    
+  Timestep adaption......... F
+  External source........... F
+  Numerical grid............ T
+  Scalar advection scheme... SMART    
+  Velocity advection scheme. SMART    
+  Anisotropic transport sch. 4th-7pt  
+  TS scheme................. BDF2     
 
     itime      time     dt     #CFL   vx_max   vy_max   vz_max    GMRES Newton CN factor
          1      0.00  1.0E-03 3.7E+02  5.6E-05  1.5E-05  2.2E-08    12     5     0.000
