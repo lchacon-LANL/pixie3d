@@ -2,13 +2,13 @@
   Grid mesh:................   32x   32x    1
   Number of grid levels:....    4,    4,    1
   Preconditioning method:... Identity
-  Timestep adaption.........   F
-  External source...........   T
-  Numerical grid............   F
-  Scalar advection scheme...  SMART   
-  Velocity advection scheme.  QUICK   
-  Anisotropic transport sch.  4th-7pt 
-  TS scheme.................  Theta   
+  Timestep adaption......... F
+  External source........... T
+  Numerical grid............ F
+  Scalar advection scheme... SMART    
+  Velocity advection scheme. QUICK    
+  Anisotropic transport sch. 4th-7pt  
+  TS scheme................. Theta    
 
     itime      time     dt     #CFL   vx_max   vy_max   vz_max    GMRES Newton CN factor  GMRES-DC
          1      0.01  1.0E-02 6.6E+00  9.9E-05  1.1E-06  2.2E-08     3     3     0.500        0

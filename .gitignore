@@ -2,8 +2,8 @@
 
 # project folders
 contrib/*/*
-bin
-eq/*
+bin/*.x
+eq/*/pixie3d.in
 common
 record*
 tests*

@@ -2,13 +2,13 @@
   Grid mesh:................   32x  128x    1
   Number of grid levels:....    4,    6,    1
   Preconditioning method:... Identity
-  Timestep adaption.........   F
-  External source...........   T
-  Numerical grid............   F
-  Scalar advection scheme...    ZIP   
-  Velocity advection scheme.    ZIP   
-  Anisotropic transport sch.  4th-7pt 
-  TS scheme.................  Theta   
+  Timestep adaption......... F
+  External source........... T
+  Numerical grid............ F
+  Scalar advection scheme... ZIP      
+  Velocity advection scheme. ZIP      
+  Anisotropic transport sch. 4th-7pt  
+  TS scheme................. Theta    
 
     itime      time     dt     #CFL   vx_max   vy_max   vz_max    GMRES Newton CN factor
          1      0.00  4.0E-05 1.0E+00  1.0E-07  5.0E-06  3.1E-23     3     2     0.500
