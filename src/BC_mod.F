@@ -1789,26 +1789,25 @@ c     Begin program
         stop
       endif
 
-      i = nx
-
+      i = nx ; ord = 1
+      
       call getMGmap(g_def,i,1,1,igrid,igrid,igrid,ig,jg,kg)
 
       do k=1,nz
         do j=1,ny
           !First-order extrapolation of B to boundary, arbitrary mesh (critical)
-          bbcnv = bcnv(i-1,j,k,:) + (bcnv(i,j,k,:)-bcnv(i-1,j,k,:))
-     $                             /(g_def%xx(ig) -g_def%xx(ig-1))
-     $                               *(0.5*g_def%xx(ig+1)
-     $                                +0.5*g_def%xx(ig)
-     $                                -    g_def%xx(ig-1))
-          !Second-order extrapolation of B to boundary, arbitrary mesh (critical)
-c$$$          xh = 0.5*(g_def%xx(ig+1)+g_def%xx(ig))
-c$$$          call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,1)
-c$$$     .                    ,1,xh,bbcnv(1),2,0)
-c$$$          call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,2)
-c$$$     .                    ,1,xh,bbcnv(2),2,0)
-c$$$          call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
-c$$$     .                    ,1,xh,bbcnv(3),2,0)
+c$$$          bbcnv = bcnv(i-1,j,k,:) + (bcnv(i,j,k,:)-bcnv(i-1,j,k,:))
+c$$$     $                             /(g_def%xx(ig) -g_def%xx(ig-1))
+c$$$     $                               *(0.5*g_def%xx(ig+1)
+c$$$     $                                +0.5*g_def%xx(ig)
+c$$$     $                                -    g_def%xx(ig-1))
+          xh = 0.5*(g_def%xx(ig+1)+g_def%xx(ig))
+          call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,1)
+     .                    ,1,xh,bbcnv(1),ord,0)
+          call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,2)
+     .                    ,1,xh,bbcnv(2),ord,0)
+          call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
+     .                    ,1,xh,bbcnv(3),ord,0)
 
           gsub = 0.5*(g_def%gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
      .               +g_def%gmetric%grid(igrid)%gsub(i+1,j,k,:,:))

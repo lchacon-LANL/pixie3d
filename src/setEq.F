@@ -3154,6 +3154,16 @@ c       Iteration
      $              +bth*(bzz0(i)-bzz0(i-1))/dr(i)
         enddo
 
+c diag ****
+c$$$        do i=1,nxdp
+c$$$          rh  = rg(i)
+c$$$          write (*,*) "diag1",rh
+c$$$     $         ,-(bzz0(i)-bzz0(i-1))/dr(i)*rh
+c$$$     $         , (bth0(i)*xh(i)-bth0(i-1)*xh(i-1))/dr(i)/rh
+c$$$     $         ,etap(i)
+c$$$        enddo
+c diag ****
+
         if (my_rank == 0) then
           write(*,'(a,1pe14.7)') ' Ohms law      error ='
      .                        ,sqrt(sum(dummy(1:nxd)**2)/nxd)
@@ -3203,6 +3213,34 @@ cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
         !Extrapolate linearly in radius @ r=0
         bth0(0) = -bth0(1)
         bzz0(0) = bzz0(1)
+
+c diag ****
+c$$$        do i=1,nxd
+c$$$          rh  = rg(i)
+c$$$          write (*,*) "diag2",rh
+c$$$     $        ,-(bzz0(i+1)-bzz0(i-1))/2/dr(i)*rh
+c$$$     $        , (bth0(i+1)*rg(i+1)-bth0(i-1)*rg(i-1))/2/dr(i)/rh
+c$$$     $        ,bth0(i),bzz0(i)
+c$$$        enddo
+c$$$        i = nxd
+c$$$        rh = 0.5*(rg(i+1)+rg(i))
+c$$$        bzh = 0.5*(bzz0(i+1)+bzz0(i))
+c$$$        bth = 0.5*(bth0(i+1)+bth0(i))
+c$$$        write (*,*) "diag2",rh
+c$$$     $         ,-(bzz0(i+1)-bzz0(i))/dr(i)*rh
+c$$$     $         , (bth0(i+1)*rg(i+1)-bth0(i)*rg(i))/dr(i)/rh
+c$$$     $         ,bth,bzh
+c$$$
+c$$$        write (*,*) "alpha",Eoeta*bzh/etap(i)/(bzh**2+bth**2)
+c$$$
+c$$$        write (*,*) "Jth"
+c$$$     $       ,-(bzz0(i+1)-bzz0(i))/drh(i)
+c$$$     $       ,Eoeta*bzh*2/(etap(i)+etap(i+1))/(bzh**2+bth**2)*bth
+c$$$        write (*,*) "Jz"
+c$$$     $       ,(bth0(i+1)*rg(i+1)-bth0(i)*rg(i))/drh(i)/rh
+c$$$     $       ,Eoeta*bzh*2/(etap(i)+etap(i+1))/(bzh**2+bth**2)*bzh
+c$$$        stop
+c diag ****
 
         !Find pinch flow at cell centers (normalized to nominal resistivity)
         vr0 = 0d0
