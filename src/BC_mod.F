@@ -563,12 +563,24 @@ c     Set auxiliary variable BC
       vaux%var_list(IRHO_AUX)%bconds = bcs(:,IRHO)
       vaux%var_list(ITMP_AUX)%bconds = bcs(:,IPRS)
       vaux%var_list(ITMPE_AUX)%bconds = bcs(:,IPRS)
+      
+      if (.not.spitzer) then
+        vaux%var_list(IETA_0)%bconds = bcond
+        where (vaux%var_list(IETA_0)%bconds == DEF) 
+          vaux%var_list(IETA_0)%bconds = EXT
+        end where
+      else
+        vaux%var_list(IETA_0)%bconds = bcs(:,IPRS)
+        where (vaux%var_list(IETA_0)%bconds == DIR)
+          vaux%var_list(IETA_0)%bconds = EQU
+        end where
+      endif
 
       if (.not.spitzer) then
         vaux%var_list(IETA)%bconds = bcond
-cc        where (vaux%var_list(IETA)%bconds == DIR) 
-cc          vaux%var_list(IETA)%bconds = EQU
-cc        end where
+        where (vaux%var_list(IETA)%bconds == DEF) 
+          vaux%var_list(IETA)%bconds = EXT
+        end where
       else
         vaux%var_list(IETA)%bconds = bcs(:,IPRS)
         where (vaux%var_list(IETA)%bconds == DIR)
@@ -1724,7 +1736,7 @@ cc          b2 = vectorNorm_ijk(g_def,i,j,k,igrid,bbcnv,.false.)
 
             !Tangential eta*j at wall
             E00 = E0 + E_0(i+1,j,k,:) !E_0(nx+1) contains face value
-            
+
             !ExB velocity
             v0(i+1,j,k,1)=(E00(2)*bbcov(3)-E00(3)*bbcov(2)
      .                   -etah*grad_p(1))/b2
@@ -1764,7 +1776,7 @@ c     Local variables
 
       integer :: i,j,k,ig,jg,kg,ord,nx,ny,nz
       real(8) :: Jb2,b2,bbcnv(3),bbcov(3),grad_p(3),alpha
-     .          ,gsub(3,3),ietah,jach,E00(3)
+     .          ,gsub(3,3),ietah,jach,E00(3),xh(1)
 
 c     Begin program
 
@@ -1789,6 +1801,14 @@ c     Begin program
      $                               *(0.5*g_def%xx(ig+1)
      $                                +0.5*g_def%xx(ig)
      $                                -    g_def%xx(ig-1))
+          !Second-order extrapolation of B to boundary, arbitrary mesh (critical)
+c$$$          xh = 0.5*(g_def%xx(ig+1)+g_def%xx(ig))
+c$$$          call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,1)
+c$$$     .                    ,1,xh,bbcnv(1),2,0)
+c$$$          call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,2)
+c$$$     .                    ,1,xh,bbcnv(2),2,0)
+c$$$          call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
+c$$$     .                    ,1,xh,bbcnv(3),2,0)
 
           gsub = 0.5*(g_def%gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
      .               +g_def%gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
@@ -1801,7 +1821,7 @@ c     Begin program
           b2  = Jb2/jach
 
           if (b2 > 0d0) then
-cc            ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
+c$$$            ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
             ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
             grad_p
@@ -1812,7 +1832,7 @@ cc            ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
 
             if (PRESENT(dbcnv)) bbcnv = dbcnv(i,j,k,:)
 
-            j0(i+1,j,k,:)=alpha*bbcnv + cross_product(bbcov,grad_p)/b2
+            j0(i+1,j,k,:) = alpha*bbcnv + cross_product(bbcov,grad_p)/b2
           endif
         enddo
       enddo

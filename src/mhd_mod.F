@@ -211,14 +211,16 @@ c     Begin program
 
       rf = 1. + aa_eta*rr**bb_eta
 
-      !Resistivity profile eta*(1 + aa*x^bb)^cc
-      if (rf >= 0d0) then
-         res = rf**cc_eta
-      else
-         res = 3e2
-      endif
+      res = abs(rf)**cc_eta
 
-      res = min(res,3d2)
+c$$$      !Resistivity profile eta*(1 + aa*x^bb)^cc
+c$$$      if (rf >= 0d0) then
+c$$$         res = rf**cc_eta
+c$$$      else
+c$$$         res = 3e2
+c$$$      endif
+c$$$
+c$$$      res = min(res,3d2)
 
 c     End program
 
@@ -6173,14 +6175,9 @@ c     Call variables
 
 c     Local variables
 
-      integer :: nx,ny,nz,i,j,k,ig,jg,kg,ieq,bcnd(6,3)
-      real(8) :: eps,betap,qa,jbs,cov(3),cnv(3),bnorm,x1,y1,z1
+      integer :: bcnd(6,3)
 
 c     Begin program
-
-      nx = size(vcnv,1)-2
-      ny = size(vcnv,2)-2
-      nz = size(vcnv,3)-2
 
 c     Resistive term
 

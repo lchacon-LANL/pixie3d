@@ -2104,28 +2104,24 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),n00(i)
           if (my_rank == 0)
      .       write (*,*) 'Calculating equilibrium ',equil,'...'
 
-          bz0 = 1d0
-
           call find_global_radial_mesh(rg)
 
 	  !Find density
           n00 = 1d0
 
           !Find pressure profile
+          bz0 = 1d0
           do i=0,nxdp
             x1  = rg(i)
             p00(i) = 0.5*beta*bz0**2*pprof(x1,0)
           enddo
 
 	  !Initialize toroidal field
-          bzz0 = bz0
-
-! Daniele, 11/10/2013
           if (gamma > 1d0) then
              call Ohm_equil_1d_xport(-kk,RR,e0_over_eta,theta_ppnch,prsw
      .                              ,p00,bth0,bzz0,vr0,psi0)
           else
-             call Ohm_equil_1d      (-kk,RR,e0_over_eta,theta_ppnch
+             call Ohm_equil_1d      (-kk,RR,e0_over_eta,theta_ppnch,bz0
      .                              ,p00,bth0,bzz0,vr0,psi0)
           endif
 
@@ -2213,14 +2209,14 @@ c     Initial guess: 1D equilibrium
 
         bb(:,:,:,1) = 0d0
 
-        bzz0 = 1d0
         p00  = 0d0
+        bz0  = 1d0
 
         if (gamma > 1d0) then
            call Ohm_equil_1d_xport(-kk,RR,e0_over_eta,theta_ppnch,0d0
      .                            ,p00,bth0,bzz0,vr0,psi0)
         else
-           call Ohm_equil_1d      (-kk,RR,e0_over_eta,theta_ppnch
+           call Ohm_equil_1d      (-kk,RR,e0_over_eta,theta_ppnch,bz0
      .                            ,p00,bth0,bzz0,vr0,psi0)
         endif
 
@@ -2333,8 +2329,6 @@ c     Equilibria (numerical)
           if (my_rank == 0)
      .       write (*,*) 'Calculating equilibrium ',equil,'...'
 
-          bz0 = 1d0
-
           call find_global_radial_mesh(rg)
 
           !Find pressure and q-profiles
@@ -2343,14 +2337,14 @@ c     Equilibria (numerical)
             p00(i) = 0.5*beta*bz0**2*pprof(x1,0)
           enddo
 
-	  !Initialize toroidal field
-          bzz0 = bz0
+          bz0 = 1d0
 
+	  !Initialize toroidal field
           if (gamma > 1d0) then
              call Ohm_equil_1d_xport(-kk,RR,e0_over_eta,theta_ppnch,prsw
      .                              ,p00,bth0,bzz0,vr0,psi0)
           else
-             call Ohm_equil_1d      (-kk,RR,e0_over_eta,theta_ppnch
+             call Ohm_equil_1d      (-kk,RR,e0_over_eta,theta_ppnch,bz0
      .                              ,p00,bth0,bzz0,vr0,psi0)
           endif
 
@@ -2927,7 +2921,8 @@ cc          write (*,*) dummy(1:nxd)
 
 c     Ohm_equil_1d
 c     ###############################################################
-      subroutine Ohm_equil_1d(kk,RR,Eoeta,theta,p0,bth0,bzz0,vr0,psi0)
+      subroutine Ohm_equil_1d(kk,RR,Eoeta,theta,bz0,p0,bth0,bzz0,vr0
+     $                       ,psi0)
 
 c     ---------------------------------------------------------------
 c     Solves 1D Ohmic eq. equations to find cylindrical components
@@ -2959,7 +2954,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-        real(8),intent(IN) :: kk,RR,Eoeta,theta,p0(0:nxdp)
+        real(8),intent(IN) :: kk,RR,Eoeta,theta,p0(0:nxdp),bz0
 
         real(8),intent(OUT):: bth0(0:nxdp),bzz0(0:nxdp)
      .                       ,vr0 (0:nxdp),psi0(0:nxdp)
@@ -2967,12 +2962,12 @@ c     Call variables
 c     Local variables
 
         integer :: i,j,k,ig,jg,kg,it
-        real(8) :: bz0,bz_avg,x1,bzh,bth,err,rh,dh,p00,th,zz
+        real(8) :: bz_avg,x1,bzh,bth,err,rh,dh,p00,th,zz
      .            ,dx1,dx2,gp,dvol
 
-        real(8) :: dummy(0:nxdp),bth0_old(0:nxdp)
-     .            ,bzz0_old(0:nxdp),xh(0:nxd),dr(0:nxd),rg(0:nxdp)
-     .            ,rl(nxl),drh(0:nxd),etap(0:nxdp)
+        real(8) :: dummy(0:nxdp),bth0_old(0:nxdp),bzz0_old(0:nxdp)
+     .            ,xh(0:nxdp),dr(0:nxdp),rg(0:nxdp)
+     .            ,rl(nxl),drh(0:nxdp),etap(0:nxdp)
 
         real(8) :: pprof
         external   pprof
@@ -2989,68 +2984,52 @@ c     Begin program
 
 c       Initialize iteration
 
-        bz0 = bzz0(0)
         p00 = maxval(p0)
 
 c       Find global-mesh radial positions and increments
 
-        !Integer mesh positions
-        do i=1,nxl
-          call find_polar_coords(gv%gparams,1,i,1,1,rl(i),th,zz
-     .                          ,coords)
-        enddo
-
-#if defined(petsc)
-        call MPI_Allgather(rl(1:nxl),nxl,MPI_DOUBLE_PRECISION
-     .                    ,rg(1:nxd),nxl,MPI_DOUBLE_PRECISION
-     .                    ,gv%gparams%MPI_COMM_X,mpierr)
-#else
-        rg(1:nxd) = rl
-#endif
-        rg(0)    = -rg(1)           !@ SP
-        rg(nxdp) = 2*xmax - rg(nxd) !@ radial boundary
-
+        call find_global_radial_mesh(rg)
+        
         !Half-mesh positions and spacings
         do i=0,nxd
           xh (i) = 0.5*(rg(i+1)+rg(i))
           drh(i) =      rg(i+1)-rg(i)
         enddo
-
+        drh(nxdp) = drh(nxd)
+        xh (nxdp) = xh(nxd)+drh(nxd)
+        
         !Integer mesh spacings
-        do i=1,nxd
-          dr(i) =      xh(i)-xh(i-1)
+        do i=1,nxdp
+          dr(i) = xh(i)-xh(i-1)
         enddo
         dr(0) = dr(1)
 
-        !Initial guess for B_theta (defined in half mesh)
-        bth0 = 0d0
-        do i=0,nxd
-          bth0(i) = 0.5*xh(i)*Eoeta
-        enddo
-
+        !Initial guess for B_theta and B_z (defined in half mesh)
+        bth0 = 0.5*xh*Eoeta
+        bzz0 = bz0
+        
         !Resistivity profile (eta/eta0, integer mesh)
-        do i=1,nxdp
-          if (spitzer) then
-            etap(i) = res_spitzer(p0(i),p0(1))
-          else
+        if (spitzer) then
+          do i=0,nxdp
+            etap(i) = res_spitzer(p0(i),p00)
+          enddo
+        else
+          do i=0,nxdp
             etap(i) = res_rfx(rg(i))
-          endif
-        enddo
+          enddo
+        endif
 
 c       Iteration
-
+          
         do it=1,100
 
           bth0_old = bth0
           bzz0_old = bzz0
 
-          !Perform integral of B_theta
-          dummy(0) = 0d0
-          bth0 (0) = 0d0
-          do i=1,nxd
-            x1 = xh(i)  !Half mesh
-            rh = rg(i)  !Full mesh
-
+          !Perform integral of B_theta on half mesh
+          dummy = 0d0
+          do i=1,nxdp
+            !Full-mesh field components
             bzh = 0.5*(bzz0(i)+bzz0(i-1))
             bth = 0.5*(bth0(i)+bth0(i-1))
 
@@ -3058,10 +3037,14 @@ c       Iteration
             dx1=drh(i-1)
             dx2=drh(i)
 
-            gp = ( p0(i+1)*dx1/dx2/(dx1+dx2)
-     .            +p0(i  )*(dx2-dx1)/dx2/dx1
-     .            -p0(i-1)*dx2/dx1/(dx1+dx2))
-
+            if (i==nxdp) then
+              gp = (p0(i)-p0(i-1))/drh(i)
+            else
+              gp = ( p0(i+1)*dx1/dx2/(dx1+dx2)
+     .              +p0(i  )*(dx2-dx1)/dx2/dx1
+     .              -p0(i-1)*dx2/dx1/(dx1+dx2))
+            endif
+            
             !Accumulate integral on half mesh
             dvol = 0.5*(xh(i)**2-xh(i-1)**2)
             dummy(i)=dummy(i-1)
@@ -3073,7 +3056,7 @@ c       Iteration
 
           !Perform integral of Bz
           dummy = 0d0
-          do i=1,nxd
+          do i=1,nxdp
             x1 = xh(i)  !Half mesh
             rh = rg(i)  !Full mesh
 
@@ -3084,17 +3067,21 @@ c       Iteration
             dx1 = drh(i-1)
             dx2 = drh(i)
 
-            gp = ( p0(i+1)*dx1/dx2/(dx1+dx2)
-     .            +p0(i  )*(dx2-dx1)/dx2/dx1
-     .            -p0(i-1)*dx2/dx1/(dx1+dx2))
+            if (i==nxdp) then
+              gp = (p0(i)-p0(i-1))/drh(i)
+            else
+              gp = ( p0(i+1)*dx1/dx2/(dx1+dx2)
+     .              +p0(i  )*(dx2-dx1)/dx2/dx1
+     .              -p0(i-1)*dx2/dx1/(dx1+dx2))
+            endif
 
             !Accumulate integral
             dummy(i) = dummy(i-1)
      .               +(Eoeta/etap(i)*bth+gp)/(bzh**2+bth**2)*dr(i)
-          enddo
 
-          !Transform to Bz
-          bzz0 = exp(-dummy)
+            !Transform to Bz
+            bzz0(i) = exp(-dummy(i))
+          enddo
 
           if (theta /= 0d0) then
             bz_avg = 0d0
@@ -3202,14 +3189,15 @@ cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
         psi0 = psi0 - 0.5*(psi0(nxd)+psi0(nxdp)) !Homogeneous Dirichlet BC
 
         !Transfer B and V to integer mesh
-        call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd)
+        bth0 = xh*bth0
+        call IntDriver1d(nxdp+1,xh(0:nxdp),bth0(0:nxdp)
      .                  ,nxdp,rg(1:nxdp),dummy(1:nxdp)
-     .                  ,2,0)
-        bth0 = dummy
+     .                  ,1,0)
+        bth0 = dummy/rg
 
-        call IntDriver1d(nxdp,xh(0:nxd),bzz0(0:nxd)
+        call IntDriver1d(nxdp+1,xh(0:nxdp),bzz0(0:nxdp)
      .                  ,nxdp,rg(1:nxdp),dummy(1:nxdp)
-     .                  ,2,0)
+     .                  ,1,0)
         bzz0 = dummy
 
         !Extrapolate linearly in radius @ r=0
@@ -3346,7 +3334,7 @@ c     Begin program
 
 c       Initialize iteration
 
-        bz0 = bzz0(0)
+        bz0 = 1d0 !bzz0(0)
 
         !Find half-mesh positions
         do i=0,nxd

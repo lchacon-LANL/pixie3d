@@ -18,6 +18,8 @@ c----------------------------------------------------------------------
 
       use nlfunction_setup
 
+      use rw_bc, ONLY: res_wall_bc
+
       implicit none
 
 c Call variables
@@ -317,6 +319,7 @@ c     Warnings
       if (.not.pc_divclean) write (*,*) 'Div-cleaning postprocessed'
 #endif
       if (refine_eq) write (*,*) 'Running Equilibrium-checking mode'
+      if (res_wall_bc)  write (*,*) 'Using Resistive Wall BC'
       write (*,*) '****************************************************'
 
       if (advect == 5) then

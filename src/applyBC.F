@@ -346,26 +346,28 @@ c Select variable
         select case(abs(bc_inf(1)))
         case(IETA)
 
-c$$$          call XferBCs(eeta_0,s0,.true.)
+c$$$          if (.not.spitzer) then
+c$$$            call XferBCs(eeta_0,s0,.true.)
 c$$$
-c$$$          call setBC(gv%gparams,IETA,nnx,nny,nnz,eeta,s0
-c$$$     .              ,vaux%var_list(IETA)%bconds
-c$$$     .              ,igr,igr,igr,iorder=order)
-
-          if (fixed_Te) then
-            eeta= res(gv%gparams,igr,tmpe_0)
-          elseif (lagged_Te) then
-            if (solve_prs) then
-              s0 = u_n%array_var(IPRS)%array
-     .            /u_n%array_var(IRHO)%array/a_p
+c$$$            call setBC(gv%gparams,IETA,nnx,nny,nnz,eeta,s0
+c$$$     .                ,vaux%var_list(IETA)%bconds
+c$$$     .                ,igr,igr,igr,iorder=0)
+c$$$          else
+            if (fixed_Te) then
+              eeta= res(gv%gparams,igr,tmpe_0)
+            elseif (lagged_Te) then
+              if (solve_prs) then
+                s0 = u_n%array_var(IPRS)%array
+     .              /u_n%array_var(IRHO)%array/a_p
+              else
+                s0 = u_n%array_var(ITMPE)%array/jac
+              endif
+              eeta= res(gv%gparams,igr,s0)
             else
-              s0 = u_n%array_var(ITMPE)%array/jac
+              eeta= res(gv%gparams,igr,tmpe)
             endif
-            eeta= res(gv%gparams,igr,s0)
-          else
-            eeta= res(gv%gparams,igr,tmpe)
-          endif
-
+c$$$          endif
+          
         case(IDFF)
 
           dff     = diff_mesh(gv%gparams,igr,tmpe,rho,bcnv)
@@ -384,8 +386,15 @@ c$$$     .              ,igr,igr,igr,iorder=order)
 
         case(IETA_0)
 
-          eeta_0  = res(gv%gparams,igr,tmpe_0)
-
+c$$$          if (.not.spitzer) then
+c$$$            s0 = 0d0
+c$$$            call setBC(gv%gparams,IETA,nnx,nny,nnz,eeta,s0
+c$$$     .                ,vaux%var_list(IETA_0)%bconds
+c$$$     .                ,igr,igr,igr,iorder=0)
+c$$$          else
+            eeta_0  = res(gv%gparams,igr,tmpe_0)
+c$$$          endif
+          
         case(IHETA)
 
 cc          h_eta=hres(gv%gparams,igr,bcnv_0,rho_0)
@@ -1490,7 +1499,7 @@ c$$$          endif
 
 c       Resistivity at initial time
  
-          eeta_0=res(gv%gparams,igr,tmpe_0)
+c$$$          eeta_0=res(gv%gparams,igr,tmpe_0)
 
         case(IRHO_AUX)
 
@@ -1532,21 +1541,21 @@ c       Viscosity (needed for BCs; may depend on T)
 
 c       Resistivity (needed for BCs; may depend on T)
 
-          if (fixed_Te) then
-            eeta= res(gv%gparams,igr,tmpe_0)
-          elseif (lagged_Te) then
-            allocate(s0(1:nnx+1,1:nny+1,1:nnz+1))
-            if (solve_prs) then
-              s0 = u_n%array_var(IPRS)%array
-     .           /(u_n%array_var(IRHO)%array*a_p)
-            else
-              s0 = u_n%array_var(ITMPE)%array/jac
-            endif
-            eeta= res(gv%gparams,igr,s0)
-            deallocate(s0)
-          else
-            eeta= res(gv%gparams,igr,tmpe)
-          endif
+c$$$          if (fixed_Te) then
+c$$$            eeta= res(gv%gparams,igr,tmpe_0)
+c$$$          elseif (lagged_Te) then
+c$$$            allocate(s0(1:nnx+1,1:nny+1,1:nnz+1))
+c$$$            if (solve_prs) then
+c$$$              s0 = u_n%array_var(IPRS)%array
+c$$$     .           /(u_n%array_var(IRHO)%array*a_p)
+c$$$            else
+c$$$              s0 = u_n%array_var(ITMPE)%array/jac
+c$$$            endif
+c$$$            eeta= res(gv%gparams,igr,s0)
+c$$$            deallocate(s0)
+c$$$          else
+c$$$            eeta= res(gv%gparams,igr,tmpe)
+c$$$          endif
           
         case(IDFF)
 
@@ -1630,12 +1639,6 @@ cc          call XformVector_BC(gv%gparams,igr,jcnv_0,jcov_0,.false.)
         case(IJCNV_0)
 
         case(IENI_0)
-
-c$$$#if defined(vec_pot)
-c$$$          E_ni_0=E_fld_res_A(gv%gparams,igr,vcnv_0,acov_0,jcov_0,eeta_0)
-c$$$#else
-c$$$          E_ni_0=E_fld_res_B(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
-c$$$#endif
 
         case(IVECNV_0)
 
