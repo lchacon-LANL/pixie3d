@@ -679,18 +679,16 @@ cc            acov = acov + acov_0
 #if defined(plotting)
               call XferBCs(acov,v0,.true.)  !Reuse existing BC for plotting
 #else
-c$$$              call apply_rw_bc_A(gv%gparams,bcov_n,v0,E_bc)
               if (implicit_rw_bc.and.(.not.save_tn)) then
-                !Extrapolate Vec-Pot and new-time B to boundary
+                !Compute new-time E-field @ boundary
                 bcnd = vaux%vec_list(IACOV)%bconds
                 where (vaux%vec_list(IACOV)%bconds==-EQU) bcnd =-EXT
                 call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     .                  ,bcnd,igr,igr,igr,iorder=2
+     .                  ,bcnd,igr,igr,igr,iorder=1
      .                  ,is_cnv=vaux%vec_list(IACOV)%cnv)
                 bcov = curl(gv%gparams,igr,acov)
                 bcov = XformToCov(gv%gparams,igr,bcov)
-                !Compute new-time E-field @ boundary
-                call rw_Ebc(gv%gparams,bcov  ,E_bc)
+                call rw_Ebc(gv%gparams,bcov  ,E_bc,implicit=.true.)
               elseif (save_tn) then
                 !Compute old-time E-field @ boundary
                 call rw_Ebc(gv%gparams,bcov_n,E_bc)
@@ -724,14 +722,8 @@ c       Magnetic field BC
 #if !defined(vec_pot)
             if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
               if (implicit_rw_bc.and.(.not.save_tn)) then
-                !Extrapolate Vec-Pot and new-time B to boundary
-                bcnd = vaux%vec_list(IBCNV)%bconds
-                where (vaux%vec_list(IBCNV)%bconds==-NEU) bcnd =-EXT
-                call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
-     .                  ,bcnd,igr,igr,igr,iorder=2
-     .                  ,is_cnv=vaux%vec_list(IBCNV)%cnv)
                 !Compute new-time E-field @ boundary
-                call rw_Ebc(gv%gparams,bcov  ,E_bc)
+                call rw_Ebc(gv%gparams,bcov  ,E_bc,implicit=.true.)
               elseif (save_tn) then
                 !Compute old-time E-field @ boundary
                 call rw_Ebc(gv%gparams,bcov_n,E_bc)

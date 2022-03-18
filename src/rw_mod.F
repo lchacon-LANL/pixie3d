@@ -148,7 +148,7 @@ c$$$      end subroutine apply_rw_bc_A
 
 c     rw_Ebc
 c     #################################################################
-      subroutine rw_Ebc(g_def,bcov,E_0)
+      subroutine rw_Ebc(g_def,bcov,E_0,implicit)
 
 c     -----------------------------------------------------------------
 c     Finds tangential cov electric field components according to
@@ -164,9 +164,11 @@ c     Call variables
       real(8),dimension(0:,0:,0:,:) :: bcov
       real(8),dimension(0:,0:,0:,:) :: E_0
 
+      logical,optional :: implicit
+      
 c     Local variables
 
-      integer :: i_bc,j,k,nx,ny,nz,nn,mm,my_rank_y,igr
+      integer :: i_bc,j,k,nx,ny,nz,nn,mm,my_rank_y,igr,ig,jg,kg
 
       real(8) :: phinm   (0:size(bcov,2)-1
      .                   ,0:size(bcov,3)-1)
@@ -179,6 +181,8 @@ c$$$     .                   ,0:size(bcov,3)-1,3)
 
       real(8) :: dum,dh,bcov_avg(2:3),send_buf(2),rec_buf(2),nfactor
 
+      logical :: impl
+      
 c     Begin program
 
       igr = 1
@@ -191,6 +195,12 @@ c     Begin program
 
       i_bc = nx + 1
       
+      if (PRESENT(implicit)) then
+        impl = implicit
+      else
+        impl = .false.
+      endif
+      
 #if defined(petsc)
       call MPI_Comm_rank(g_def%MPI_COMM_Y,my_rank_y,mpierr)
 #else
@@ -201,9 +211,20 @@ c     Begin program
 
 c     Compute INTERNAL tangential magnetic field components, EXCLUDING m=n=0 mode (CRITICAL)
 
-      !Extrapolate to face from interior
-      bcovint (:,:,:)= 0.5*bcov(i_bc  ,:,:,:)
-     .                +0.5*bcov(i_bc-1,:,:,:)
+      if (impl) then
+        !Extrapolate to face from interior
+        call getMGmap(g_def,i_bc,1,1,igr,igr,igr,ig,jg,kg)
+        bcovint (:,:,:) = bcov(i_bc-2,:,:,:)
+     $                  +(bcov(i_bc-1,:,:,:)-bcov(i_bc-2,:,:,:))
+     $                   /(g_def%xx(ig-1)-g_def%xx(ig-2))
+     $                    *(0.5*g_def%xx(ig  )
+     $                     +0.5*g_def%xx(ig-1)
+     $                     -    g_def%xx(ig-2))
+      else
+        !Interpolate to face
+        bcovint (:,:,:)= 0.5*bcov(i_bc  ,:,:,:)
+     .                  +0.5*bcov(i_bc-1,:,:,:)
+      endif
 c$$$      gbcovint(:,:,:)=(bcov(i_bc  ,:,:,:)
 c$$$     .                -bcov(i_bc-1,:,:,:))
 c$$$     .                /(g_def%xg(nxd+1)-g_def%xg(nxd))
