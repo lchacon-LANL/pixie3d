@@ -2450,8 +2450,6 @@ c--------------------------------------------------------------------
 
       use v_mtvc_mod
 
-      use local_BCS_variables, ONLY: ExB_flow_bc!,lag_pinch_bc
-
       implicit none
 
 c Call variables
@@ -2494,8 +2492,6 @@ c Find limits for loops
 c Define pointers to MG arrays
 
       call defineLocalPointers(igrid,nxx,nyy,nzz)
-
-c ExB flow BC (if applicable)
 
       allocate(v0(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
@@ -2644,8 +2640,6 @@ c--------------------------------------------------------------------
 
       use v_mtvc_mod
 
-      use local_BCS_variables, ONLY: ExB_flow_bc!,lag_pinch_bc
-
       implicit none
 
 c Call variables
@@ -2709,7 +2703,6 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
 
 c BCs
 
-      !ExB flow BC (if applicable)
       allocate(v0(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
       v0 = 0d0

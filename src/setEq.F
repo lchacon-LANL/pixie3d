@@ -17,6 +17,8 @@ c       * ieq=IAX:IAZ: vector potential
 c       * ieq=IPRS: total pressure is found as p=n*(Ti+Te)=a_p*n*Te.
 c--------------------------------------------------------------------
 
+      use app_iosetup
+      
       use timeStepping
 
       use nlfunction_setup
@@ -171,7 +173,7 @@ c     Check coordinates
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Uniform medium with constant magnetic field in cartesian coordinates
@@ -203,7 +205,7 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 
 #if !defined(PER_BC_SYNC)
         if (di > 0d0) then
-          call pstop('setEquilibrium','Compile with PER_BC_SYNC=t')
+          call critical('setEquilibrium','Compile with PER_BC_SYNC=t')
         endif
 #endif
 
@@ -211,7 +213,7 @@ c     Check input
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if (test
@@ -224,7 +226,7 @@ cc     .          .or.(.not.use_p_eom)
           messg = 'Wrong input for this equilibrium. '
 cc     .          //'Check adiab, Ti/Te, solve_rho, use_p_eom=F,0.0,T,T'
      .          //'Check adiab, Ti/Te, solve_rho=F,0.0,T'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Uniform medium with constant magnetic field in cartesian coordinates
@@ -255,7 +257,7 @@ c     Check coordinates
 
         if (coords /= 'sin') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Uniform medium with constant magnetic field in cartesian coordinates
@@ -285,14 +287,14 @@ c     Check input
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if (test
      .     .and.(   (a_p /= 2d0)
      .          .or.(.not.solve_rho))) then
           messg = 'Wrong input. Check Ti/Te, solve_rho =F,1.0,T'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Uniform medium with constant magnetic field in cartesian coordinates
@@ -325,7 +327,7 @@ c     Check input
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if (test
@@ -340,7 +342,7 @@ cc        if ((adiabatic).or.(a_p /= 1d0).or. (.not.solve_rho)) then
           messg = 'Wrong input for this equilibrium. '
 cc     .          //'Check adiab,Ti/Te,solve_rho,use_p_eom=F,0.,T,F'
      .          //'Check adiab,Ti/Te,solve_rho=F,0.,T'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Uniform medium with constant magnetic field in cartesian coordinates
@@ -377,7 +379,7 @@ c     Check coordinates
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Opposite Gaussian perturbations in rho, T, uniform V, no B
@@ -418,7 +420,7 @@ c     Check coordinates
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Opposite Gaussian perturbations in rho, T, uniform V, no B
@@ -453,7 +455,7 @@ c     Check coordinates
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Opposite Gaussian perturbations in rho, T, uniform V, no B
@@ -493,13 +495,13 @@ c     Check coordinates
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if (.not.solve_rho)then
           messg = 'Wrong input for this equilibrium. '
      .          //'Check solve_rho=T'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Kelvin-Helmholtz with constant magnetic field and pressure in cartesian coordinates
@@ -540,13 +542,13 @@ c     Check coordinates
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 cc        if ((.not.adiabatic).or.(a_p /= 2d0).or. (.not.solve_rho)) then
 cc          messg = 'Wrong input for this equilibrium. '
 cc     .          //'Check solve_rho=T'
-cc          call pstop('setEquilibrium',messg)
+cc          call critical('setEquilibrium',messg)
 cc        endif
 
 c     3D KHI w/ differential rotation (Knoll and Brackbill, PoP (2002))
@@ -587,13 +589,13 @@ c     Check coordinates
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if (.not.solve_rho)then
           messg = 'Wrong input for this equilibrium. '
      .          //'Check solve_rho=T'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Kelvin-Helmholtz with constant magnetic field and pressure in cartesian coordinates
@@ -635,13 +637,13 @@ c     Check coordinates
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if (.not.solve_rho)then
           messg = 'Wrong input for this equilibrium. '
      .          //'Check solve_rho=T'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Double periodic Kelvin-Helmholtz with constant magnetic field and pressure
@@ -695,7 +697,7 @@ c     Check coordinates
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 cc        if (test
@@ -707,7 +709,7 @@ cc          write (*,*) 'Ti/Te,solve_rho,adiabatic,use_p_eom='
 cc     .               ,temp_ratio,solve_rho,adiabatic,use_p_eom
 cc          messg = 'Wrong input. '
 cc     .     //'Check Ti/Te,solve_rho,adiabatic,use_p_eom = 1.0,T,T,T'
-cc          call pstop('setEquilibrium',messg)
+cc          call critical('setEquilibrium',messg)
 cc        endif
 
 c     Tearing mode in cartesian coordinates
@@ -737,7 +739,7 @@ c     Check coordinates
 
         if (coords /= 'sin') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Tearing mode in sinusoidal coordinates
@@ -760,7 +762,7 @@ c     Check coordinates
 
         if (coords /= 'car' .and. coords /= 'lpk') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if (test
@@ -771,12 +773,13 @@ cc     .          .or.(.not.sym_st)
      .          )
      .     ) then
           if (my_rank == 0) then
-            write (*,*)
-     .           'Check Ti/Te,solve_rho,adiabatic,sym_st=5.0, T, F, T'
-            write (*,*) 'Currently:',a_p - 1,solve_rho,adiabatic,sym_st
+            call warning(
+     .           'Check Ti/Te,solve_rho,adiabatic,sym_st=5.0, T, F, T')
+            write(messg,*)'Currently:',a_p-1,solve_rho,adiabatic,sym_st
+            call warning(messg)
           endif
           messg = 'Wrong input for this equilibrium. '
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     GEM challenge
@@ -820,13 +823,13 @@ c     Check coordinates
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 cc        if ((.not.adiabatic).or.(a_p /= 2d0).or.(.not.solve_rho)) then
 cc          messg = 'Wrong input for this equilibrium. '
 cc     .          //'Check adiab, Ti/Te, solve_rho=T,1.0,T'
-cc          call pstop('setEquilibrium',messg)
+cc          call critical('setEquilibrium',messg)
 cc        endif
 
 c     Kai TM test
@@ -866,13 +869,13 @@ c     Check coordinates
 
         if (coords /= 'car' .and. coords /= 'lpk') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 cc        if ((a_p /= 2d0).or. (.not.solve_rho) .or. (adiabatic)) then
 cc          messg = 'Wrong input for this equilibrium. '
 cc     .          //'Check Ti/Te, solve_rho, adiabatic = 5.0, T, F'
-cc          call pstop('setEquilibrium',messg)
+cc          call critical('setEquilibrium',messg)
 cc        endif
 
 c     Tearing mode in cartesian coordinates
@@ -910,7 +913,7 @@ c     --------------------------------------------------------------------
          !Check coordinates
          if (coords /= 'car' .and. coords /= 'lpk') then
            messg = 'Wrong coordinates for equilibrium '//equil
-           call pstop('setEquilibrium',messg)
+           call critical('setEquilibrium',messg)
          endif
 
          var(:,:,:,IVX)  = 0d0
@@ -969,7 +972,7 @@ c     Check coordinates
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Island coalescence in cartesian coordinates
@@ -1014,7 +1017,7 @@ c     Check coordinates
 
         if (coords /= 'car')then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Island coalescence in cartesian coordinates
@@ -1056,18 +1059,18 @@ c     Check coordinates
 
         if (coords /= 'cyl') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if (abs(RR-zmax/2./pi) > 1d-5) then
           messg = 'Major radius and zmax do not agree'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if ((a_p /= 2d0).or. (.not.solve_rho)) then
           messg = 'Wrong input for this equilibrium. '
      .          //'Check Ti/Te, solve_rho=1.0,T'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Tokamak equilibria (analytical)
@@ -1078,7 +1081,7 @@ c     Tokamak equilibria (analytical)
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
      .          //' equilibrium not set'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         !Build equilibrium
@@ -1120,12 +1123,12 @@ ccc     Check coordinates
 cc
 cc        if (coords /= 'cyl') then
 cc          messg = 'Wrong coordinates for equilibrium '//equil
-cc          call pstop('setEquilibrium',messg)
+cc          call critical('setEquilibrium',messg)
 cc        endif
 cc
 cc        if (abs(RR-zmax/2./pi) > 1d-5) then
 cc          messg = 'Major radius and zmax do not agree'
-cc          call pstop('setEquilibrium',messg)
+cc          call critical('setEquilibrium',messg)
 cc        endif
 cc
 ccc     Simple screw pinch equilibria
@@ -1139,7 +1142,7 @@ cc
 cc        if (nh2 == 0 .or. nh3 == 0) then
 cc          messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
 cc     .          //' equilibrium not set'
-cc          call pstop('setEquilibrium',messg)
+cc          call critical('setEquilibrium',messg)
 cc        endif
 cc
 cc        !Build equilibrium
@@ -1186,12 +1189,12 @@ c     Check coordinates
 
         if (coords /= 'cyl') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if (abs(RR-zmax/2./pi) > 1d-5) then
           messg = 'Major radius and zmax do not agree'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     RFP equilibria (analytical)
@@ -1199,7 +1202,7 @@ c     RFP equilibria (analytical)
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
      .          //' equilibrium not set'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         !Build equilibrium
@@ -1240,7 +1243,7 @@ c     Check coordinates
 
         if (coords /= 'hel') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     RFP equilibria (analytical)
@@ -1297,7 +1300,7 @@ c     Check coordinates
 
         if (coords /= 'hel' .and. coords /= 'cyl' ) then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     RFP equilibria (analytical)
@@ -1366,7 +1369,7 @@ c     RFP equilibria (analytical)
           if (nh2 == 0 .and. nh3 == 0) then
             messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
      .          //' equilibrium not set'
-            call pstop('setEquilibrium',messg)
+            call critical('setEquilibrium',messg)
           else
             messg=' Perturbation harmonics nh1, nh2, nh3 for '
      .          //trim(equil)//' equilibrium are'
@@ -1428,7 +1431,7 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
 
         if (coords /= 'hel') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         !Build equilibrium
@@ -1465,7 +1468,7 @@ c     Check coordinates
 
         if (coords /= 'hel') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if (test
@@ -1478,7 +1481,7 @@ cc     .          .or. (use_p_eom)
           messg = 'Wrong input. '
 cc     .          //'Check adiab,Ti/Te,solve_rho,use_p_eom=T,1.0,T,F'
      .          //'Check adiab,Ti/Te,solve_rho=T,1.0,T'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Tokamak equilibria (analytical)
@@ -1556,7 +1559,7 @@ c     Check coordinates
 
         if (coords /= 'hel'.and.coords /= 'cyl') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c$$$     RFP EQUILIBRIA (Caramana et al, PoP, 1983)
@@ -1580,7 +1583,7 @@ cc     .          .or. (use_p_eom)
           messg = 'Wrong input. '
 cc     .          //'Check adiab,Ti/Te,solve_rho,use_p_eom=T,1.0,T,F'
      .          //'Check adiab,Ti/Te,solve_rho=T,1.0,T'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         call find_global_radial_mesh(rg)
@@ -1635,7 +1638,7 @@ cc        if (adiabatic) n00 = (p00/p0max)**(1./gamma)
           if (nh2 == 0 .and. nh3 == 0) then
             messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
      .          //' equilibrium not set'
-            call pstop('setEquilibrium',messg)
+            call critical('setEquilibrium',messg)
           else
             messg=' Perturbation harmonics nh1, nh2, nh3 for '
      .          //trim(equil)//' equilibrium are'
@@ -1682,7 +1685,7 @@ c     Check coordinates
 
         if (coords /= 'hel') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Equilibria (numerical)
@@ -1745,7 +1748,7 @@ ccc     Check coordinates
 cc
 cc        if (coords /= 'tor') then
 cc          messg = 'Need "tor" coordinates for equilibrium '//equil
-cc          call pstop('setEquilibrium',messg)
+cc          call critical('setEquilibrium',messg)
 cc        endif
 cc
 ccc     Failsafes
@@ -1759,7 +1762,7 @@ cc
 cc        if (nh2 == 0 .or. nh3 == 0) then
 cc          messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
 cc     .          //' equilibrium not set'
-cc          call pstop('setEquilibrium',messg)
+cc          call critical('setEquilibrium',messg)
 cc        endif
 cc
 ccc     Build equilibrium
@@ -1804,16 +1807,16 @@ c     --------------------------------------------------
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
      .          //' equilibrium not set'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if (coords /= 'ext') then
           messg = 'Need "ext" coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if (.not.is_file(equ_file)) then
-          call pstop('setEq','VMEC EQU file not found')
+          call critical('setEq','VMEC EQU file not found')
         endif
 
 c     Read VMEC equilibrium
@@ -1855,18 +1858,18 @@ c     --------------------------------------------------
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
      .          //' equilibrium not set'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if (coords/='tor'.and.coords/='tsq'.and.coords/='sh3') then
           messg=
      $         'Need tor, tsq, or sh3 coordinates for EFIT equilibrium '
      .            //equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if (.not.is_file(equ_file)) then
-          call pstop('setEq','EFIT EQU file not found')
+          call critical('setEq','EFIT EQU file not found')
         endif
 
 c     Read EFIT equilibrium
@@ -1920,7 +1923,7 @@ c     Check coordinates
 
         if (coords /= 'hel'.and.coords /= 'cyl') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         !Amplitude of external B at bdry
@@ -2064,15 +2067,18 @@ c     Check coordinates
 
         if (coords /= 'hel') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Equilibria (numerical)
 
         if (e0_over_eta == 0d0) then     !External file equilibrium
 
-          if (my_rank == 0)
-     .      write (*,*) 'Reading numerical equilibrium ',equil,'...'
+          if (my_rank == 0) then
+            write (messg,*) '  Reading numerical equilibrium '
+     $                      ,trim(equil),'...'
+            call info(messg)
+          endif
 
           !Read file
           open (unit=u_equf,file=trim(equ_file),status='old')
@@ -2092,7 +2098,7 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),n00(i)
 
           close(1000)
 
-          if (my_rank ==0) write (*,*) 'Done!'
+          if (my_rank ==0) call info('  Done!')
 
           !Find electric field at face r=1d0
           E0(2) = 0.5*(eth0(nxd)+eth0(nxdp))
@@ -2101,8 +2107,11 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),n00(i)
 
         else   !Calculate equilibrium
 
-          if (my_rank == 0)
-     .       write (*,*) 'Calculating equilibrium ',equil,'...'
+          if (my_rank == 0) then
+            write (*,*)
+            write (messg,*) ' Calculating equilibrium ',equil,'...'
+            call info(messg)
+          endif
 
           call find_global_radial_mesh(rg)
 
@@ -2202,7 +2211,7 @@ c     Check coordinates
 
         if (coords /= 'hel') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Initial guess: 1D equilibrium
@@ -2280,27 +2289,30 @@ c     Magnetic field
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
      .          //' equilibrium not set'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Check coordinates
 
         if (coords /= 'cyl') then
           messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if (abs(RR-zmax/(2.*pi)) > 1d-5.and.nzd > 1) then
           messg = 'Major radius and zmax do not agree'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Equilibria (numerical)
 
         if (e0_over_eta == 0d0) then     !External file equilibrium
 
-          if (my_rank == 0)
-     .      write (*,*) 'Reading numerical equilibrium ',equil,'...'
+          if (my_rank == 0) then
+            write (messg,*) '  Reading numerical equilibrium '
+     $                      ,equil,'...'
+            call info(messg)
+          endif
 
           !Read file
           open (unit=1000,file=trim(equ_file),status='old')
@@ -2317,7 +2329,7 @@ c     Equilibria (numerical)
 
           close(1000)
 
-          if (my_rank ==0) write (*,*) 'Done!'
+          if (my_rank ==0) call info('  Done!')
 
           !Find electric field at face r=1d0
           E0(2) = 0.5*(eth0(nxd)+eth0(nxdp))
@@ -2326,9 +2338,11 @@ c     Equilibria (numerical)
 
         else   !Calculate equilibrium
 
-          if (my_rank == 0)
-     .       write (*,*) 'Calculating equilibrium ',equil,'...'
-
+          if (my_rank == 0) then
+            write (messg,*) '  Calculating equilibrium ',equil,'...'
+            call info(messg)
+          endif
+          
           call find_global_radial_mesh(rg)
 
           !Find pressure and q-profiles
@@ -2442,7 +2456,7 @@ c     Ideal GS equilibrium
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
      .          //' equilibrium not set'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if (      coords /= 'tor'
@@ -2451,7 +2465,7 @@ c     Ideal GS equilibrium
           messg =
      .         'Need "tor", "sha" or "sh2" coordinates for equilibrium '
      .           //equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         !Build equilibrium
@@ -2486,12 +2500,12 @@ c     Ideal GS equilibrium
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
      .          //' equilibrium not set'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
         if (eta == 0d0) then
           messg='Need finite resistivity for this equilibrium'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Check coordinates
@@ -2502,7 +2516,7 @@ c     Check coordinates
           messg =
      .         'Need "tor", "sha" or "sh2" coordinates for equilibrium '
      .           //equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Ohmic GS equilibrium
@@ -2549,7 +2563,7 @@ cc        bb  = gv%gparams%params(3)            !Vertical   elliptical radius
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
      .          //' equilibrium not set'
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c     Check coordinates
@@ -2557,7 +2571,7 @@ c     Check coordinates
         if (coords /= 'stl') then
           messg = 'Need "stl" coordinates for equilibrium '
      .           //equil
-          call pstop('setEquilibrium',messg)
+          call critical('setEquilibrium',messg)
         endif
 
 c$$$c     Ohmic GS equilibrium
@@ -2596,7 +2610,7 @@ c$$$        var(:,:,:,ITMPE) = var(:,:,:,IPRS)/a_p/var(:,:,:,IRHO)
       case default
 
         messg = 'Equilibrium '//trim(equil)//' undefined'
-        call pstop('setEquilibrium',messg)
+        call critical('setEquilibrium',messg)
 
       end select
 
@@ -2751,9 +2765,9 @@ c     Begin program
 
         if (my_rank == 0) then
           write (*,*)
-          write (*,*) '************************************'
-          write (*,*) '1D Grad-Shafranov equilibrium solver'
-          write (*,*) '************************************'
+          call info('  ************************************')
+          call info('  1D Grad-Shafranov equilibrium solver')
+          call info('  ************************************')
           write (*,*)
         endif
 
@@ -2840,8 +2854,9 @@ c$$$     .                 - 2    /24*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
           gs_err = sqrt(sum(bth0(0:nxd)-rh*bzz0(0:nxd)/q0h(0:nxd))**2)  !RMS error
 
           if (ilevel > 0 .and. my_rank == 0) then
-            write (*,*) '1D Grad-Shafranov equilibrium iter =',it
-     .                 ,' ; Force balance error=',gs_err
+            write (messg,*) '  1D Grad-Shafranov equilibrium iter =',it
+     .                     ,' ; Force balance error=',gs_err
+            call info(messg)
           endif
 
           !Updated poloidal B-field component
@@ -2852,9 +2867,10 @@ c$$$     .                 - 2    /24*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
         enddo
 
         if (ilevel == 0 .and. my_rank == 0) then
-           write (*,'(a,i3,a,1pe10.2)')
-     .          ' 1D equilibrium converged in '
+          write (messg,'(a,i3,a,1pe10.2)')
+     .          '  1D equilibrium converged in '
      .          ,it,' iterations with force-balance error =',gs_err
+          call info(messg)
         endif
 
         !Check force balance
@@ -2873,9 +2889,9 @@ c$$$     .                 - 2    /24*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
 
         if (my_rank == 0) then
           write(*,*)
-          write(*,'(a,1pe14.7)') ' Force-balance error ='
+          write(messg,'(a,1pe14.7)') '  Force-balance error ='
      .                        ,sqrt(sum(dummy(1:nxd)**2)/nxd)
-cc          write (*,*) dummy(1:nxd)
+          call info(messg)
         endif
 
         !Calculate equilibrium properties
@@ -2976,9 +2992,9 @@ c     Begin program
 
         if (my_rank == 0) then
           write (*,*)
-          write (*,*) '***************************'
-          write (*,*) '1D Ohmic equilibrium solver'
-          write (*,*) '***************************'
+          call info('  ***************************')
+          call info('  1D Ohmic equilibrium solver')
+          call info('  ***************************')
           write (*,*)
         endif
 
@@ -3093,7 +3109,7 @@ c       Iteration
           elseif (bz0 /= 0d0) then
             bzz0 = bz0*bzz0
           else
-            call pstop('setEquilibrium'
+            call critical('setEquilibrium'
      $                ,'Cannot find PPNCH equilibrium:'
      $                 //' Both Bz0 and theta are zero')
           endif
@@ -3103,8 +3119,8 @@ c       Iteration
      .                   +sum((bzz0-bzz0_old)**2))/nxdp)
 
           if (ilevel > 0 .and. my_rank == 0) then
-            write (*,*) '1D Ohmic equilibrium iter =',it
-     .                 ,' ; Error=',err
+            write (*,*) '  1D Ohmic equilibrium iter =',it
+     .                     ,' ; Error=',err
           endif
 
           dh = xmax/nxd
@@ -3113,8 +3129,8 @@ c       Iteration
         enddo
 
         if (ilevel == 0 .and. my_rank == 0) then
-           write (*,'(a,i3,a,1pe10.2)')
-     .          ' 1D equilibrium converged in '
+          write (*,'(a,i3,a,1pe10.2)')
+     .          '  1D equilibrium converged in '
      .          ,it,' iterations with error =',err
         endif
 
@@ -3139,7 +3155,7 @@ c       Iteration
 
         if (my_rank == 0) then
           write(*,*)
-          write(*,'(a,1pe14.7)') ' Force-balance error ='
+          write(*,'(a,1pe14.7)') '  Force-balance error ='
      .                        ,sqrt(sum(dummy(1:nxd)**2)/nxd)
         endif
 
@@ -3165,7 +3181,7 @@ c$$$        enddo
 c diag ****
 
         if (my_rank == 0) then
-          write(*,'(a,1pe14.7)') ' Ohms law      error ='
+          write(*,'(a,1pe14.7)') '  Ohms law      error ='
      .                        ,sqrt(sum(dummy(1:nxd)**2)/nxd)
         endif
 
@@ -3177,7 +3193,7 @@ c diag ****
 
         if (my_rank == 0) then
           write (*,*)
-          write (*,999) ' Pinch equilibrium features:'
+          write (*,999) '  Pinch equilibrium features:'
           write (*,999) '   Theta  =',bth0(nxd)/bz_avg
           write (*,999) '   Bz(r=0)=',bzz0(0)
           write (*,999) '   I0     =',2*pi*xmax*bth0(nxd)
@@ -3329,7 +3345,7 @@ c     Call variables
 
 c     Local variables
 
-        integer :: i,j,k,ig,jg,kg,it,info
+        integer :: i,j,k,ig,jg,kg,it,lap_info
         real(8) :: bz_avg,x1,bzh,bth,err,rh,dh,p00,rhm,rhp
 ! Daniele, 02/07/2014
         real(8) :: chirh,chirhm,chirhp
@@ -3354,9 +3370,9 @@ c     Begin program
 
         if (my_rank == 0) then
           write (*,*)
-          write (*,*) '**************************************'
-          write (*,*) '1D Ohmic equilibrium solver with Xport'
-          write (*,*) '**************************************'
+          call info('  **************************************')
+          call info('  1D Ohmic equilibrium solver with Xport')
+          call info('  **************************************')
           write (*,*)
         endif
 
@@ -3464,7 +3480,7 @@ c$$$            etah  = etah/etah0
           elseif (bz0 /= 0d0) then
             bzz0 = bz0*bzz0
           else
-            call pstop('setEquilibrium'
+            call critical('setEquilibrium'
      $                ,'Cannot find PPNCH equilibrium:'
      $                 //' Both Bz0 and theta are zero')
           endif
@@ -3570,7 +3586,8 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
      .         +chih(nxd)/eta*xh(nxd)/dr(nxd)**2.
 
           !Invert tridiagonal matrix
-          call DGTSV(nxd,1,dl(2:nxd),d,du(1:nxd-1),p0(1:nxd),nxd,info)
+          call DGTSV(nxd,1,dl(2:nxd),d,du(1:nxd-1),p0(1:nxd),nxd
+     $              ,lap_info)
 
           !BCs
           p0(0   ) =  p0(1)
@@ -3584,7 +3601,7 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
      .                   +sum((p0  -p0_old  )**2))/nxdp)
 
           if (ilevel > 0 .and. my_rank == 0) then
-            write (*,*) '1D Ohmic equilibrium iter =',it
+            write (*,*) '  1D Ohmic equilibrium iter =',it
      .                  ,' ; Error=',err
           endif
 
@@ -3595,7 +3612,7 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
 
         if (ilevel == 0 .and. my_rank == 0) then
           write (*,'(a,i3,a,1pe10.2)')
-     .          ' 1D equilibrium converged in '
+     .          '  1D equilibrium converged in '
      .          ,it,' iterations with error =',err
         endif
 
@@ -3690,7 +3707,7 @@ c$$$          etah  = etah/etah0
 
         if (my_rank == 0) then
           write (*,*)
-          write (*,999) ' Pinch equilibrium features:'
+          write (*,999) '  Pinch equilibrium features:'
           write (*,999) '   Theta  =',bth0(nxd)/bz_avg
           write (*,999) '   Bz(r=0)=',bzz0(0)
           write (*,999) '   I0     =',2*pi*xmax*bth0(nxd)
@@ -3817,15 +3834,15 @@ cc        allocate(jpar_B(0:nx+1,0:ny+1,0:nz+1))
 
         if (my_rank == 0) then
           write (*,*)
-          write (*,*) '***********************************'
-          write (*,*) '2D Ohmic HELICAL equilibrium solver'
-          write (*,*) '***********************************'
+          call info('  ***********************************')
+          call info('  2D Ohmic HELICAL equilibrium solver')
+          call info('  ***********************************')
           write (*,*)
         endif
 
         if (Eoeta == 0d0) then
           messg = 'E0/eta = 0!!'
-          call pstop('Ohm_hel_equil',messg)
+          call critical('Ohm_hel_equil',messg)
         endif
 
         zeros = 0d0
@@ -4070,7 +4087,7 @@ c     Phase out psi BC
           aa = aa*0.5
           if (aa > (xmin-xmax)/nxd) then
 
-            if (my_rank ==0) write (*,*) 'Phasing out psi BC...'
+            if (my_rank ==0) call info('  Phasing out psi BC...')
 
             do i=1,nx
               call getCurvilinearCoordinates(gv%gparams,i,1,1,igrid
@@ -4257,7 +4274,7 @@ cc     .                              ,ff(i-2,j,k)
 cc     .                              ,ff(i-1,j,k)
 cc     .                              ,psi(i,j,k),2)
               case default
-                call pstop('flux_average'
+                call critical('flux_average'
      $                    ,'Orbit error '//int2char(ierr)//' at '
      $                     //int2char(i)//','//int2char(j))
               end select
@@ -4416,7 +4433,7 @@ c$$$! Set BCs on all of these?
 c$$$
 c$$$        case default
 c$$$           messg = 'Flux average only for hel or tor '
-c$$$           call pstop('setEquilibrium',messg)
+c$$$           call critical('setEquilibrium',messg)
 c$$$        end select
 c$$$
 c$$$c     Orbit setup (input Az directly)
@@ -4497,7 +4514,7 @@ c$$$cc     .                              ,ff(i-2,j,k)
 c$$$cc     .                              ,ff(i-1,j,k)
 c$$$cc     .                              ,psi(i,j,k),2)
 c$$$              case default
-c$$$                call pstop('flux_average'
+c$$$                call critical('flux_average'
 c$$$     $                    ,'Orbit error '//int2char(ierr)//' at '
 c$$$     $                     //int2char(i)//','//int2char(j))
 c$$$              end select
@@ -5336,9 +5353,10 @@ c     Begin program
 
         if (my_rank == 0) then
           write (*,*)
-          write (*,*) '************************************'
-          write (*,*) '2D ideal GS equilibrium solver'
-          write (*,*) '************************************'
+          call info('  ******************************')
+          call info('  2D ideal GS equilibrium solver')
+          call info('  ******************************')
+          write (*,*)
         endif
 
         zeros = 0d0
@@ -5399,9 +5417,10 @@ c       Perform iteration
 
           if (my_rank == 0.and.ilevel > 0) then
             write (*,*)
-            write (*,*)        "************************"
-            write (*,'(a,i3)') " GS Picard iteration=",it
-            write (*,*)        "************************"
+            call info("  ************************")
+            write (messg,'(a,i3)') "  GS Picard iteration=",it
+            call info(messg)
+            call info("  ************************")
             write (*,*)
           endif
           
@@ -5528,10 +5547,11 @@ c     Begin program
         err = rms(dx)
 
         if (my_rank == 0) then
-          write (*,'(a,i3,a,1pe10.2,a,e10.2)')
-     .                  ' 2D GS equilibrium iter =',it
+          write (messg,'(a,i3,a,1pe10.2,a,e10.2)')
+     .                  '  2D GS equilibrium iter =',it
      .                   ,' ; GS error=',gserr
      .                   ,' ; update rms=',err
+          call info(messg)
           if (ilevel > 1) write (*,*)
         endif
 
@@ -5540,9 +5560,10 @@ c     Begin program
         chk_conv = (err < tol)
 
         if (ilevel == 0 .and. my_rank == 0.and.chk_conv) then
-          write (*,'(a,i3,a,1pe10.2)')
-     .          ' 2D GS equilibrium converged in '
+          write (messg,'(a,i3,a,1pe10.2)')
+     .          '  2D GS equilibrium converged in '
      .          ,it,' iterations with GS error =',gserr
+          call info(messg)
         endif
 
       end function chk_conv
@@ -5684,9 +5705,11 @@ c$$$          enddo
 
           Ihat = solve_I(psin,psi0,qperr)
 
-          if (my_rank==0.and.ilevel>0)
-     $         write (*,*) "q-profile error=",qperr
-
+          if (my_rank==0.and.ilevel>0) then
+            write (messg,*) "  q-profile error=",qperr
+            call info(messg)
+          endif
+          
         else
 
           ipsi0 = 1d0/psi0
@@ -5869,7 +5892,7 @@ c     Begin program
         where (bcnd == DEF) bcnd = DIR
 
         if (my_rank == 0.and.ilevel > 0) then
-          write (*,*) "Solving GS equation..."
+          call info("  Solving GS equation...")
         endif
         
         call cSolver(gv%gparams,1,nn,psi_rhs,psiv,bcnd
@@ -5927,8 +5950,10 @@ c     Begin program
         fpsi0 = psi0max-psi0min
 cc        if (abs(fpsi0) > 10) fpsi0 = sign(0.5d0,fpsi0)
         
-        if (my_rank==0.and.ilevel>0)
-     $       write (*,*) "New psi0 renorm factor=",1./ipsi0
+        if (my_rank==0.and.ilevel>0) then
+          write (messg,*) "  New psi0 renorm factor=",1./ipsi0
+          call info(messg)
+        endif
         
         !Update psi0
         call update_psi0(fpsi0,psi0)
@@ -5968,8 +5993,10 @@ c$$$          psi0 = -1d0
 
         !Determine damping to prevent variation of psi0 by more than 10%
         if (my_rank==0.and.ilevel > 0) then
-          write (*,*) "New psi0 damping=",damp_psi0
-          write (*,*) "New psi0 after damping=",psi0
+          write (messg,*) "  New psi0 damping=",damp_psi0
+          call info(messg)
+          write (messg,*) "  New psi0 after damping=",psi0
+          call info(messg)
         endif
 
       end subroutine update_psi0
@@ -6151,7 +6178,7 @@ c     Begin program
         where (bcnd == DEF) bcnd = DIR
 
         if (my_rank==0.and.ilevel>0) then
-          write (*,*) "Solving Ihat equation..."
+          call info("  Solving Ihat equation...")
         endif
         
         call cSolver(gv%gparams,igr,nn,iii_rhs,psiI,bcnd
@@ -6302,7 +6329,7 @@ c     Spline GLOBAL inverse toroidal radius
 
 c     Orbit integration (local processor)
 
-        if (my_rank==0.and.ilevel>0) write (*,*) "Integrating orbits..."
+        if (my_rank==0.and.ilevel>0)call info("  Integrating orbits...")
 
         ff = 0d0
 
@@ -6363,7 +6390,7 @@ c     Orbit integration (local processor)
      .                              ,ll(i-1,j,1)
      .                              ,x0,2)
               case default
-                call pstop('flux_average'
+                call critical('flux_average'
      $                    ,'Orbit error '//int2char(ierr)//' at '
      $                     //int2char(i)//','//int2char(j))
               end select
@@ -6549,7 +6576,7 @@ c     Begin program
 
         if (Eoeta == 0d0) then
           messg = 'E0/eta = 0!!'
-          call pstop('Ohm_GS_equil_2d',messg)
+          call critical('Ohm_GS_equil_2d',messg)
         endif
 
         zeros = 0d0 ; iR2 = 0d0 ; dummy = 0d0
@@ -6584,7 +6611,7 @@ c       Initialize iteration
         enddo
 
         if (minval(RR) < 0d0) then
-          call pstop('Ohm_GS_equil_2d','r > R in torus')
+          call critical('Ohm_GS_equil_2d','r > R in torus')
         endif
 
         do k=0,nz+1
@@ -7488,7 +7515,7 @@ c     Begin program
 
         case default
 
-          call pstop('qprof','Undefined q profile')
+          call critical('qprof','Undefined q profile')
 
         end select
 
@@ -7643,6 +7670,8 @@ c     Defines COVARIANT vector potential for initialization of
 c     equilibrium.
 c--------------------------------------------------------------------
 
+      use app_iosetup
+      
       use local_BCS_variables
 
       implicit none
@@ -7849,7 +7878,7 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
 
       case default
 
-        call pstop("fillVectorPotential","Equilibrium def not found")
+        call critical("fillVectorPotential","Equilibrium def not found")
 
       end select
 

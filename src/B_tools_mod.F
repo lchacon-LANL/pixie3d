@@ -1204,9 +1204,11 @@ c     Gather global magnetic field
 #endif
      .                )
 
-      if (my_rank == 0.and.iout > 0) then
+      if (my_rank == 0) then
         write (*,*)
-        write (*,*) 'Solving for vector potential...'
+        call info('  ***********************')
+        call info('  Vector potential solver')
+        call info('  ***********************')
         write (*,*)
       endif
 
@@ -1259,7 +1261,9 @@ c     Correct A covariant
      .                    ,rtol=rtol,w_pre_bcs=.true.)
 
         if (.not.PRESENT(its)) then
-          if(my_rank==0) write (*,'(a,i3)') ' A-solve GMRES its=',gm_its
+          if(my_rank==0.and.iout==0) then
+            write (*,'(a,i3)') '  A-solve GMRES its=',gm_its
+          endif
         else
           its = gm_its
         endif

@@ -431,20 +431,13 @@ c       Temperature BCs
 
 c       Density BCs
 
+c$$$          if (solve_rho) then
           call XferBCs(rho_0,s0,.true.)
 
           call setBC(gv%gparams,IRHO,nnx,nny,nnz,rho,s0
      .              ,vaux%var_list(IRHO_AUX)%bconds
      .              ,igr,igr,igr,iorder=order)
-
-c$$$          s0 = 0d0
-c$$$          rho = rho - rho_0
-c$$$          
-c$$$          call setBC(gv%gparams,IRHO,nnx,nny,nnz,rho,s0
-c$$$     .              ,vaux%var_list(IRHO_AUX)%bconds
-c$$$     .              ,igr,igr,igr,iorder=order)
-c$$$
-c$$$          rho = rho + rho_0
+c$$$          endif
 
         case(ITMP_AUX)
 
@@ -566,6 +559,7 @@ c       Velocity BC
 
           if (pinch_bc) then
             prs0 = rho_0*tmp_0
+            E_bc = 0d0
             call ExB_flow_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
           endif
 

@@ -230,21 +230,21 @@ c Consistency check
 
 c Init boundary conditions
 
-      ioerr = initBCS(bcs)
+      ioerr = initBCs(bcs)
 
       if (ioerr /= 0)
-     .     call pstop('readInput','Error in initialization of BCs')
+     .     call critical('readInput','Error in initialization of BCs')
 
 c Write initialization parameters to standard output
 
-      if (.not.test) call write_namelists
+cc      if (.not.test) call write_namelists
 
 c Initialize graphics
 
       ioerr=readGraphicsConfig(in_file)
 
       if (ioerr /= 0.and.my_rank == 0.and.(.not.test)) then
-        write (*,*) 'Problem reading "graphics" namelist'
+        call warning('  Problem reading "graphics" namelist')
       endif
 
 c Debug profile stage
@@ -274,17 +274,19 @@ c     #####################################################################
         open(unit=uinput,file=in_file,status='old')
         read(uinput,setup,iostat=ioerr)
         close(unit=uinput)
-        if (ioerr/=0) call pstop('readInput','Problem reading "setup"')
+        if (ioerr/=0)
+     $       call critical('readInput','Problem reading "setup"')
 
         open(unit=uinput,file=in_file,status='old')
         read(uinput,phys,iostat=ioerr)
         close(unit=uinput)
-        if (ioerr/=0) call pstop('readInput','Problem reading "phys"')
+        if (ioerr/=0)
+     $       call critical('readInput','Problem reading "phys"')
 
         open(unit=uinput,file=in_file,status='old')
         read(uinput,fv,iostat=ioerr)
         close(unit=uinput)
-        if (ioerr/=0) call pstop('readInput','Problem reading "fv"')
+        if (ioerr/=0) call critical('readInput','Problem reading "fv"')
 
         ioerr = readTSInput(in_file,.false.)
         if (ioerr/=0) then
@@ -292,22 +294,22 @@ c     #####################################################################
           read(uinput,ts,iostat=ioerr)
           close(unit=uinput)
         endif
-        if (ioerr/=0) call pstop('readInput','Problem reading "ts"')
+        if (ioerr/=0) call critical('readInput','Problem reading "ts"')
 
         open(unit=uinput,file=in_file,status='old')
         read(uinput,nks,iostat=ioerr)
         close(unit=uinput)
-        if (ioerr/=0) call pstop('readInput','Problem reading "nks"')
+        if (ioerr/=0) call critical('readInput','Problem reading "nks"')
 
         open(unit=uinput,file=in_file,status='old')
         read(uinput,pc,iostat=ioerr)
         close(unit=uinput)
-        if (ioerr/=0) call pstop('readInput','Problem reading "pc"')
+        if (ioerr/=0) call critical('readInput','Problem reading "pc"')
 
         open(unit=uinput,file=in_file,status='old')
         read(uinput,i_o,iostat=ioerr)
         close(unit=uinput)
-        if (ioerr/=0) call pstop('readInput','Problem reading "i_o"')
+        if (ioerr/=0) call critical('readInput','Problem reading "i_o"')
       endif
 
 #if !defined(plotting) && !defined(samrai) && !defined(_equ)
@@ -735,9 +737,6 @@ c     #####################################################################
         chk_src = .true.
       endif
 
-      !NK
-cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
-
       !Face symmetric if "sym"
       where (bcs == 'sym') bcs = 'fsm'
 
@@ -760,13 +759,13 @@ cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
       !Adequate size for collapsed dimension
       if (coords /= 'car') then
         if (nxd == 1) then
-          xmax = LMIN_NEQONE ; xmin = 0d0
+          xmax = LMIN_NEQ_ONE ; xmin = 0d0
         endif
         if (nyd == 1) then
-          ymax = LMIN_NEQONE ; ymin = 0d0
+          ymax = LMIN_NEQ_ONE ; ymin = 0d0
         endif
         if (nzd == 1) then
-          zmax = LMIN_NEQONE ; zmin = 0d0
+          zmax = LMIN_NEQ_ONE ; zmin = 0d0
         endif
       endif
 
@@ -776,7 +775,6 @@ cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
 #endif
 
       !Non-conservative EOM
-cc      if (coords /= 'car') nc_eom_f = .true.
       if (nc_eom_f) then
         nc_eom_jxb = .true.
         nc_eom_gp  = .true.
@@ -793,19 +791,19 @@ cc      if (coords /= 'car') nc_eom_f = .true.
 cc      if (di == 0d0) heta = 0d0
 
       if (de > di) then
-        call pstop('readInput','Unphysical value for di and/or de')
+        call critical('readInput','Unphysical value for di and/or de')
       endif
 
       if (cnfactor==1d0.and.ion_hall) then
-        call pstop('readInput','Cannot do ion Hall explicitly')
+        call critical('readInput','Cannot do ion Hall explicitly')
       endif
 
       if (de>0d0.and.ion_hall) then
-        call pstop('readInput','Cannot do ion Hall with e inertia')
+        call critical('readInput','Cannot do ion Hall with e inertia')
       endif
 
       if ((de>0d0).and.(cnfactor==0d0.and.sm_flag==2)) then
-        call pstop('readInput','Cannot do BDF2 with e inertia')
+        call critical('readInput','Cannot do BDF2 with e inertia')
       endif
 
 c$$$      if (ion_hall.and.(cnfactor==0d0.and.sm_flag==2)) then
@@ -870,8 +868,7 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
       if (coords == 'hel') then  !Special case for 2D helical geometry
         if (nh2 == 0) nh2 = nint(gparams(1))
         nh1 = nh2                
-cc        ymax = 2*acos(-1d0)/nh2  !Collapse angular dimension
-cc        numerical_grid = (nh2 > 1)  !Analytical grid metrics are wrong for nh2 > 1
+        call warning("  Hardwired nh1 for this coordinate system")
       endif
 
       if (   coords == 'cyl'
@@ -883,6 +880,7 @@ cc        numerical_grid = (nh2 > 1)  !Analytical grid metrics are wrong for nh2
         if (nh2 == 0) nh2 = nint(gparams(1))
         if (nh3 == 0) nh3 = nint(gparams(2)*gparams(3))
         nh1 = nh2                
+        call warning("  Hardwired nh1 for this equilibrium")
       endif
 
       if (   trim(equil) == 'gstor'
@@ -891,12 +889,14 @@ cc        numerical_grid = (nh2 > 1)  !Analytical grid metrics are wrong for nh2
         if (nh2 == 0) nh2 =  nint(gparams(4))
         if (nh3 == 0) nh3 = -nint(gparams(5))
         nh1 = nh2
+        call warning("  Hardwired nh1 for this equilibrium")
       endif
       
       if (   trim(equil) == 'vmec'
      $   .or.trim(equil) == 'efit'
      $   .or.trim(equil) == '3drfp') then
         nh1 = nh2
+        call warning("  Hardwired nh1 for this equilibrium")
       endif
 
       if ((nh1 == 0 .and. nh2 == 0 .and. nh3 == 0)
@@ -910,7 +910,8 @@ cc        numerical_grid = (nh2 > 1)  !Analytical grid metrics are wrong for nh2
      .        .and.equil /= 'adv1'
      .        .and.equil /= 'adv2')
      .        .and.equil /= 'sod' ) then
-        call pstop('readInput','No sinusoidal perturbation specified')
+        call critical('readInput'
+     $               ,'No sinusoidal perturbation specified')
       endif
 
       !Postprocessing stage
@@ -957,12 +958,14 @@ cc         maxitnwt = 10
       !Parallelization
 #if defined(petsc)
       if (npx*npy*npz > np) then
-         call pstop("readInput","Too many procs specified")
+         call critical("readInput","Too many procs specified")
       endif
 #else
       npx = 1 ; npy = 1 ; npz = 1
 #endif
 
+      if (my_rank == 0) write (*,*)
+      
       end subroutine consistency_chk
 
       end subroutine readInput

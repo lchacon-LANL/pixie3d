@@ -21,7 +21,7 @@ c-------------------------------------------------------------------
 
       use imposeBCinterface
 
-      use local_BCS_variables, ONLY: ExB_flow_bc,default_A_BCs
+      use local_BCS_variables, ONLY: default_A_BCs
 
       implicit none
 
@@ -1464,12 +1464,6 @@ c Find dp_cnv
       endif
 
 c Find electron velocity
-
-cc      do ieq=1,3
-cc        dj_cnv(:,:,:,ieq) = dj_cnv(:,:,:,ieq)
-cc     .                    - jcnv0(:,:,:,ieq)*drho(:,:,:,1)
-cc     .                                      /rho0(:,:,:,1)
-cc      enddo
 
       dve_cnv = form_ve(dv_cnv,dj_cnv,rho0(:,:,:,1))
 

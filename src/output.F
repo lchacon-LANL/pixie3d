@@ -18,7 +18,7 @@ c----------------------------------------------------------------------
 
       use nlfunction_setup
 
-      use rw_bc, ONLY: res_wall_bc
+      use rw_bc, ONLY: res_wall_bc,implicit_rw_bc
 
       implicit none
 
@@ -261,70 +261,76 @@ c$$$      write (*,*) '****************************************************'
 c     Warnings
 
       write (*,*)
-      write (*,*) '****************** CONFIG SUMMARY ******************'
+      call info('  ****************** CONFIG SUMMARY *****************')
 
 #if defined(vec_pot) 
-      write (*,*) 'Using VECTOR POTENTIAL formulation'
+      call info('  Using VECTOR POTENTIAL formulation')
 #else
-      write (*,*) 'Using MAGNETIC FIELD formulation'
+      call info('  Using MAGNETIC FIELD formulation')
 #endif
 
       if (limit_dt_flow_cfl)
-     .     write (*,*) 'Limiting timestep to flow CFL'
+     .     call info('  Limiting timestep to flow CFL')
       if (nc_eom_jxb)
-     .     write (*,*) 'Using non-conservative JxB     part of EOM'
+     .     call info('  Using non-conservative JxB     part of EOM')
       if (nc_eom_gp)
-     .     write (*,*) 'Using non-conservative grad(p) part of EOM'
+     .     call info('  Using non-conservative grad(p) part of EOM')
       if (nc_eom_v)
-     .     write (*,*) 'Using non-conservative div(vv) part of EOM'
+     .     call info('  Using non-conservative div(vv) part of EOM')
       if (.not.solenoidal)
-     .     write (*,*) 'Using non-solenoidal version'
+     .     call warning('  Using non-solenoidal version')
       if (.not.solve_rho)
-     .     write (*,*) 'Not solving for density'
+     .     call info('  Not solving for density')
       if (solve_prs) then
-        write (*,*) 'Solving for P=Pi+Pe'
+        call info('  Solving for P=Pi+Pe')
       else
-        write (*,*) 'Solving for Te'
+        call info('  Solving for Te')
       endif
 
-      if (adiabatic_rho) write (*,*) 'Using polytropic EOS for density'
-      if (adiabatic) write (*,*) 'Using adiabatic P,T update'
+      if (adiabatic_rho) call info('  Using polytropic EOS for density')
+      if (adiabatic) call info('  Using adiabatic P,T update')
       if (sym_st)
-     .     write (*,*) 'Using symmetric viscous stress tensor in EOM'
+     .     call info('  Using symmetric viscous stress tensor in EOM')
       if (ion_hall)
-     .     write (*,*) 'Solving ion-based Hall MHD formulation'
-      if (slava) write (*,*) 'Using Slava Lukins Hall MHD formulation'
-      if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
-      if (spitzer) write (*,*) 'Using Spitzer resistivity'
-      if (chi_bgnskii) write (*,*) 'Using Braginskii transport coeffs'
+     .     call info('  Solving ion-based Hall MHD formulation')
+      if (slava) call info('  Using Slava Lukins Hall MHD formulation')
+      if (gamma == 1d0) call info('  Using isothermal EOS (gamma = 1)')
+      if (spitzer) call info('  Using Spitzer resistivity')
+      if (chi_bgnskii) call info('  Using Braginskii transport coeffs')
 
       if (use_p_eom)
-     .     write (*,*) 'Using grad(p) instead of grad(nT) in EOM'
+     .     call info('  Using grad(p) instead of grad(nT) in EOM')
       if (use_p_diff)
-     .     write (*,*) 'Using lap(p) instead of lap(T) in pressure eq.'
+     .     call info('  Using lap(p) instead of lap(T) in pressure eq.')
       if (use_p_classic_eq) then
         if (solve_prs) then
-          write (*,*) 'Using p.div(v) form of pressure eq.'
+          call info('  Using p.div(v) form of pressure eq.')
         else
-          write (*,*) 'Using (gamma-1)*Te.div(v) form of Te eq.'
+          call info('  Using (gamma-1)*Te.div(v) form of Te eq.')
         endif
       else
         if (solve_prs) then
-          write (*,*) 'Using -v.grad(p) form of pressure eq.'
+          call info('  Using -v.grad(p) form of pressure eq.')
         else
-          write (*,*) 'Using (2-gamma)*v.grad(Te) form of Te eq.'
+          call info('  Using (2-gamma)*v.grad(Te) form of Te eq.')
         endif
       endif
 #if !defined(vec_pot)
-      if (.not.pc_divclean) write (*,*) 'Div-cleaning postprocessed'
+      if (.not.pc_divclean) call info('  Div-cleaning postprocessed')
 #endif
-      if (refine_eq) write (*,*) 'Running Equilibrium-checking mode'
-      if (res_wall_bc)  write (*,*) 'Using Resistive Wall BC'
-      write (*,*) '****************************************************'
+      if (refine_eq) call warning('  Running equilibrium-checking mode')
+      if (res_wall_bc)  then
+        if (implicit_rw_bc) then
+          call info   ('  Applying IMPLICIT Resistive Wall BC')
+        else
+          call warning('  Applying EXPLICIT Resistive Wall BC')
+        endif
+      endif
+      
+      call info('  ***************************************************')
 
       if (advect == 5) then
-        write (*,*)
-     .   'WARNING: Smooth smart does not work for non-uniform meshes'
+        call warning(' Smooth-SMART not operational in non-unif meshes')
       endif
 
       end subroutine warnings

@@ -1692,7 +1692,7 @@ c     Call variables
 
 c     Local variables
 
-      integer :: i,j,k,ig,jg,kg,ord,nx,ny,nz
+      integer :: i,j,k,ig,jg,kg,ord,nx,ny,nz,ibc
 
       real(8) :: b2,bbcnv(3),bbcov(3),dum(3),grad_p(3),etah,gsup(3,3)
      .          ,gsub(3,3),jac,E00(3)
@@ -1703,12 +1703,13 @@ c     Begin program
       ny = size(bcnv,2)-2
       nz = size(bcnv,3)-2
 
+      i = nx ; ibc = 2
+
+      if (.not.isBdry(g_def,i,igrid,ibc)) return
       if (igrid /= 1) then
         write (*,*) 'ExB_flow_bc not ready for MG treatment'
         stop
       endif
-
-      i = nx
 
       !Compute value at face
       do k=0,nz+1
@@ -1774,7 +1775,7 @@ c     Call variables
 
 c     Local variables
 
-      integer :: i,j,k,ig,jg,kg,ord,nx,ny,nz
+      integer :: i,j,k,ig,jg,kg,ord,nx,ny,nz,ibc
       real(8) :: Jb2,b2,bbcnv(3),bbcov(3),grad_p(3),alpha
      .          ,gsub(3,3),ietah,jach,E00(3),xh(1)
 
@@ -1789,8 +1790,10 @@ c     Begin program
         stop
       endif
 
-      i = nx ; ord = 1
-      
+      i = nx ; ord = 1 ; ibc = 2
+
+      if (.not.isBdry(g_def,i,igrid,ibc)) return
+
       call getMGmap(g_def,i,1,1,igrid,igrid,igrid,ig,jg,kg)
 
       do k=1,nz
