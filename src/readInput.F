@@ -755,6 +755,13 @@ c     #####################################################################
       do i=1,size(rw_bcs)
         res_wall_bc = res_wall_bc.or.rw_bcs(i)
       enddo
+
+      if (res_wall_bc.and.(.not.implicit_rw_bc)) then
+        if (dt > tau_w/nxd) then
+          write (messg,*) "dt must be <",tau_w/nxd,"for RW BC stability"
+          call critical('readInput',messg)
+        endif
+      endif
       
       !Adequate size for collapsed dimension
       if (coords /= 'car') then

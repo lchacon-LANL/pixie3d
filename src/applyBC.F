@@ -690,7 +690,8 @@ cc            acov = acov + acov_0
               
               !Update face value
               call XferBCs(acov_n,v0,.true.)
-              v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt*E_bc(nnx+1,:,:,:)
+              if (.not.save_tn)
+     $          v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt*E_bc(nnx+1,:,:,:)
 #endif
             else
               call XferBCs(acov_0,v0,.true.)
