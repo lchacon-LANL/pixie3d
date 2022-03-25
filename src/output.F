@@ -321,9 +321,9 @@ c     Warnings
       if (refine_eq) call warning('  Running equilibrium-checking mode')
       if (res_wall_bc)  then
         if (implicit_rw_bc) then
-          call info   ('  Applying IMPLICIT Resistive Wall BC')
+          call info('  Applying IMPLICIT Resistive Wall BC')
         else
-          call warning('  Applying EXPLICIT Resistive Wall BC')
+          call info('  Applying EXPLICIT Resistive Wall BC')
         endif
       endif
       

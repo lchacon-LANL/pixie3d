@@ -318,7 +318,7 @@ c Begin program
 #if defined(plotting)
       save_tn = .true.
 #else
-      save_tn = old_time_eval .or. source_eval
+      save_tn = old_time_eval .or. source_eval .or. init_time_eval
 #endif
       
 c Local grid sizes
@@ -672,35 +672,24 @@ cc            acov = acov + acov_0
             if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
 #if defined(plotting)
               call XferBCs(acov,v0,.true.)  !Reuse existing BC for plotting
+              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+     .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
+     .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
 #else
-              if (implicit_rw_bc.and.(.not.save_tn)) then
-                !Compute new-time E-field @ boundary
-                bcnd = vaux%vec_list(IACOV)%bconds
-                where (vaux%vec_list(IACOV)%bconds==-EQU) bcnd =-EXT
+              call A_rw_BC(gv%gparams,igr,acov_n,bcov_n,acov
+     $                    ,vaux%vec_list(IACOV)%bconds,v0)
+              if (.not.init_time_eval) then
                 call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     .                  ,bcnd,igr,igr,igr,iorder=1
-     .                  ,is_cnv=vaux%vec_list(IACOV)%cnv)
-                bcov = curl(gv%gparams,igr,acov)
-                bcov = XformToCov(gv%gparams,igr,bcov)
-                call rw_Ebc(gv%gparams,bcov  ,E_bc,implicit=.true.)
-              elseif (save_tn) then
-                !Compute old-time E-field @ boundary
-                call rw_Ebc(gv%gparams,bcov_n,E_bc)
+     .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
+     .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
               endif
-              
-              !Update face value
-              call XferBCs(acov_n,v0,.true.)
-              if (.not.save_tn)
-     $          v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt*E_bc(nnx+1,:,:,:)
 #endif
             else
               call XferBCs(acov_0,v0,.true.)
-            endif
-
-            call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
      .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
-
+            endif
           endif
 
         case(IACNV)  !Done when computing acov
@@ -883,7 +872,7 @@ c Begin program
 #if defined(plotting)
       save_tn = .true.
 #else
-      save_tn = old_time_eval .or. source_eval
+      save_tn = old_time_eval .or. source_eval .or. init_time_eval
 #endif
       
 c Local grid sizes
@@ -1218,13 +1207,6 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
             enddo
             bcov_n = XformToCov(gv%gparams,igr,bcov_n)
 #else
-c$$$            bcov_n = bcov       !Save previous time step (initializes for BDF2)
-c$$$            bcov_n(:,:,:,1) = -cn/cnp*u_n %array_var(IBX)%array
-c$$$     .                       -cnm/cnp*u_nm%array_var(IBX)%array
-c$$$            bcov_n(:,:,:,2) = -cn/cnp*u_n %array_var(IBY)%array
-c$$$     .                       -cnm/cnp*u_nm%array_var(IBY)%array
-c$$$            bcov_n(:,:,:,3) = -cn/cnp*u_n %array_var(IBZ)%array
-c$$$     .                       -cnm/cnp*u_nm%array_var(IBZ)%array
             bcov_n(:,:,:,1) = u_n%array_var(IBX)%array
             bcov_n(:,:,:,2) = u_n%array_var(IBY)%array
             bcov_n(:,:,:,3) = u_n%array_var(IBZ)%array
@@ -1265,14 +1247,6 @@ c$$$     .                       -cnm/cnp*u_nm%array_var(IBZ)%array
           if (source_eval) then
             acov_n = acov_0     !Set it to initial cond.
           else  !This determines bcov_n also
-c$$$            acov_n = acov       !Save previous time step
-c$$$            !BDF2 interpolation is critical for accuracy in RW!!
-c$$$            acov_n(:,:,:,1) = -cn/cnp*u_n %array_var(IAX)%array
-c$$$     .                       -cnm/cnp*u_nm%array_var(IAX)%array
-c$$$            acov_n(:,:,:,2) = -cn/cnp*u_n %array_var(IAY)%array
-c$$$     .                       -cnm/cnp*u_nm%array_var(IAY)%array
-c$$$            acov_n(:,:,:,3) = -cn/cnp*u_n %array_var(IAZ)%array
-c$$$     .                       -cnm/cnp*u_nm%array_var(IAZ)%array
             acov_n(:,:,:,1) = u_n%array_var(IAX)%array
             acov_n(:,:,:,2) = u_n%array_var(IAY)%array
             acov_n(:,:,:,3) = u_n%array_var(IAZ)%array
@@ -1439,7 +1413,7 @@ c Begin program
 #if defined(plotting)
       save_tn = .true.
 #else
-      save_tn = old_time_eval .or. source_eval
+      save_tn = old_time_eval .or. source_eval .or. init_time_eval
 #endif
       
 c Local grid sizes
