@@ -707,10 +707,10 @@ c       Magnetic field BC
             if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
               if (implicit_rw_bc.and.(.not.save_tn)) then
                 !Compute new-time E-field @ boundary
-                call rw_Ebc(gv%gparams,bcov  ,E_bc,implicit=.true.)
+                call rw_Ebc(gv%gparams,igr,bcov  ,E_bc,implicit=.true.)
               elseif (save_tn) then
                 !Compute old-time E-field @ boundary
-                call rw_Ebc(gv%gparams,bcov_n,E_bc)
+                call rw_Ebc(gv%gparams,igr,bcov_n,E_bc)
               endif
             endif
 #endif
