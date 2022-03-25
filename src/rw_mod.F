@@ -179,6 +179,7 @@ c$$$     .          ,gbcovint(0:size(bcov,2)-1
 c$$$     .                   ,0:size(bcov,3)-1,3)
 
       real(8) :: dum,dh,bcov_avg(2:3),send_buf(2),rec_buf(2),nfactor
+c$$$      real(8) :: mag
 
       logical :: impl
       
@@ -254,7 +255,7 @@ c$$$        call rw_hel(g_def,bcovint(:,:,1),gbcovint(:,:,1),bcovext)
 c$$$      case('cyl')
 c$$$      case('tor')
       case default
-        call pstop('rw_bc'
+        call critical('rw_bc'
      .       ,'Resistive wall BC not implemented for '//coords)
       end select
 
@@ -272,6 +273,12 @@ c     Find electric field components @ r=1 (store in (nx+1))
      .      =XformToCov_ijk_face(g_def,i_bc-1,j,k,igr,E_0(i_bc,j,k,:),1)
         enddo
       enddo
+
+c diag ****
+c$$$      mag = rms(reshape(E_0(i_bc,1:ny,1:nz,:),(/ny*nz*3/))
+c$$$     $         ,mpi_comm=g_def%MPI_COMM_YZ)
+c$$$      write (*,*) my_rank,"A Ebc",mag
+c diag ****
 
 c     End program
 
