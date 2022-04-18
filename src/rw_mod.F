@@ -5,8 +5,7 @@ c ####################################################################
         use local_BCS_variables
       
         !Resistive wall vars
-        logical :: res_wall_bc   =.false.
-     $            ,rw_bcs(6)     =.false.
+        logical :: rw_bcs(6)     =.false.
      $            ,implicit_rw_bc=.false.
 
         real(8) :: tau_w=1d0,r_v=1.5d0
@@ -76,7 +75,7 @@ c     End program
 
 c     A_rw_bc
 c     #################################################################
-      subroutine A_rw_bc(g_def,igr,acov_n,bcov_n,acov,bcnd,A_bc)
+      subroutine A_rw_bc(g_def,igr,acov_n,bcov_n,A_bc)!,acov,bcnd,A_bc)
 
 c     -----------------------------------------------------------------
 c     Finds current boundary condition when Eo is imposed at boundary
@@ -89,11 +88,11 @@ c     Call variables
 
       type(grid_mg_def),pointer :: g_def
 
-      integer :: igr,bcnd(6,3)
-      real(8),dimension(0:,0:,0:,:) :: acov_n,bcov_n,acov
-      real(8),dimension(0:size(acov,1)-1
-     $                 ,0:size(acov,2)-1
-     $                 ,0:size(acov,3)-1,3) :: A_bc
+      integer :: igr!,bcnd(6,3)
+      real(8),dimension(0:,0:,0:,:) :: acov_n,bcov_n!,acov
+      real(8),dimension(0:size(acov_n,1)-1
+     $                 ,0:size(acov_n,2)-1
+     $                 ,0:size(acov_n,3)-1,3) :: A_bc
 
 c     Local variables
 

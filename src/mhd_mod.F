@@ -348,7 +348,7 @@ c     Local variables
 c     Begin program
 
       if (b2 > 0d0) then
-         dfvty = sqrt(abs(te0/(te+1d-4*te0)))*rho*rho/b2
+         dfvty = sqrt(te0/(abs(te)+1d-4*te0))*rho*rho/b2
       else
          dfvty = 0d0
       endif
@@ -380,7 +380,6 @@ c     Begin program
 c     End program
 
       end function chi_par_brag
-
 
       end module transport_params
 

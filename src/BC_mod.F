@@ -29,8 +29,10 @@ c####################################################################
 
         logical :: regularize_A = .false.  !Whether we regularize A @ SP
 
-        logical :: no_eq_bc,save_tn,no_tn_bc,fill_A0_bc=.false.
-
+        logical :: no_eq_bc,save_tn,no_tn_bc
+     $            ,fill_A0_bc=.false.
+     $            ,res_wall_bc=.false.
+        
       contains
 
 c     defineDepVariables
@@ -1007,7 +1009,7 @@ cc      vaux%vec_list(IACOV)%bc_dep_list(4,3) = 0 !trivial
       vaux%vec_list(IBCNV)%bc_dep_list(1,3) = 0 !trivial
 #endif
 
-      if (.not.pinch_flow) then
+      if (.not.(pinch_flow.or.res_wall_bc)) then
         vaux%vec_list(IBCNV)%bc_dep_list(2,1) = IJCOV_0*AUX
         vaux%vec_list(IBCNV)%bc_dep_list(2,2) = VECTOR
         vaux%vec_list(IBCNV)%bc_dep_list(2,3) = 0 !trivial
@@ -1058,7 +1060,7 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IVCNV)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IVCNV)%bc_dep_list(1,3) = 0 !trivial
 
-      if (pinch_flow) then
+      if (pinch_flow.or.res_wall_bc) then
         vaux%vec_list(IVCNV)%bc_dep_list(2,1) = IRHO_AUX*AUX
         vaux%vec_list(IVCNV)%bc_dep_list(2,2) = SCALAR
         vaux%vec_list(IVCNV)%bc_dep_list(2,3) = 1 !non-trivial
@@ -1098,7 +1100,7 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IJCNV)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IJCNV)%bc_dep_list(1,3) = 0 !trivial
 
-      if (pinch_flow) then
+      if (pinch_flow.or.res_wall_bc) then
         vaux%vec_list(IJCNV)%bc_dep_list(2,1) = IRHO_AUX*AUX
         vaux%vec_list(IJCNV)%bc_dep_list(2,2) = SCALAR
         vaux%vec_list(IJCNV)%bc_dep_list(2,3) = 1 !non-trivial

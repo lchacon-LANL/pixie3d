@@ -964,7 +964,7 @@
         
         v_A = BB0/sqrt(mi*n_0*mu_0)  !m/s
         t_A = 1d0/(v_A*iLL) !s
-        T_max = max_prs/(kb*ip0*n_0) !eV
+        T_max = 0.5*max_prs/(kb*ip0*n_0) !eV
 !!$        tau_e = (4*pi*eps_0)**(2)*3*sqrt(me)*(kb*T_max)**1.5/(4*sqrt(2*pi)*n_0*log_lamb*qe**4) !s (SI)
 !!$        write (*,*) tau_e/(3.44d5*(T_max**1.5)/(n0_cgs*log_lamb))
         tau_e = 3.44d5*(T_max**1.5)/(n0_cgs*log_lamb) !s (cgs)
@@ -981,7 +981,7 @@
           write (*,'(a,1pe14.7,a)') " p_0 = ",1d0/ip0," N/m^2"
           write (*,'(a,1pe14.7,a)') " v_A = ",v_A," m/s"
           write (*,'(a,1pe14.7,a)') " t_A = ",t_A," s"
-          write (*,'(a,1pe14.7,a)') " Tmax= ",T_max*1d-3," keV "
+          write (*,'(a,1pe14.7,a)') " Te max= ",T_max*1d-3," keV "
           write (*,*)
           write (*,'(a)') " Normalized parameters:"
           write (*,*)
