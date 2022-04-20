@@ -1553,7 +1553,7 @@ c$$$            enddo
 c$$$          enddo
 c$$$        enddo
 
-      case ('rfp83','vela1','vela2','tbbr1','tbbr2','liu20')
+      case ('rfp83','vela1','vela2','tbbr1','tbbr2','liu20','rsw11')
 
 c     Check coordinates
 
@@ -2854,8 +2854,9 @@ c$$$     .                 - 2    /24*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
           gs_err = sqrt(sum(bth0(0:nxd)-rh*bzz0(0:nxd)/q0h(0:nxd))**2)  !RMS error
 
           if (ilevel > 0 .and. my_rank == 0) then
-            write (messg,*) '  1D Grad-Shafranov equilibrium iter =',it
-     .                     ,' ; Force balance error=',gs_err
+            write (messg,'(a,i0,a,1pe10.2)')
+     $           '  1D Grad-Shafranov equilibrium iter =',it
+     .          ,' ; Force balance error=',gs_err
             call info(messg)
           endif
 
@@ -2867,9 +2868,9 @@ c$$$     .                 - 2    /24*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
         enddo
 
         if (ilevel == 0 .and. my_rank == 0) then
-          write (messg,'(a,i3,a,1pe10.2)')
-     .          '  1D equilibrium converged in '
-     .          ,it,' iterations with force-balance error =',gs_err
+          write (messg,'(a,i0,a,1pe10.2)')
+     .          '  1D equilibrium converged in ',it
+     .          ,' its with error =',gs_err
           call info(messg)
         endif
 
@@ -2903,7 +2904,7 @@ c$$$     .                 - 2    /24*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
 
         if (my_rank == 0) then
           write (*,*)
-          write (*,999) ' 1D Grad-Shafranov equilibrium properties:'
+          write (*,999) '  1D Grad-Shafranov equilibrium properties:'
           write (*,999) '   Theta  =',bth0(nxd)/bz_avg
           write (*,999) '   Bz(r=0)=',bzz0(0)
           write (*,999) '   I0     =',2*pi*xmax*bth0(nxd)
@@ -7513,6 +7514,19 @@ c     Begin program
 
           qprof = q0*(1d0+0.5*qa)
 
+        case('rsw11')
+
+          RR   = gv%gparams%params(3)
+
+c$$$          q0   = gv%gparams%params(6)
+c$$$          jz1  = gv%gparams%params(7)
+c$$$          aa   = gv%gparams%params(8)
+c$$$          p    = gv%gparams%params(9)
+
+          qa = 0.5*r**2
+
+          qprof = 3/RR/(1d0-qa)
+
         case default
 
           call critical('qprof','Undefined q profile')
@@ -7572,7 +7586,7 @@ c     Begin program
             pprof =-4*s*(1-s**2)
           endif
 
-        case('rfp83','tbbr1','liu20')
+        case('rfp83','tbbr1','liu20','rsw11')
 
           if (der == 0) then
             pprof = 1d0
@@ -7604,7 +7618,7 @@ c     Begin program
 
         case default
 
-          pprof = 0d0
+          pprof = 1d0
 
         end select
 

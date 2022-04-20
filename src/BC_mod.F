@@ -172,6 +172,20 @@ c     Exceptions for specific equilibria
           where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
         endif
 
+      case ('rsw11') !No slip BCs, no pinch flow
+
+        pinch_flow = .false.
+
+        where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = EQU
+
+        !Dirichlet boundary conditions for tangential components in resistive MHD
+        where (bbcs(:,IVY) == NEU) bbcs(:,IVY) = EQU
+        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ) = EQU
+
+        if (gamma > 1d0.and.(.not.adiabatic).and.(di == 0d0)) then
+          where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
+        endif
+
       case ('bpnch','bpchT')        !No slip BCs, no pinch flow
 
         pinch_flow = .false.
