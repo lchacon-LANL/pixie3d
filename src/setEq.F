@@ -1874,7 +1874,8 @@ c     Read EFIT equilibrium
         if (solve_rho) then  !Adiabatic rho for now
           call efit_equ(ilevel,igx,nx,ny,nz,bb,var(:,:,:,IPRS)
      .                                        ,var(:,:,:,IRHO)
-     .                 ,gamma,equ_file)
+     .                 ,0d0,equ_file)
+c$$$     .                 ,gamma,equ_file)
         else                 !Constant rho
           call efit_equ(ilevel,igx,nx,ny,nz,bb,var(:,:,:,IPRS)
      .                                        ,var(:,:,:,IRHO)

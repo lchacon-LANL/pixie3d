@@ -760,13 +760,13 @@ cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
       !Adequate size for collapsed dimension
       if (coords /= 'car') then
         if (nxd == 1) then
-          xmax = LMIN_NEQONE ; xmin = 0d0
+          xmax = LMIN_NEQ_ONE ; xmin = 0d0
         endif
         if (nyd == 1) then
-          ymax = LMIN_NEQONE ; ymin = 0d0
+          ymax = LMIN_NEQ_ONE ; ymin = 0d0
         endif
         if (nzd == 1) then
-          zmax = LMIN_NEQONE ; zmin = 0d0
+          zmax = LMIN_NEQ_ONE ; zmin = 0d0
         endif
       endif
 
