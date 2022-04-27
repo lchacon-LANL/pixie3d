@@ -683,40 +683,46 @@ cc          nn = gv%gparams%params(5)
         do ieq=1,varr%nvar
           call perturbEquilibrium_psi(varr%array_var(ieq)%array
      .                               ,varr%array_var(ieq)%bconds
-     .                               ,pert(ieq),ieq)
+     .                               ,pert(ieq),ieq,.true.)
         enddo
 
-cc      case ('3dpar')
-cc
-cc        call perturbEquilibrium_3dpar(array,bcs,pert(ieq),ieq)
+      case ('efit')
 
-c$$$      case ('bpnch') ! n=m=1 mode in cylindrical geometry.
+        do ieq=1,varr%nvar
+          call perturbEquilibrium_phi(varr%array_var(ieq)%array
+     .                               ,varr%array_var(ieq)%bconds
+     .                               ,pert(ieq),ieq,.false.)
+        enddo
+
+c$$$      case ('3dpar')
 c$$$
-c$$$         print*,'in bpnch'
+c$$$        call perturbEquilibrium_3dpar(array,bcs,pert(ieq),ieq)
+c$$$
+c$$$      case ('bpnch') ! n=m=1 mode in cylindrical geometry.
 c$$$
 c$$$        kx = 0.5*pi/(xmax-xmin)
 c$$$        ky = 2.0*pi/(zmax-zmin) ! Actually kz.
 c$$$
-c$$$          do k = klom,khip
-c$$$            do j = jlom,jhip
-c$$$              do i = ilom,ihip
-c$$$                call getCurvilinearCoordinates(gv%gparams,i,j,k
-c$$$     .                                   ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
+c$$$        do k = klom,khip
+c$$$          do j = jlom,jhip
+c$$$            do i = ilom,ihip
+c$$$              call getCurvilinearCoordinates(gv%gparams,i,j,k
+c$$$     .                                 ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
 c$$$
-c$$$                varr%array_var(IVX)%array(i,j,k) =
-c$$$     .               varr%array_var(IVX)%array(i,j,k)
-c$$$     .                  +pert(IVX)*x1*cos(kx*x1)
-c$$$     .               *(cos(y1)*cos(ky*z1) + sin(y1)*sin(ky*z1))
+c$$$              varr%array_var(IVX)%array(i,j,k) =
+c$$$     .             varr%array_var(IVX)%array(i,j,k)
+c$$$     .                +pert(IVX)*x1*cos(kx*x1)
+c$$$     .             *(cos(y1)*cos(ky*z1) + sin(y1)*sin(ky*z1))
 c$$$
-c$$$               varr%array_var(IVY)%array(i,j,k) =
-c$$$     .               varr%array_var(IVY)%array(i,j,k)
-c$$$     .                  +pert(IVX)*cos(kx*x1)
-c$$$     .               *(-sin(y1)*cos(ky*z1) + cos(y1)*sin(ky*z1))
+c$$$              varr%array_var(IVY)%array(i,j,k) =
+c$$$     .             varr%array_var(IVY)%array(i,j,k)
+c$$$     .                +pert(IVX)*cos(kx*x1)
+c$$$     .             *(-sin(y1)*cos(ky*z1) + cos(y1)*sin(ky*z1))
 c$$$ 
-c$$$               
-c$$$             enddo
+c$$$             
+c$$$            enddo
 c$$$          enddo
-c$$$       enddo
+c$$$        enddo
 
       case default
 
@@ -1829,7 +1835,7 @@ cc      end subroutine perturbEquilibrium_3dpar
 
 c     perturbEquilibrium_psi
 c     #################################################################
-      subroutine perturbEquilibrium_psi(array,bcs,perturb,ieq)
+      subroutine perturbEquilibrium_psi(array,bcs,perturb,ieq,cart)
 
 c     -----------------------------------------------------------------
 c     Perturbs equilibrium quantity in array0 with a sinusoidal
@@ -1843,7 +1849,8 @@ c     Call variables
       integer :: bcs(6),ieq
       real(8) :: perturb
       real(8) :: array (ilom:ihip,jlom:jhip,klom:khip)
-
+      logical :: cart
+      
 c     Local variables
 
       integer :: i,j,k,ig,jg,kg,ip,im,jp,jm,bcsl(6),nx,ny,nz
@@ -1863,7 +1870,7 @@ c     Begin program
         bcsl = bcond
         where(bcsl == DEF) bcsl = DIR
 
-        call perturbEquilibrium_def(psi,bcsl,perturb,.true.)
+        call perturbEquilibrium_def(psi,bcsl,perturb,cart)
 
         !Find delta_B
         nx = ihip-ilom-1
@@ -1873,8 +1880,6 @@ c     Begin program
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
-              call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
-
               grd = grad(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,psi)
 
               if (ieq == IBX) then
@@ -1895,6 +1900,79 @@ c     Begin program
 c     End program
 
       end subroutine perturbEquilibrium_psi
+
+c     perturbEquilibrium_phi
+c     #################################################################
+      subroutine perturbEquilibrium_phi(array,bcs,perturb,ieq,cart)
+
+c     -----------------------------------------------------------------
+c     Perturbs equilibrium quantity in array0 with a sinusoidal
+c     perturbation of magnitude perturb, and introduces it in array.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: bcs(6),ieq
+      real(8) :: perturb
+      real(8) :: array (ilom:ihip,jlom:jhip,klom:khip)
+      logical :: cart
+      
+c     Local variables
+
+      integer :: i,j,k,ig,jg,kg,ip,im,jp,jm,bcsl(6),nx,ny,nz
+      real(8) :: x1,y1,z1,kk,mm,xle,yle,zle,jac
+      real(8) :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
+
+      real(8) :: phi(ilom:ihip,jlom:jhip,klom:khip),grd(3)
+
+c     Begin program
+
+      if (ieq == IVX .or. ieq == IVY) then
+
+        !Find vector potential
+        phi = 0d0
+
+        !Set phi BCs (Neumann if symmetry, Dirichlet otherwise)
+        bcsl = bcond
+        where(bcsl == DEF) bcsl = DIR
+
+        call perturbEquilibrium_def(phi,bcsl,perturb,cart)
+
+        !Find delta_B
+        nx = ihip-ilom-1
+        ny = jhip-jlom-1
+        nz = khip-klom-1
+
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+              grd = grad(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,phi)
+
+              if (ieq == IVX) then
+                array(i,j,k) = array(i,j,k) - grd(2)
+              else
+                if (alt__eom()) then
+                  jac = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+                  array(i,j,k) = array(i,j,k) + grd(1)*jac
+                else
+                  array(i,j,k) = array(i,j,k) + grd(1)
+                endif
+              endif
+            enddo
+          enddo
+        enddo
+
+      else
+
+        call perturbEquilibrium_def(array,bcs,perturb,cart)
+
+      endif
+
+c     End program
+
+      end subroutine perturbEquilibrium_phi
 
 c     factor
 c     ####################################################################
@@ -1964,8 +2042,13 @@ c$$$          endif
           else
             period = pi
           endif
-          ff = (sin(period*(x-xmin)/(xmax-xmin)))**(nh+2) !To satisfy regularity at r=0 (r^m)
-     .         *sign(1d0,sin(period*(x-xmin)/(xmax-xmin)))**(nh+1)
+          if (nh == 1) then
+            ff = x*(1d0+tanh(10*(0.5*xmax-x)/(xmax-xmin)))
+c$$$            ff = x**2*cos(0.5*period*(x-xmin)/(xmax-xmin))**(nh+1)
+          else
+            ff = (sin(period*(x-xmin)/(xmax-xmin)))**(nh+2) !To satisfy regularity at r=0 (r^m)
+     .           *sign(1d0,sin(period*(x-xmin)/(xmax-xmin)))**(nh+1)
+          endif
         elseif (spoint(1) .and. neumann(2)) then
           if (.not.odd) then
             period = pi/2.
