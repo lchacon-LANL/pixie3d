@@ -1938,7 +1938,7 @@ c     Begin program
         bcsl = bcond
         where(bcsl == DEF) bcsl = DIR
 
-        call perturbEquilibrium_def(phi,bcsl,perturb,cart)
+        call perturbEquilibrium_def(phi,bcsl,pert(IVX),cart)
 
         !Find delta_B
         nx = ihip-ilom-1
