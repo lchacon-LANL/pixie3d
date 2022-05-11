@@ -13,7 +13,7 @@ c ####################################################################
         real(8),pointer,dimension(:,:,:,:) :: E_bc
 
         logical,private :: debug_io=.false.
-     .                    ,rw_dbg  =.false.
+     .                    ,rw_dbg  =.true.
 
       contains
 
@@ -167,6 +167,7 @@ c     Call variables
 c     Local variables
 
       integer :: i_bc,j,k,nx,ny,nz,nn,mm,my_rank_y,ig,jg,kg,nxg
+     $          ,my_rank_yz
 
       real(8) :: phinm   (0:size(bcov,2)-1
      .                   ,0:size(bcov,3)-1)
@@ -178,7 +179,7 @@ c$$$     .          ,gbcovint(0:size(bcov,2)-1
 c$$$     .                   ,0:size(bcov,3)-1,3)
 
       real(8) :: dum,dh,bcov_avg(2:3),send_buf(2),rec_buf(2),nfactor
-c$$$      real(8) :: mag
+      real(8) :: mag
 
       logical :: impl
       
@@ -200,12 +201,12 @@ c     Begin program
       endif
       
 #if defined(petsc)
-      call MPI_Comm_rank(g_def%MPI_COMM_Y,my_rank_y,mpierr)
+      call MPI_Comm_rank(g_def%MPI_COMM_YZ,my_rank_yz,mpierr)
 #else
-      my_rank_y = 0
+      my_rank_yz = 0
 #endif
       
-      debug_io = rw_dbg.and.my_rank_y==0
+      debug_io = rw_dbg.and.my_rank_yz==0
 
 c     Compute INTERNAL tangential magnetic field components, EXCLUDING m=n=0 mode (CRITICAL)
 
@@ -273,11 +274,11 @@ c     Find electric field components @ r=1 (store in (nx+1))
         enddo
       enddo
 
-c diag ****
-c$$$      mag = rms(reshape(E_0(i_bc,1:ny,1:nz,:),(/ny*nz*3/))
-c$$$     $         ,mpi_comm=g_def%MPI_COMM_YZ)
-c$$$      write (*,*) my_rank,"A Ebc",mag
-c diag ****
+c     Debug IO
+      
+      mag = rms(reshape(E_0(i_bc,1:ny,1:nz,:),(/ny*nz*3/))
+     $         ,mpi_comm=g_def%MPI_COMM_YZ)
+      if (debug_io) write (*,*) "rms RW Ebc=",mag
 
 c     End program
 

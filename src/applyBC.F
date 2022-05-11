@@ -711,10 +711,14 @@ c       Magnetic field BC
                 !Compute old-time E-field @ boundary
                 call rw_Ebc(gv%gparams,igr,bcov_n,E_bc)
               endif
+            else
+              v0 = 0d0 ; prs1 = rho*tmp
+              call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,v0,v0)
             endif
-#endif
-            prs1 = rho*tmp
+#else
+            v0 = 0d0 ; prs1 = rho*tmp
             call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
+#endif
           else
             call XferBCs(jcnv_0,v0,.true.)
           endif
