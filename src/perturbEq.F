@@ -2042,9 +2042,9 @@ c$$$          endif
           else
             period = pi
           endif
-          if (nh == 1) then
-            ff = x*(1d0+tanh(10*(0.5*xmax-x)/(xmax-xmin)))
-c$$$            ff = x**2*cos(0.5*period*(x-xmin)/(xmax-xmin))**(nh+1)
+          if (nh == 1.and.equil=="efit") then
+c$$$            ff = x*(1d0+tanh(10*(0.5*xmax-x)/(xmax-xmin)))
+            ff = x**2*cos(0.5*period*(x-xmin)/(xmax-xmin))**(nh+1)
           else
             ff = (sin(period*(x-xmin)/(xmax-xmin)))**(nh+2) !To satisfy regularity at r=0 (r^m)
      .           *sign(1d0,sin(period*(x-xmin)/(xmax-xmin)))**(nh+1)

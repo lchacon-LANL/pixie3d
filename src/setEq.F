@@ -2383,25 +2383,6 @@ c     Equilibria (numerical)
 
         endif
 
-#if defined(RFX)
-        if (my_rank == 0) then
-          write (*,*) 'r,bth0,bzz0,q0,vr0,vz0'
-          do i=0,nxdp
-            x1 = rg(i) !Global coordinate
-            write(*,10) x1,bth0(i),bzz0(i)
-     .             ,(x1*bzz0(i))/(RR*bth0(i)),vr0(i),vz0(i)
-          enddo
-        endif
-#else
-cc        write (*,*) 'r,bth0,bzz0,jth0,jz0,vr0'
-cc        do i=0,nxdp
-cc          call getCurvilinearCoordinates(i,1,1,igx,igy,igz,ig,jg,kg
-cc     .                                  ,x1,y1,z1)
-cc          write(*,*) x1,bth0(i),bzz0(i),vr0(i)
-cc        enddo
-cc        stop
-#endif
-
         !Build equilibrium
         do k = klom,khip
           do j = jlom,jhip
@@ -2663,10 +2644,6 @@ c Transfer BC fields info to postprocessor via input file
       call write_bc_field_to_inputf(M0,'M0')
 
 c End program
-
-#if defined(RFX)
-10    format (4f7.3,2e12.3)
-#endif
 
       end subroutine setEquilibrium
 
@@ -3220,7 +3197,7 @@ cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
         bth0 = xh*bth0
         call IntDriver1d(nxdp+1,xh(0:nxdp),bth0(0:nxdp)
      .                  ,nxdp,rg(1:nxdp),dummy(1:nxdp)
-     .                  ,1,0)
+     .                  ,2,0)
         bth0 = dummy/rg
 
         call IntDriver1d(nxdp+1,xh(0:nxdp),bzz0(0:nxdp)
@@ -3297,7 +3274,7 @@ c diag ****
           enddo
         endif
 
- 10     format (4f7.3,2e12.3)
+ 10     format (4f10.6,2e12.3)
 #endif
 
       end subroutine Ohm_equil_1d
