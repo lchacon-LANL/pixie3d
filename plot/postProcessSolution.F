@@ -803,6 +803,8 @@ c     ---------------------------------------------------------------
 c     Calculates heat flux diagnostic at radial boundary
 c     ---------------------------------------------------------------
 
+      use pixie3d_io
+      
       implicit none
 
 c     Call variables
