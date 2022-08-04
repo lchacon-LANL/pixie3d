@@ -8,6 +8,8 @@ common
 record*
 tests*
 *dSYM
+*err
+*tst
 
 # Prerequisites
 *.d
