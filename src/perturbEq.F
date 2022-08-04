@@ -2042,13 +2042,13 @@ c$$$          endif
           else
             period = pi
           endif
-          if (nh == 1) then
-            ff = x*(1d0+tanh(10*(0.5*xmax-x)/(xmax-xmin)))
-c$$$            ff = x**2*cos(0.5*period*(x-xmin)/(xmax-xmin))**(nh+1)
-          else
+c$$$          if (nh == 1) then
+c$$$            ff = x*(1d0+tanh(10*(0.5*xmax-x)/(xmax-xmin)))
+c$$$c$$$            ff = x**2*cos(0.5*period*(x-xmin)/(xmax-xmin))**(nh+1)
+c$$$          else
             ff = (sin(period*(x-xmin)/(xmax-xmin)))**(nh+2) !To satisfy regularity at r=0 (r^m)
      .           *sign(1d0,sin(period*(x-xmin)/(xmax-xmin)))**(nh+1)
-          endif
+c$$$          endif
         elseif (spoint(1) .and. neumann(2)) then
           if (.not.odd) then
             period = pi/2.
