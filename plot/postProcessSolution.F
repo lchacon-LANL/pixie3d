@@ -206,7 +206,7 @@ c Electron velocity
 c Poloidal flux diagnostics
 
 #if !defined(vec_pot)
-      call pol_flux(Pflux)
+      call pol_flux_diag(Pflux)
 #else
       Pflux(:,:,:) = acov(:,:,:,3)
 #endif
@@ -408,7 +408,8 @@ c Toroidal diagnostics (quasi-linear q-profile, lambda profile)
       if (     coords == 'hel'
      .    .or. coords == 'cyl'
      .    .or. coords == 'tor'
-     .    .or. coords == 'vmc') then
+     .    .or. trim(equil) == 'vmec'
+     $    .or. trim(equil) == 'efit') then
         call tor_diag
       else
         qfactor = 0d0
@@ -490,12 +491,12 @@ c End program
 
       contains
 
-c     pol_flux
+c     pol_flux_diag
 c     ################################################################
-      subroutine pol_flux(pflux)
+      subroutine pol_flux_diag(pflux)
 
 c     ---------------------------------------------------------------
-c     Calculates toroidal diagnostics q-profile and lambda.
+c     Calculates poloidal flux from B-field in parallel.
 c     ---------------------------------------------------------------
 
       implicit none
@@ -529,25 +530,6 @@ c     Begin program
       deallocate(mpivec)
 #endif
       bcnvavg = bcnvavg/nzd
-      
-c$$$      k = 1
-c$$$      do i = 0,nx+1
-c$$$        j = 0
-c$$$        call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
-c$$$        if (i == 0) then
-c$$$          Pflux(i,j,:) = 0d0
-c$$$        else
-c$$$          Pflux(i,j,:) = Pflux(i-1,j,:)
-c$$$     .                 - 0.5*(bcnv(i-1,j,:,2)
-c$$$     .                       +bcnv(i  ,j,:,2))*gv%gparams%dx(ig-1)
-c$$$        endif
-c$$$        do j = 1,ny+1
-c$$$          call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
-c$$$          Pflux(i,j,:) = Pflux(i,j-1,:)
-c$$$     .                 + 0.5*(bcnv(i,j-1,:,1)
-c$$$     .                       +bcnv(i,j  ,:,1))*gv%gparams%dy(jg-1)
-c$$$        enddo
-c$$$      enddo
 
       !Integrate poloidal flux
       Pflux(0,0,0) = 0d0   !Set value at origin
@@ -634,11 +616,35 @@ c$$$#endif
       
 c     Local variables
 
-      end subroutine pol_flux
+      end subroutine pol_flux_diag
 
 c     tor_diag
 c     ################################################################
       subroutine tor_diag
+
+c     ---------------------------------------------------------------
+c     Calculates toroidal diagnostics q-profile and lambda.
+c     ---------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+c     Local variables
+
+c     Begin program
+
+      if (     coords == 'hel'
+     .    .or. coords == 'cyl'
+     .    .or. coords == 'tor') call q_profile_simple
+
+      if (trim(equil)=="efit") call heat_flx_tor_diag
+
+      end subroutine tor_diag
+
+c     q_profile_simple
+c     ################################################################
+      subroutine q_profile_simple
 
 c     ---------------------------------------------------------------
 c     Calculates toroidal diagnostics q-profile and lambda.
@@ -655,110 +661,110 @@ c     Local variables
 
 c     Begin program
 
-       allocate(b00(iming:imaxg,3),j00_cov(iming:imaxg,3)
-     .         ,v00(iming:imaxg,3),q00    (iming:imaxg,1)
-     .         ,l00(iming:imaxg,1))
+      allocate(b00(iming:imaxg,3),j00_cov(iming:imaxg,3)
+     .        ,v00(iming:imaxg,3),q00    (iming:imaxg,1)
+     .        ,l00(iming:imaxg,1))
 
-       if (    coords == 'hel') then
-         mm = gv%gparams%params(1)
-         kk = gv%gparams%params(2)
-         RR = gv%gparams%params(3)
-       elseif (coords == 'cyl') then
-         mm = 1d0
-         kk = 0d0
-         RR = gv%gparams%params(3)
-       else
-         mm = 1d0
-         kk = 0d0
-         RR = 1d0
-       endif
+      if (    coords == 'hel') then
+        mm = gv%gparams%params(1)
+        kk = gv%gparams%params(2)
+        RR = gv%gparams%params(3)
+      elseif (coords == 'cyl') then
+        mm = 1d0
+        kk = 0d0
+        RR = gv%gparams%params(3)
+      elseif (coords == 'tor') then
+        mm = 1d0
+        kk = 0d0
+        RR = 1d0
+      endif
 
-       !Find mean fields
-       do i = iming,imaxg
-         b00    (i,:) = 0d0
-         j00_cov(i,:) = 0d0
-         v00    (i,:) = 0d0
-         q00    (i,:) = 0d0
-         l00    (i,:) = 0d0
-         ll = 0d0
-         do k = kming,kmaxg-1   !Careful with the periodic limits
-           do j = jming,jmaxg-1 !Careful with the periodic limits
-             call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
+      !Find mean fields
+      do i = iming,imaxg
+        b00    (i,:) = 0d0
+        j00_cov(i,:) = 0d0
+        v00    (i,:) = 0d0
+        q00    (i,:) = 0d0
+        l00    (i,:) = 0d0
+        ll = 0d0
+        do k = kming,kmaxg-1   !Careful with the periodic limits
+          do j = jming,jmaxg-1 !Careful with the periodic limits
+            call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
 
-             dv = gv%gparams%dyh(jg)*gv%gparams%dzh(kg)
+            dv = gv%gparams%dyh(jg)*gv%gparams%dzh(kg)
 
-             b00(i,1) = b00(i,1) + bcnv(i,j,k,1)*dv
-             b00(i,2) = b00(i,2) + bcnv(i,j,k,2)*dv
-             b00(i,3) = b00(i,3) + bcnv(i,j,k,3)*dv
+            b00(i,1) = b00(i,1) + bcnv(i,j,k,1)*dv
+            b00(i,2) = b00(i,2) + bcnv(i,j,k,2)*dv
+            b00(i,3) = b00(i,3) + bcnv(i,j,k,3)*dv
 
-             j00_cov(i,1) = j00_cov(i,1) + jcov(i,j,k,1)*dv
-             j00_cov(i,2) = j00_cov(i,2) + jcov(i,j,k,2)*dv
-             j00_cov(i,3) = j00_cov(i,3) + jcov(i,j,k,3)*dv
+            j00_cov(i,1) = j00_cov(i,1) + jcov(i,j,k,1)*dv
+            j00_cov(i,2) = j00_cov(i,2) + jcov(i,j,k,2)*dv
+            j00_cov(i,3) = j00_cov(i,3) + jcov(i,j,k,3)*dv
 
-             v00(i,1) = v00(i,1) + vcov(i,j,k,1)*dv
-             v00(i,2) = v00(i,2) + vcov(i,j,k,2)*dv
-             v00(i,3) = v00(i,3) + vcov(i,j,k,3)*dv
+            v00(i,1) = v00(i,1) + vcov(i,j,k,1)*dv
+            v00(i,2) = v00(i,2) + vcov(i,j,k,2)*dv
+            v00(i,3) = v00(i,3) + vcov(i,j,k,3)*dv
 
-cc                q00(i,1) = q00(i,1)
-cc     .                + bcnv(i,j,k,3)/RR
-cc     .                   /(bcnv(i,j,k,2)-kk/mm*bcnv(i,j,k,3))*dv
-             l00(i,1) = l00(i,1)
-     .                + scalarProduct(gv%gparams,i,j,k,igx,jcov(i,j,k,:)
-     .                               ,bcnv(i,j,k,:))
-     .                  /vectorNorm(gv%gparams,i,j,k,igx,bcnv(i,j,k,:)
-     .                             ,.false.)
-     .                 *dv
+cc               q00(i,1) = q00(i,1)
+cc    .                + bcnv(i,j,k,3)/RR
+cc    .                   /(bcnv(i,j,k,2)-kk/mm*bcnv(i,j,k,3))*dv
+            l00(i,1) = l00(i,1)
+     .               + scalarProduct(gv%gparams,i,j,k,igx,jcov(i,j,k,:)
+     .                              ,bcnv(i,j,k,:))
+     .                 /vectorNorm(gv%gparams,i,j,k,igx,bcnv(i,j,k,:)
+     .                            ,.false.)
+     .                *dv
 
-             ll = ll + dv
-           enddo
-         enddo
-       enddo
+            ll = ll + dv
+          enddo
+        enddo
+      enddo
 
-       !Communicate sums for each radial slice
+      !Communicate sums for each radial slice
 #if defined(petsc)
-       allocate(ldum(iming:imaxg,3))
+      allocate(ldum(iming:imaxg,3))
 
-       ldum = b00
-       call MPI_Allreduce(ldum,b00,3*(imaxg-iming+1)
-     .                   ,MPI_DOUBLE_PRECISION
-     .                   ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
+      ldum = b00
+      call MPI_Allreduce(ldum,b00,3*(imaxg-iming+1)
+     .                  ,MPI_DOUBLE_PRECISION
+     .                  ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
 
-       ldum = j00_cov
-       call MPI_Allreduce(ldum,j00_cov,3*(imaxg-iming+1)
-     .                   ,MPI_DOUBLE_PRECISION
-     .                   ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
+      ldum = j00_cov
+      call MPI_Allreduce(ldum,j00_cov,3*(imaxg-iming+1)
+     .                  ,MPI_DOUBLE_PRECISION
+     .                  ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
 
-       ldum = v00
-       call MPI_Allreduce(ldum,v00,3*(imaxg-iming+1)
-     .                   ,MPI_DOUBLE_PRECISION
-     .                   ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
+      ldum = v00
+      call MPI_Allreduce(ldum,v00,3*(imaxg-iming+1)
+     .                  ,MPI_DOUBLE_PRECISION
+     .                  ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
 
-       ldum(:,1) = l00(:,1)
-       call MPI_Allreduce(ldum(:,1),l00(:,1),(imaxg-iming+1)
-     .                   ,MPI_DOUBLE_PRECISION
-     .                   ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
-       deallocate(ldum)
+      ldum(:,1) = l00(:,1)
+      call MPI_Allreduce(ldum(:,1),l00(:,1),(imaxg-iming+1)
+     .                  ,MPI_DOUBLE_PRECISION
+     .                  ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
+      deallocate(ldum)
 
-       dv = ll
-       call MPI_Allreduce(dv,ll,1
-     .                   ,MPI_DOUBLE_PRECISION
-     .                   ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
+      dv = ll
+      call MPI_Allreduce(dv,ll,1
+     .                  ,MPI_DOUBLE_PRECISION
+     .                  ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
 #endif
 
-       !Average radial quantities
-       b00     = b00    /ll
-       j00_cov = j00_cov/ll
-       v00     = v00    /ll
-       q00     = q00    /ll
-       l00     = l00    /ll
+      !Average radial quantities
+      b00     = b00    /ll
+      j00_cov = j00_cov/ll
+      v00     = v00    /ll
+      q00     = q00    /ll
+      l00     = l00    /ll
 
-       !Find q-factor and lambda profile
-       do i = iming,imaxg
-         qfactor(i,:,:) = mm*b00(i,3)/RR/(b00(i,2)-kk*b00(i,3))
-         lambda (i,:,:) = l00(i,1)
-       enddo
-       qfactor(iming,:,:)=qfactor(iming+1,:,:)
-       lambda (iming,:,:)=lambda (iming+1,:,:)
+      !Find q-factor and lambda profile
+      do i = iming,imaxg
+        qfactor(i,:,:) = mm*b00(i,3)/RR/(b00(i,2)-kk*b00(i,3))
+        lambda (i,:,:) = l00(i,1)
+      enddo
+      qfactor(iming,:,:)=qfactor(iming+1,:,:)
+      lambda (iming,:,:)=lambda (iming+1,:,:)
 
 c diag  : dump text data
 cc          if (time == 0d0) then
@@ -777,18 +783,115 @@ cc          write (1000,*)
 cc          close(1000)
 
 #if defined(RFX)
-       !RFX dump
-       if (np == 1) then
-         call rfx_dump_mean_profiles(b00,j00_cov,v00)
-       elseif (np > 1 .and. my_rank == 0) then
-         write (*,*) 'RFX mean-profile dump not available in parallel'
-       endif
+      !RFX dump
+      if (np == 1) then
+        call rfx_dump_mean_profiles(b00,j00_cov,v00)
+      elseif (np > 1 .and. my_rank == 0) then
+        write (*,*) 'RFX mean-profile dump not available in parallel'
+      endif
 #endif
 
-       deallocate(b00,j00_cov,v00,q00,l00)
+      deallocate(b00,j00_cov,v00,q00,l00)
 
-      end subroutine tor_diag
+      end subroutine q_profile_simple
 
+c     heat_flx_tor_diag
+c     ################################################################
+      subroutine heat_flx_tor_diag
+
+c     ---------------------------------------------------------------
+c     Calculates heat flux diagnostic at radial boundary
+c     ---------------------------------------------------------------
+
+      use pixie3d_io
+      
+      implicit none
+
+c     Call variables
+
+c     Local variables
+
+      integer :: nx,ny,nz,nxg,nyg,nzg,igr,funit,j,k,my_rank_l
+      real(8),allocatable,dimension(:,:,:,:) :: heat_flx,heat_flx_g
+     $                                         ,dum1,dum2,chi_tnsr
+
+      character(100) :: fileout
+      
+c     Begin program
+
+      igr = 1
+      
+      nx = gv%gparams%nxv(igr)
+      ny = gv%gparams%nyv(igr)
+      nz = gv%gparams%nzv(igr)
+
+      nxg = gv%gparams%nxgl(igr)
+      nyg = gv%gparams%nygl(igr)
+      nzg = gv%gparams%nzgl(igr)
+
+c     Allocate variables
+      
+      allocate(heat_flx  (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,dum1      (0:nx+1,0:ny+1,0:nz+1,1)
+     .        ,dum2      (0:nx+1,0:ny+1,0:nz+1,1)
+     .        ,heat_flx_g(0:nx+1,0:nyg+1,0:nzg+1,3)
+     .        ,chi_tnsr  (0:nx+1,0:ny+1,0:nz+1,6))
+
+      heat_flx = 0d0 ; heat_flx_g = 0d0
+      dum1 = 0d0 ; dum2 = 0d0; chi_tnsr = 0d0
+
+c     Compute heat flux
+      
+      dum1(:,:,:,1) = cchi_par
+      dum2(:,:,:,1) = cchi
+      chi_tnsr = find_diff_tnsr(gv%gparams,igr,bcnv,dum1,dum2,6)
+      heat_flx = tnsr_flx_mesh(gv%gparams,igr,tmpe
+     $                        ,varray%array_var(IPRS)%bconds,chi_tnsr
+     $                        ,xport_order,.true.,limit_mthd=SMART)
+
+c     Find global array
+      
+      call find_global_nobc(heat_flx  (1:nx,1:ny ,1:nz ,:)
+     $                     ,heat_flx_g(1:nx,1:nyg,1:nzg,:)
+#if defined(petsc)
+     $                     ,mpi_comm=gv%gparams%MPI_COMM_YZ)
+#else
+     $     )
+#endif
+
+c     Dump array (gnuplot format)
+      
+#if defined(petsc)
+      call MPI_Comm_rank(gv%gparams%MPI_COMM_YZ,my_rank_l,mpierr)
+#else
+      my_rank_l = 0
+#endif
+      if (my_rank_l == 0.and.isBdry(gv%gparams,nx,igr,2)) then
+        write (fileout,'(a,1pe9.3,a)') "heat_flx_time=",time,".dat"
+        call info("Dumping "//trim(fileout))
+        funit = find_unit(1234)
+        open(unit=funit,file=trim(fileout),status="unknown")
+        write (funit,*) "#Plot with gnuplot with:"
+        write (funit,*) "#  set autoscale xfix"                                           
+        write (funit,*) "#  set autoscale yfix"                                          
+        write (funit,*) "#  set autoscale cbfix"                                          
+        write (funit,*) "#  set pm3d map"                                         
+        write (funit,*) '#  set xlabel "{/Symbol f}"'                                           
+        write (funit,*) '#  set ylabel "{/Symbol q}"'                                             
+        write (funit,*) '#  set title "'//trim(fileout)//'"'                                          
+        write (funit,*) '#  splot "'//trim(fileout)
+     $                   //'" matrix nonuniform notitle'
+        write (funit,*) nzg,gv%gparams%zg(1:nzg)
+        do j=1,nyg
+          write(funit,*) gv%gparams%yg(j),heat_flx_g(nx,j,1:nzg,1)
+        enddo
+        close(funit)
+      endif
+        
+      deallocate(heat_flx,heat_flx_g,dum1,dum2,chi_tnsr)
+
+      end subroutine heat_flx_tor_diag
+      
 c     fourier_dump
 c     ################################################################
       subroutine fourier_dump
