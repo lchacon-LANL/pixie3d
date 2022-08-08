@@ -276,9 +276,12 @@ c     Find electric field components @ r=1 (store in (nx+1))
 
 c     Debug IO
       
-      mag = rms(reshape(E_0(i_bc,1:ny,1:nz,:),(/ny*nz*3/))
-     $         ,mpi_comm=g_def%MPI_COMM_YZ)
-      if (debug_io) write (*,*) "rms RW Ebc=",mag
+c$$$      mag = rms(reshape(E_0(i_bc,1:ny,1:nz,:),(/ny*nz*3/))
+c$$$     $         ,mpi_comm=g_def%MPI_COMM_YZ)
+c$$$      if (debug_io) write (*,*) "rms RW Ebc=",mag
+      mag = pmax(maxval(abs(E_0(i_bc,1:ny,1:nz,:)))
+     $          ,mpi_comm=g_def%MPI_COMM_YZ)
+      if (debug_io) write (*,*) "max RW Ebc=",mag
 
 c     End program
 

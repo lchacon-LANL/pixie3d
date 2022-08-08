@@ -771,8 +771,14 @@ c     Call variables
 
       type(aux_array),pointer :: vaux
 
+c     Local variables
+
+      logical :: pinch_bc
+      
 c     Begin program
 
+      pinch_bc = pinch_flow.or.res_wall_bc
+     
 c     Equilibrium quantities
 
       !Rho0
@@ -1023,7 +1029,7 @@ cc      vaux%vec_list(IACOV)%bc_dep_list(4,3) = 0 !trivial
       vaux%vec_list(IBCNV)%bc_dep_list(1,3) = 0 !trivial
 #endif
 
-      if (.not.(pinch_flow.or.res_wall_bc)) then
+      if (.not.pinch_bc) then
         vaux%vec_list(IBCNV)%bc_dep_list(2,1) = IJCOV_0*AUX
         vaux%vec_list(IBCNV)%bc_dep_list(2,2) = VECTOR
         vaux%vec_list(IBCNV)%bc_dep_list(2,3) = 0 !trivial
@@ -1074,7 +1080,7 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IVCNV)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IVCNV)%bc_dep_list(1,3) = 0 !trivial
 
-      if (pinch_flow.or.res_wall_bc) then
+      if (pinch_bc) then
         vaux%vec_list(IVCNV)%bc_dep_list(2,1) = IRHO_AUX*AUX
         vaux%vec_list(IVCNV)%bc_dep_list(2,2) = SCALAR
         vaux%vec_list(IVCNV)%bc_dep_list(2,3) = 1 !non-trivial
@@ -1114,7 +1120,7 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IJCNV)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IJCNV)%bc_dep_list(1,3) = 0 !trivial
 
-      if (pinch_flow.or.res_wall_bc) then
+      if (pinch_bc) then
         vaux%vec_list(IJCNV)%bc_dep_list(2,1) = IRHO_AUX*AUX
         vaux%vec_list(IJCNV)%bc_dep_list(2,2) = SCALAR
         vaux%vec_list(IJCNV)%bc_dep_list(2,3) = 1 !non-trivial

@@ -584,6 +584,8 @@ c       Find db=B^(n+1)-B^n
         allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      $          ,da_cov(0:nx+1,0:ny+1,0:nz+1,3))
 
+        da_cov = 0d0
+
         db_cnv(:,:,:,1) = vnp%array_var(IBX)%array
      .                   -vn %array_var(IBX)%array
         db_cnv(:,:,:,2) = vnp%array_var(IBY)%array

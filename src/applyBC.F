@@ -574,6 +574,8 @@ c       Velocity BC
 
 c       Current BC
 
+          v0 = 0d0
+          
           call setBC(gv%gparams,IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0
      .              ,vaux%vec_list(IJCNV_0)%bconds,igr,igr,igr
      .              ,is_cnv=vaux%vec_list(IJCNV_0)%cnv
@@ -738,7 +740,7 @@ cc          call XformVector_BC(gv%gparams,igr,bcnv,bcov,.false.)
 c       Current BC
 
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
-            prs1 = rho*tmp
+            v0 = 0d0 ; prs1 = rho*tmp
             call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
           else
             call XferBCs(jcnv_0,v0,.true.)
@@ -767,6 +769,7 @@ cc          call XformVector_BC(gv%gparams,igr,vecnv,vecov,.false.)
 #if !defined(vec_pot) || defined(plotting)
           if (ion_hall) then
             bcnd = vaux%vec_list(IDIVPI)%bconds
+            v0 = 0d0
             vdum = XformVector(gv%gparams,igr,div_pi,.false.)
             call setBC(gv%gparams,IVX,3,nnx,nny,nnz,div_pi,vdum,v0,bcnd
      .                ,igr,igr,igr,iorder=order
@@ -779,6 +782,7 @@ cc          call XformVector_BC(gv%gparams,igr,vecnv,vecov,.false.)
 #if !defined(vec_pot) || defined(plotting)
           if (electron_hall) then
             bcnd = vaux%vec_list(IDIVPE)%bconds
+            v0 = 0d0
             vdum = XformVector(gv%gparams,igr,div_pe,.false.)
             call setBC(gv%gparams,IVX,3,nnx,nny,nnz,div_pe,vdum,v0,bcnd
      .                ,igr,igr,igr,iorder=order
