@@ -705,22 +705,16 @@ c       Magnetic field BC
 
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
 #if !defined(vec_pot)
-            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
-              if (implicit_rw_bc.and.(.not.save_tn)) then
-                !Compute new-time E-field @ boundary
-                call rw_Ebc(gv%gparams,igr,bcov  ,E_bc,implicit=.true.)
-              elseif (save_tn) then
-                !Compute old-time E-field @ boundary
-                call rw_Ebc(gv%gparams,igr,bcov_n,E_bc)
-              endif
-            else
-              v0 = 0d0 ; prs1 = rho*tmp
-              call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,v0,v0)
-            endif
-#else
+c$$$            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
+c$$$              if (save_tn) then
+c$$$                call rw_Ebc(gv%gparams,igr,bcov_n,E_bc)
+c$$$c$$$              else
+c$$$c$$$                call rw_Ebc(gv%gparams,igr,bcov  ,E_bc)
+c$$$              endif
+c$$$            endif
+#endif
             v0 = 0d0 ; prs1 = rho*tmp
             call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
-#endif
           else
             call XferBCs(jcnv_0,v0,.true.)
           endif
@@ -1824,7 +1818,8 @@ cc     .                    ,dim,loc,1)  !Required for mass conservation
 
       case (IAX,IAY,IAZ)
 
-        if (ivar/=dim.or.bcond(ibc)==FSYM.or.res_wall_bc) then
+c$$$        if (ivar/=dim.or.bcond(ibc)==FSYM.or.res_wall_bc) then
+        if (ivar/=dim.or.bcond(ibc)==FSYM) then
 
           call extrapolateBC(g_def,array (:,:,:,ivar)
      .                      ,array0(:,:,:,ivar)

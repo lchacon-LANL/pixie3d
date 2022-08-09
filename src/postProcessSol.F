@@ -568,7 +568,7 @@ c     ###############################################################
         implicit none
 
         real(8) :: tol_divcl
-        real(8),allocatable,dimension(:,:,:,:) :: db_cnv,da_cov
+        real(8),allocatable,dimension(:,:,:,:) :: db_cnv,da_cov,b_cov
 
         if (ilevel > 0 .and. my_rank == 0) then
           write (*,*)
@@ -595,8 +595,17 @@ c       Find db=B^(n+1)-B^n
 
 c       Find vector potential RW boundary condition at face
 
-        da_cov = 0d0
-        if (res_wall_bc) call XferBCs(-dt*E_bc,da_cov,.false.)
+        if (res_wall_bc) then
+          E_bc = 0d0
+          allocate(b_cov(0:nx+1,0:ny+1,0:nz+1,3))
+          b_cov(:,:,:,1) = vnp%array_var(IBX)%array
+          b_cov(:,:,:,2) = vnp%array_var(IBY)%array
+          b_cov(:,:,:,3) = vnp%array_var(IBZ)%array
+          b_cov = XformToCov(gv%gparams,igx,b_cov)
+          call rw_Ebc(gv%gparams,igx,b_cov,E_bc)
+          deallocate(b_cov)
+          call XferBCs(-dt*E_bc,da_cov,.false.)
+        endif
         
 c       Clean db (and impose RW BC, if applicable)
 
