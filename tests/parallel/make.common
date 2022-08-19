@@ -10,6 +10,10 @@ LOCALDIR = $(shell basename $(CURDIR))
 
 PAREXEC=$(MPIEXEC) -np $(NP) $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test
 
+ifeq ($(findstring ch,$(HOST)),ch)
+  PAREXEC=srun -n $(NP) $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test
+endif
+
 ifeq ($(HOST),franklin)
   PAREXEC=aprun -n $(NP) -N $(NP) $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test
 endif
