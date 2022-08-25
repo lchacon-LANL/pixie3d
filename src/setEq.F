@@ -2962,7 +2962,9 @@ c     Call variables
 
         real(8),intent(IN) :: kk,RR,Eoeta,theta,p0(0:nxdp)
 
-        real(8),intent(OUT):: bth0(0:nxdp),bzz0(0:nxdp)
+        real(8),intent(INOUT) :: bzz0(0:nxdp)
+        
+        real(8),intent(OUT):: bth0(0:nxdp)
      .                       ,vr0 (0:nxdp),psi0(0:nxdp)
 
 c     Local variables
@@ -6007,7 +6009,7 @@ cc          do i=1,nx
      .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 #endif
 
-        e = sqrt(e/pi/xmax**2)
+        e = sqrt(e/(pi*xmax*xmax))
 
         gserr = sqrt(sum(e*e))
 
@@ -6106,7 +6108,7 @@ c     Call variables
 
 c     Local variables
 
-        real(8) :: Ibdry,ipsi0,spsi,qperr
+        real(8) :: Ibdry(1),ipsi0,spsi,qperr
         integer :: bcnd(6,1),nn,i,j,k,ii,igr
         real(8) :: Idum(0:nx+1,0:ny+1,0:nz+1,1)
 
@@ -6173,7 +6175,7 @@ c$$$        Ibdry = psum(0.5*(ff(nxd,1:ny,1)+ff(nxd+1,1:ny,1)))/nyd
 #endif
         Ibdry = sign(1d0,psi0)*qprof(1d0)*Ibdry
 
-        Ihat = Ihat  + Ibdry
+        Ihat = Ihat  + Ibdry(1)
 
         !Compute error in q-profile
         qperr = rms(reshape((Ihat(1:nx,1:ny,1:nz)*sign(1d0,psi0)
@@ -6660,11 +6662,12 @@ c$$$              psi_rhs(ii)= (Eoeta/etah*iR2(i,j,k)*II2-dp_dpsi*(1d0-II2))
           !Calculate L2 norm of error
           gserr = rms(errv)!sqrt(dot2(errv,errv)/nxd/nyd/nzd)
 
-#if defined(petsc)
-          e1 = oherr
-          call MPI_Allreduce(e1,oherr,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
-#endif
+          oherr = psum((/oherr/))
+c$$$#if defined(petsc)
+c$$$          e1 = oherr
+c$$$          call MPI_Allreduce(e1,oherr,1,MPI_DOUBLE_PRECISION
+c$$$     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+c$$$#endif
           oherr = sqrt(oherr/nxd/nyd/nzd)
 
           !Solve GS Poisson eq (find psi at cell centers)
@@ -7211,7 +7214,7 @@ c     Find B^3 at cell centers
       if (Istag) then
         do j=0,ny+1
           do i=1,nx+1
-            jac = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
+            jac = gv%gparams%gmetric%grid(igrid)%jac(i,j,1)
             b3(i,j) = jac*0.5*(III(i,j)+III(i-1,j))/(RR(i,j)*RR(i,j))
           enddo
         enddo

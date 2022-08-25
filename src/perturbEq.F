@@ -488,46 +488,43 @@ cc          nn = gv%gparams%params(5)
         eps = 1d-5
 
         !Find MHD frequencies  (do this only once)
-        if (ieq == 1) then
-          roots = icfl(cs2,1d0,kk**2,kdotB**2,di)
+        roots = icfl(cs2,1d0,kk**2,kdotB**2,di)
 
-          w_fast = maxval(roots)
-          w_slow = minval(roots)
-          w_shr  = fmed(roots(1),roots(2),roots(3))
+        w_fast = maxval(roots)
+        w_slow = minval(roots)
+        w_shr  = fmed(roots(1),roots(2),roots(3))
 
-          write (*,*) 'B angle =',gv%gparams%params(1)
-          write (*,*)
-          write (*,*) 'shear fq=',w_shr
-          write (*,*) 'fast  fq=',w_fast
-          write (*,*) 'slow  fq=',w_slow
-          write (*,*)
+        write (*,*) 'B angle =',gv%gparams%params(1)
+        write (*,*)
+        write (*,*) 'shear fq=',w_shr
+        write (*,*) 'fast  fq=',w_fast
+        write (*,*) 'slow  fq=',w_slow
+        write (*,*)
 
-          !Select frequency
-          select case(nint(gv%gparams%params(3)))
-          case(1)
-            if (my_rank == 0)
-     .           write (*,*) '===> Selecting fast freq...'
-            freq = w_fast
-          case(2)
-            if (my_rank == 0)
-     .           write (*,*) '===> Selecting slow freq...'
-            freq = w_slow
-          case(3)
-            if (my_rank == 0)
-     .           write (*,*) '===> Selecting shear freq...'
-            freq = w_shr
-          case default
-            call pstop('perturbEquilibrium','Select frequency!')
-          end select
+        !Select frequency
+        select case(nint(gv%gparams%params(3)))
+        case(1)
+          if (my_rank == 0)
+     .         write (*,*) '===> Selecting fast freq...'
+          freq = w_fast
+        case(2)
+          if (my_rank == 0)
+     .         write (*,*) '===> Selecting slow freq...'
+          freq = w_slow
+        case(3)
+          if (my_rank == 0)
+     .         write (*,*) '===> Selecting shear freq...'
+          freq = w_shr
+        case default
+          call pstop('perturbEquilibrium','Select frequency!')
+        end select
 
-          check = (dt <= pi/16./freq)
+        check = (dt <= pi/16./freq)
 
-          if (.not.check) then
-            if (my_rank == 0) write (*,*) 'Time step limit=',pi/16./freq
-            call pstop('perturbEquilibrium'
-     .                ,'Time step must be < than this!')
-          endif
-
+        if (.not.check) then
+          if (my_rank == 0) write (*,*) 'Time step limit=',pi/16./freq
+          call pstop('perturbEquilibrium'
+     .              ,'Time step must be < than this!')
         endif
 
         do k = klom,khip

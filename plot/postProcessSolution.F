@@ -745,10 +745,11 @@ cc    .                   /(bcnv(i,j,k,2)-kk/mm*bcnv(i,j,k,3))*dv
      .                  ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
       deallocate(ldum)
 
-      dv = ll
-      call MPI_Allreduce(dv,ll,1
-     .                  ,MPI_DOUBLE_PRECISION
-     .                  ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
+      ll = psum((/ll/),mpi_comm=gv%gparams%MPI_COMM_YZ)
+c$$$      dv = ll
+c$$$      call MPI_Allreduce(dv,ll,1
+c$$$     .                  ,MPI_DOUBLE_PRECISION
+c$$$     .                  ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
 #endif
 
       !Average radial quantities
