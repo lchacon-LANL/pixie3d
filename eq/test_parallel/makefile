@@ -2,7 +2,7 @@
 
 LOCALDIR = $(shell basename $(CURDIR))
 
-PAREXEC=./run.test
+PAREXEC=./run.test $(MPIEXEC)
 
 #Define targets
 
