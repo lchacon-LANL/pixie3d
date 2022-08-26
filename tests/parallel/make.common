@@ -10,14 +10,6 @@ LOCALDIR = $(shell basename $(CURDIR))
 
 PAREXEC=OMP_NUM_THREADS=1 $(MPIEXEC) -n $(NP) $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test
 
-ifeq ($(findstring ch,$(HOST)),ch)
-  PAREXEC=srun -n $(NP) $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test
-endif
-
-ifeq ($(HOST),franklin)
-  PAREXEC=aprun -n $(NP) -N $(NP) $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test
-endif
-
 ifeq ($(HOST),ra22)
   PAREXEC=/usr/mpi/pgi/openmpi-1.2.6/bin/mpiexec -n $(NP) $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test
 endif

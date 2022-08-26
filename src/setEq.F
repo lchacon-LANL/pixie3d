@@ -4663,10 +4663,11 @@ c       Renormalize III so that Bz(r=0)=1d0
           I0 = 0d0
         endif
 
+        I0 = psum((/I0/))
 #if defined(petsc)
-        lI0=I0
-        call MPI_Allreduce(lI0,I0,1,MPI_DOUBLE_PRECISION
-     .       ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+c$$$        lI0=I0
+c$$$        call MPI_Allreduce(lI0,I0,1,MPI_DOUBLE_PRECISION
+c$$$     .       ,MPI_SUM,MPI_COMM_WORLD,mpierr)
 #endif
 
         III = III - I0 + 1d0
@@ -4922,10 +4923,11 @@ c     Begin program
           bth_avg = 0d0
         endif
 
+        bth_avg = psum((/bth_avg/))
 #if defined (petsc)
-        lpsi0 = bth_avg
-        call MPI_Allreduce(lpsi0,bth_avg,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+c$$$        lpsi0 = bth_avg
+c$$$        call MPI_Allreduce(lpsi0,bth_avg,1,MPI_DOUBLE_PRECISION
+c$$$     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
 #endif
 
         if (my_rank == 0) then
@@ -6660,15 +6662,10 @@ c$$$              psi_rhs(ii)= (Eoeta/etah*iR2(i,j,k)*II2-dp_dpsi*(1d0-II2))
           enddo
 
           !Calculate L2 norm of error
-          gserr = rms(errv)!sqrt(dot2(errv,errv)/nxd/nyd/nzd)
+          gserr = rms(errv)
 
           oherr = psum((/oherr/))
-c$$$#if defined(petsc)
-c$$$          e1 = oherr
-c$$$          call MPI_Allreduce(e1,oherr,1,MPI_DOUBLE_PRECISION
-c$$$     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
-c$$$#endif
-          oherr = sqrt(oherr/nxd/nyd/nzd)
+          oherr = sqrt(oherr/(nxd*nyd*nzd))
 
           !Solve GS Poisson eq (find psi at cell centers)
           !Define BCs
@@ -6698,12 +6695,7 @@ cc     .              ,mg_gm_coarse_solve=.true.
 
           !Perform integral of III (at half-mesh on global grid in radius)
 
-          psi0 = minval(psi)
-#if defined (petsc)
-          lpsi0 = psi0
-          call MPI_Allreduce(lpsi0,psi0,1,MPI_DOUBLE_PRECISION
-     .                      ,MPI_MIN,MPI_COMM_WORLD,mpierr)
-#endif
+          psi0 = pmin(minval(psi))
 
           k = 1
           do j=1,ny
@@ -6955,29 +6947,35 @@ c$$$            rh = gv%gparams%xx(ig)
         enddo
 
 #if defined (petsc)
-        lpsi0 = e1
-        call MPI_Allreduce(lpsi0,e1,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
+        e1 = psum((/e1/),mpi_comm=gv%gparams%MPI_COMM_XY)
+c$$$        lpsi0 = e1
+c$$$        call MPI_Allreduce(lpsi0,e1,1,MPI_DOUBLE_PRECISION
+c$$$     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 
-        lpsi0 = e2
-        call MPI_Allreduce(lpsi0,e2,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
+        e2 = psum((/e2/),mpi_comm=gv%gparams%MPI_COMM_XY)
+c$$$        lpsi0 = e2
+c$$$        call MPI_Allreduce(lpsi0,e2,1,MPI_DOUBLE_PRECISION
+c$$$     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 
-        lpsi0 = e3
-        call MPI_Allreduce(lpsi0,e3,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
+        e3 = psum((/e3/),mpi_comm=gv%gparams%MPI_COMM_XY)
+c$$$        lpsi0 = e3
+c$$$        call MPI_Allreduce(lpsi0,e3,1,MPI_DOUBLE_PRECISION
+c$$$     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 
-        lpsi0 = e4
-        call MPI_Allreduce(lpsi0,e4,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
+        e4 = psum((/e4/),mpi_comm=gv%gparams%MPI_COMM_XY)
+c$$$        lpsi0 = e4
+c$$$        call MPI_Allreduce(lpsi0,e4,1,MPI_DOUBLE_PRECISION
+c$$$     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 
-        lpsi0 = e5
-        call MPI_Allreduce(lpsi0,e5,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
+        e5 = psum((/e5/),mpi_comm=gv%gparams%MPI_COMM_XY)
+c$$$        lpsi0 = e5
+c$$$        call MPI_Allreduce(lpsi0,e5,1,MPI_DOUBLE_PRECISION
+c$$$     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 
-        lpsi0 = e6
-        call MPI_Allreduce(lpsi0,e6,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
+        e6 = psum((/e6/),mpi_comm=gv%gparams%MPI_COMM_XY)
+c$$$        lpsi0 = e6
+c$$$        call MPI_Allreduce(lpsi0,e6,1,MPI_DOUBLE_PRECISION
+c$$$     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 #endif
 
         gserr = e1 + e2 + e3
@@ -7051,21 +7049,25 @@ c$$$            dt = gv%gparams%dyh(jg)
         enddo
 
 #if defined (petsc)
-        lpsi0 = tor_flx
-        call MPI_Allreduce(lpsi0,tor_flx,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
+        tor_flx = psum((/tor_flx/),mpi_comm=gv%gparams%MPI_COMM_XY)
+c$$$        lpsi0 = tor_flx
+c$$$        call MPI_Allreduce(lpsi0,tor_flx,1,MPI_DOUBLE_PRECISION
+c$$$     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 
-        lpsi0 = bz2_avg
-        call MPI_Allreduce(lpsi0,bz2_avg,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
+        bz2_avg = psum((/bz2_avg/),mpi_comm=gv%gparams%MPI_COMM_XY)
+c$$$        lpsi0 = bz2_avg
+c$$$        call MPI_Allreduce(lpsi0,bz2_avg,1,MPI_DOUBLE_PRECISION
+c$$$     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 
-        lpsi0 = p_avg
-        call MPI_Allreduce(lpsi0,p_avg,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
+        p_avg = psum((/p_avg/),mpi_comm=gv%gparams%MPI_COMM_XY)
+c$$$        lpsi0 = p_avg
+c$$$        call MPI_Allreduce(lpsi0,p_avg,1,MPI_DOUBLE_PRECISION
+c$$$     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 
-        lpsi0 = I0
-        call MPI_Allreduce(lpsi0,I0,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
+        I0 = psum((/I0/),mpi_comm=gv%gparams%MPI_COMM_XY)
+c$$$        lpsi0 = I0
+c$$$        call MPI_Allreduce(lpsi0,I0,1,MPI_DOUBLE_PRECISION
+c$$$     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 #endif
 
         !Q-profile diagnostics (not working)
