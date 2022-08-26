@@ -1,6 +1,6 @@
 #Define variables
 
-MPIEXEC=mpiexec --oversubscribe
+MPIEXEC=? mpiexec --oversubscribe
 NP=2
 EXEC=$(wildcard pixie3d*petsc.x)
 
@@ -8,7 +8,7 @@ EXEC=$(wildcard pixie3d*petsc.x)
 
 LOCALDIR = $(shell basename $(CURDIR))
 
-PAREXEC=$(MPIEXEC) -np $(NP) $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test
+PAREXEC=OMP_NUM_THREADS=1 $(MPIEXEC) -n $(NP) $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test
 
 ifeq ($(findstring ch,$(HOST)),ch)
   PAREXEC=srun -n $(NP) $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test
