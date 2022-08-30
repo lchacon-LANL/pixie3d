@@ -745,10 +745,11 @@ c       Adjust for X-pt position
         endif
         
 #if defined(petsc)
-        send_buf = br_w
-        call MPI_Allreduce(send_buf,recv_buf,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_MAX,gv%gparams%MPI_COMM_YZ,mpierr)
-        br_w = recv_buf(1)
+        br_w = pmax(br_w,mpi_comm=gv%gparams%MPI_COMM_YZ)
+c$$$        send_buf = br_w
+c$$$        call MPI_Allreduce(send_buf,recv_buf,1,MPI_DOUBLE_PRECISION
+c$$$     .                    ,MPI_MAX,gv%gparams%MPI_COMM_YZ,mpierr)
+c$$$        br_w = recv_buf(1)
 #endif
         
       case default

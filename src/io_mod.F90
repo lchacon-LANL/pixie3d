@@ -307,6 +307,8 @@ contains
         ! assign compiler name to return value, depending on preprocessor values
 #if __INTEL_COMPILER
         compiler = "intel"
+#elif _CRAYFTN
+        compiler = "cray"
 #elif __GNUC__
         compiler = "gfortran"
 #else
@@ -327,6 +329,8 @@ contains
         ! assign compiler version to return value, depending on preprocessor values
 #if  __INTEL_COMPILER
         write (version, '(i4)') __INTEL_COMPILER
+#elif _CRAYFTN
+        write (version, '(i0,a,i0,a,i0)') _RELEASE_MAJOR,".",_RELEASE_MINOR,".",_RELEASE_PATCHLEVEL
 #elif __GNUC__
         version = __VERSION__
 #else

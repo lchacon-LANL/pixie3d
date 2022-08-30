@@ -1,10 +1,10 @@
 #!/bin/zsh
 ln -sf pix3d_ref.in pixie3d.in
 rm -r record*.bp
-mpiexec -np 4 ../../bin/pixie3d.petsc.x -test 1
+$1 -n 4 ../../bin/pixie3d.petsc.x -test 1
 infile=`ls -d record-*.bp`
 mv $infile record_in.bp
-mpiexec -np 2 ../../bin/pixeq_xfer.petsc.x
+$1 -n 2 ../../bin/pixeq_xfer.petsc.x
 mv record_out.bp $infile 
 ln -sf pix3d_out.in pixie3d.in
-mpiexec -np 8 ../../bin/pixie3d.petsc.x -test 1
+$1 -n 8 ../../bin/pixie3d.petsc.x -test 1

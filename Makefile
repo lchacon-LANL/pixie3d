@@ -55,9 +55,7 @@ ifeq ($(COARSE_MG),t)
 endif
 
 ifeq ($(PER_BC_SYNC),t)
-#  ifndef BOPT
-    CPPFLAGS += $(PREPROC)PER_BC_SYNC
-#  endif
+  CPPFLAGS += $(PREPROC)PER_BC_SYNC
 endif
 
 ifeq ($(PIT),t)

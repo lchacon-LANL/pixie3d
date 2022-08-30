@@ -250,7 +250,7 @@ c Initialize graphics
 c Debug profile stage
 
 #if defined(petsc)
-      iDBG=add_profile_stage("Debug")
+cc      iDBG=add_profile_stage("Debug")
 #endif
 
 c End program
