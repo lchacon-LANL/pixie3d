@@ -27,7 +27,7 @@
     coords   = 'hel'
 
     dlambda  = 0.5
-    gparams  = 1d0,-2.0d0,4d0,0d0,4d0,1d0
+    gparams  = 1d0,-2.0d0,4d0,0d0,4d0,0d0
 
     gamma    = 1d0
 
@@ -66,7 +66,7 @@
  /
 
  &graphdef
-    sel_diag  = 2,12,15,17,18,19,20,22,23
+    sel_diag  = 2,5,12,15,17,18,19,20,22,23
     sel_graph = 1,2,3,5,6,7,9,10,11
     dplot = 1d-2
     prof_conf = 1,'r',1,20,1

@@ -1134,11 +1134,11 @@ c     End program
       end subroutine B_dump
 
 c     findVectorPotential
-c     #############################################################
+c     ################################################################
       subroutine findVectorPotential(g_def,iout,igrid,b_cnv,a_cov,meth
      .                              ,its,rtol,sp,lorder)
 
-c     -------------------------------------------------------------
+c     ----------------------------------------------------------------
 c     Finds COVARIANT vector potential from CONTRAVARIANT magnetic
 c     field components. There are two methods:
 c       1) meth='line': performs line integrals
@@ -1151,7 +1151,7 @@ c     On input:
 c       * b_cnv -> cnv magnetic field
 c     On output:
 c       * a_cov -> cov vector potential
-c     -------------------------------------------------------------
+c     -----------------------------------------------------------------
 
       implicit none
 
@@ -1204,7 +1204,7 @@ c     Gather global magnetic field
 #endif
      .                )
 
-      if (my_rank == 0) then
+      if (my_rank == 0.and.(.not.test)) then
         write (*,*)
         call info('  ***********************')
         call info('  Vector potential solver')

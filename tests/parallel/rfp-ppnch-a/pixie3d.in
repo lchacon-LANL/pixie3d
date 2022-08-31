@@ -6,39 +6,39 @@
     test     = t
 
     nxd      = 128
-    nyd      = 32 
+    nyd      = 32
     nzd      = 1
 
     xmax     = 1.
     ymax     = 0.
-    zmax     = 1d-3
+    zmax     = 1.
 
-    gp1      = .false.,0.5,1d-2
+    numerical_grid = f
 
     bcs      = 'spt','def','per','per','per','per'
 
     eta      = 1d-3
     nu       = 1d-3
-    dd       = 0d-3
+    dd       = 2d-3
     chi      = 0d-2
     
     equil    = 'ppnch'
+
     coords   = 'hel'
 
     dlambda  = 0.5
-    gparams  = 1d0,-2.0d0,4d0,0d0,4d0,1d0
+    gparams  = 1d0,-2.0d0,4d0,0d0,4d0,0d0
 
     gamma    = 1d0
 
     dt       = 5d-3
     tmax     = 5d-2
-!    tmax     = 1d1
     dstep    = 5d-2
 
     pvx      = 1d-4
+    nh2      = 1
     odd      = f,f,f
     random   = f
-    nh2      = 1
 
     iguess   = 0
 
@@ -63,7 +63,6 @@
     nc_eom_v = t
     solve_rho= f
 
-    advect   = 4
  /
 
  &graphdef

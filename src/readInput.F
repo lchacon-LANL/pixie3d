@@ -878,7 +878,8 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
       if (coords == 'hel') then  !Special case for 2D helical geometry
         if (nh2 == 0) nh2 = nint(gparams(1))
         nh1 = nh2                
-        call warning("  Hardwired nh1 for this coordinate system")
+        if (.not.test)
+     $     call warning("  Hardwired nh1 for this coordinate system")
       endif
 
       if (   coords == 'cyl'
@@ -890,7 +891,8 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
         if (nh2 == 0) nh2 = nint(gparams(1))
         if (nh3 == 0) nh3 = nint(gparams(2)*gparams(3))
         nh1 = nh2                
-        call warning("  Hardwired nh1 for this equilibrium")
+        if (.not.test)
+     $     call warning("  Hardwired nh1 for this equilibrium")
       endif
 
       if (   trim(equil) == 'gstor'
@@ -899,14 +901,16 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
         if (nh2 == 0) nh2 =  nint(gparams(4))
         if (nh3 == 0) nh3 = -nint(gparams(5))
         nh1 = nh2
-        call warning("  Hardwired nh1 for this equilibrium")
+        if (.not.test)
+     $     call warning("  Hardwired nh1 for this equilibrium")
       endif
       
       if (   trim(equil) == 'vmec'
      $   .or.trim(equil) == 'efit'
      $   .or.trim(equil) == '3drfp') then
         nh1 = nh2
-        call warning("  Hardwired nh1 for this equilibrium")
+        if (.not.test)
+     $     call warning("  Hardwired nh1 for this equilibrium")
       endif
 
       if ((nh1 == 0 .and. nh2 == 0 .and. nh3 == 0)

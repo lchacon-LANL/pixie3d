@@ -2108,7 +2108,7 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),n00(i)
 
         else   !Calculate equilibrium
 
-          if (my_rank == 0) then
+          if (my_rank == 0.and.(.not.test)) then
             write (*,*)
             write (messg,*) ' Calculating equilibrium ',equil,'...'
             call info(messg)
@@ -2206,7 +2206,7 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
         RR          = gv%gparams%params(3) ! Major radius R=Lz/2pi.
         theta_ppnch = gv%gparams%params(4)
         e0_over_eta = gv%gparams%params(5)
-        beta = gv%gparams%params(6)
+        beta        = gv%gparams%params(6)
 
 c     Check coordinates
 
@@ -2285,7 +2285,7 @@ c     Magnetic field
         e0_over_eta = gv%gparams%params(5)
         beta        = gv%gparams%params(6)
         m0_over_nu  = gv%gparams%params(7)
-        prsw = gv%gparams%params(8)
+        prsw        = gv%gparams%params(8)
 
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
@@ -2841,7 +2841,8 @@ c$$$     .                 - 2    /24*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
           !Updated poloidal B-field component
           bth0(0:nxd) = rh*bzz0(0:nxd)/q0h
 
-          if (gs_err < 1d-7) exit
+          dh = xmax/nxd
+          if (gs_err < 0.01*dh*dh) exit
 
         enddo
 
@@ -2971,7 +2972,7 @@ c     Local variables
 
 c     Begin program
 
-        if (my_rank == 0) then
+        if (my_rank == 0.and.(.not.test)) then
           write (*,*)
           call info('  ***************************')
           call info('  1D Ohmic equilibrium solver')
@@ -3105,14 +3106,15 @@ c       Iteration
           endif
 
           dh = xmax/nxd
-          if (err < 0.1*dh**2) exit
+          if (err < 0.01*dh*dh) exit
 
         enddo
 
         if (ilevel == 0 .and. my_rank == 0) then
-          write (*,'(a,i3,a,1pe10.2)')
-     .          '  1D equilibrium converged in '
-     .          ,it,' iterations with error =',err
+          write (messg,'(a,i0,a,1pe10.2)')
+     .          '  1D equilibrium converged in ',it
+     .          ,' its with error =',err
+          call info(messg)
         endif
 
         !Check force balance
@@ -3587,7 +3589,7 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
           endif
 
           dh = xmax/nxd
-          if (err < 0.1*dh**2) exit
+          if (err < 0.01*dh*dh) exit
 
         enddo
 
@@ -6821,7 +6823,7 @@ cc     .              ,mg_gm_coarse_solve=.true.
           endif
 
           dh = xmax/nxd
-          if (gserr<0.001*dh**2 .or. abs((1d0-oherr_n/oherr))<1d-3) exit
+          if (gserr<0.001*dh*dh .or. abs((1d0-oherr_n/oherr))<1d-3) exit
 
         enddo
 
