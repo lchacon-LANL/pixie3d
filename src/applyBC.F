@@ -678,7 +678,17 @@ cc            acov = acov + acov_0
      .                  ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
      .                  ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
 #else
-              call A_rw_BC(gv%gparams,igr,acov_n,bcov_n,v0)
+              if (save_tn) then
+                call rw_Ebc(gv%gparams,igr,bcov_n,E_bc)
+              elseif (implicit_rw_bc) then
+                call find_B(gv%gparams,igr,B0,acov,bcov,.true.
+     $                     ,bcond=vaux%vec_list(IACOV)%bconds)
+                call rw_Ebc(gv%gparams,igr,bcov,E_bc)
+              endif
+
+              call XferBCs(acov_n,v0,.true.)
+              v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt*E_bc(nnx+1,:,:,:)
+
               if (.not.init_time_eval) then
                 call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .                    ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
@@ -705,11 +715,17 @@ c       Magnetic field BC
 
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
 #if !defined(vec_pot)
+            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
+              if (save_tn) then
+                call rw_Ebc(gv%gparams,igr,bcov_n,E_bc)
+              elseif (implicit_rw_bc) then
+                call rw_Ebc(gv%gparams,igr,bcov  ,E_bc,extrp_b=.true.)
+              endif
+            endif
+c$$$#else
 c$$$            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
-c$$$              if (save_tn) then
-c$$$                call rw_Ebc(gv%gparams,igr,bcov_n,E_bc)
-c$$$c$$$              else
-c$$$c$$$                call rw_Ebc(gv%gparams,igr,bcov  ,E_bc)
+c$$$              if ((.not.save_tn).and.implicit_rw_bc) then
+c$$$                call rw_Ebc(gv%gparams,igr,bcov  ,E_bc,implicit=.true.)
 c$$$              endif
 c$$$            endif
 #endif
@@ -1064,15 +1080,7 @@ c       Allocate auxiliary variables in local domain
         case(IBCNV_0)
 
 #if defined(vec_pot)
-          do k = 0,nnz+1
-            do j = 0,nny+1
-              do i = 0,nnx+1
-                bcnv_0(i,j,k,:) =
-     .             XformToCurv_ijk(gv%gparams,i,j,k,igr,B0,.true.)
-     .           + curl(gv%gparams,i,j,k,nnx,nny,nnz,igr,igr,igr,acov_0)
-              enddo
-            enddo
-          enddo
+          call find_B(gv%gparams,igr,B0,acov_0,bcnv_0,.false.)
 #else
           bcnv_0(:,:,:,1) = u_0%array_var(IBX)%array
           bcnv_0(:,:,:,2) = u_0%array_var(IBY)%array
@@ -1197,16 +1205,7 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
             bcov_n = bcov_0     !Set it to initial cond.
           elseif (save_tn) then
 #if defined(vec_pot)
-            do k = 0,nnz+1
-              do j = 0,nny+1
-                do i = 0,nnx+1
-                  bcov_n(i,j,k,:) =
-     .                 XformToCurv_ijk(gv%gparams,i,j,k,igr,B0,.true.)
-     .           + curl(gv%gparams,i,j,k,nnx,nny,nnz,igr,igr,igr,acov_n)
-                enddo
-              enddo
-            enddo
-            bcov_n = XformToCov(gv%gparams,igr,bcov_n)
+            call find_B(gv%gparams,igr,B0,acov_n,bcov_n,.true.)
 #else
             bcov_n(:,:,:,1) = u_n%array_var(IBX)%array
             bcov_n(:,:,:,2) = u_n%array_var(IBY)%array
@@ -1268,15 +1267,7 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
 
 c       Magnetic field BC (with fixed current at boundary)
 
-          do k = 0,nnz+1
-            do j = 0,nny+1
-              do i = 0,nnx+1
-                bcnv(i,j,k,:) =
-     .              XformToCurv_ijk(gv%gparams,i,j,k,igr,B0,.true.)
-     .            + curl(gv%gparams,i,j,k,nnx,nny,nnz,igr,igr,igr,acov)
-              enddo
-            enddo
-          enddo
+          call find_B(gv%gparams,igr,B0,acov,bcnv,.false.)
 #else
         case(IBCNV)
 

@@ -596,15 +596,16 @@ c       Find db=B^(n+1)-B^n
 c       Find vector potential RW boundary condition at face
 
         if (res_wall_bc) then
-          E_bc = 0d0
-          allocate(b_cov(0:nx+1,0:ny+1,0:nz+1,3))
-          b_cov(:,:,:,1) = vnp%array_var(IBX)%array
-          b_cov(:,:,:,2) = vnp%array_var(IBY)%array
-          b_cov(:,:,:,3) = vnp%array_var(IBZ)%array
-          b_cov = XformToCov(gv%gparams,igx,b_cov)
-          call rw_Ebc(gv%gparams,igx,b_cov,E_bc)
-          deallocate(b_cov)
-          call XferBCs(-dt*E_bc,da_cov,.false.)
+c$$$          E_bc = 0d0
+c$$$          allocate(b_cov(0:nx+1,0:ny+1,0:nz+1,3))
+c$$$          b_cov(:,:,:,1) = vn%array_var(IBX)%array
+c$$$          b_cov(:,:,:,2) = vn%array_var(IBY)%array
+c$$$          b_cov(:,:,:,3) = vn%array_var(IBZ)%array
+c$$$          b_cov = XformToCov(gv%gparams,igx,b_cov)
+c$$$          call rw_Ebc(gv%gparams,igx,b_cov,E_bc)
+c$$$          deallocate(b_cov)
+c$$$          call XferBCs(-dt*E_bc,da_cov,.false.)
+          da_cov(nx+1,:,:,:) = -dt*E_bc(nx+1,:,:,:)
         endif
         
 c       Clean db (and impose RW BC, if applicable)

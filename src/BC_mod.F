@@ -17,7 +17,7 @@ c####################################################################
         use nlfunction_setup, ONLY: res,chi_perp,chi_para,vis,ion_hall
      .                             ,E_fld_res_A,E_fld_res_B,E_fld_ihall
      .                             ,E_fld_ehall,EOM_divPi,hres,diff_mesh
-     .                             ,nc_eom_v,nc_eom_jxb
+     .                             ,nc_eom_v,nc_eom_jxb,find_B
      .                             ,pinch_flow,sym_st,subtract_E0
      .                             ,form_ve,solenoidal,binom_alph
 

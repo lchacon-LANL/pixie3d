@@ -2906,7 +2906,71 @@ c ######################################################################
         END INTERFACE
 
       contains
-        
+
+c     find_B
+c     #################################################################
+      subroutine find_B(g_def,igr,B0,acov,bout,cov,bcond)
+
+c     -----------------------------------------------------------------
+c     Finds from current state of A (w/ or w/o BCs).
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: igr
+
+      real(8) :: B0(3)
+      real(8),dimension(0:,0:,0:,:) :: acov,bout
+
+      logical :: cov
+
+      integer,optional :: bcond(6,3)
+      
+c     Local variables
+
+      integer :: i,j,k,nx,ny,nz,bcnd(6,3)
+      real(8),dimension(0:size(acov,1)-1
+     $                 ,0:size(acov,2)-1
+     $                 ,0:size(acov,3)-1,3) :: v0,acnv
+
+c     Begin program
+
+      nx = g_def%nxv(igr)
+      ny = g_def%nyv(igr)
+      nz = g_def%nzv(igr)
+
+      !Extrapolate vector potential to boundaries
+      if (PRESENT(bcond)) then
+        v0 = 0d0
+        bcnd = bcond
+        where (bcnd==-EQU) bcnd =-EXT
+        call setBC(g_def,IAX,3,nx,ny,nz,acnv,acov,v0
+     .          ,bcnd,igr,igr,igr,iorder=2
+     .          ,is_cnv=.false.)
+      endif
+      
+      !Find B_cnv
+      do k = 0,nz+1
+        do j = 0,ny+1
+          do i = 0,nx+1
+            bout(i,j,k,:) =
+     .               XformToCurv_ijk(g_def,i,j,k,igr,B0,.true.)
+     .         + curl(g_def,i,j,k,nx,ny,nz,igr,igr,igr,acov)
+          enddo
+        enddo
+      enddo
+
+      !Xform to cov
+      if (cov) bout = XformToCov(g_def,igr,bout)
+
+c     End program
+
+      end subroutine find_B
+
 c     binomial_scl
 c     ##################################################################
       subroutine binomial_scl(field)
