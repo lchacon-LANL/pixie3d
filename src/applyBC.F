@@ -675,21 +675,21 @@ cc            acov = acov + acov_0
 #if defined(plotting)
               call XferBCs(acov,v0,.true.)  !Reuse existing BC for plotting
               call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
-     .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
+     .                  ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
+     .                  ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
 #else
               call A_rw_BC(gv%gparams,igr,acov_n,bcov_n,v0)
               if (.not.init_time_eval) then
                 call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
-     .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
+     .                    ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
+     .                    ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
               endif
 #endif
             else
               call XferBCs(acov_0,v0,.true.)
               call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
-     .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
+     .                  ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
+     .                  ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
             endif
           endif
 

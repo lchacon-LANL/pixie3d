@@ -2233,9 +2233,12 @@ c     Begin program
         gsuper = 0.5*(g_def%gmetric%grid(igrid)%gsup(ip,j,k,1,:)
      .               +g_def%gmetric%grid(igrid)%gsup(i ,j,k,1,:))
 
-        ijac  = 1d0/jac
-        if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) ijac = 0d0
-
+        if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) then
+          ijac = 0d0
+        else
+          ijac = 1d0/jac
+        endif
+      
         if (flag /= 0) then
           acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igx,igy,igz,dv
      .                   ,dv_cov,a0_cnv,1)
