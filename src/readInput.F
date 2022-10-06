@@ -58,7 +58,7 @@ c Namelists
      .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old,xport_order
-     .                   ,r_v,tau_w,implicit_rw_bc
+     .                   ,r_v,tau_w,implicit_rw_bc,rw_is_vacuum
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                   ,pc_as_solver,fpa,fpa_it
@@ -116,7 +116,7 @@ c Namelists
      .                   ,equil,gstor_I_drive,refine_eq
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
-     .                   ,r_v,tau_w,implicit_rw_bc
+     .                   ,r_v,tau_w,implicit_rw_bc,rw_is_vacuum
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
@@ -505,7 +505,8 @@ c     #####################################################################
 
       tau_w    = 1d2           ! Resistive wall thin-shell time
       r_v      = 1.5           ! Radius of outer conducting shell
-
+      rw_is_vacuum = .false.   ! Whether RW is emulating vacuum
+      
       !Nonlinear function parameters
       adiabatic  = .false.     ! Whether we use adiabatic EoS or not
       adiabatic_rho = .false.  ! Whether we use adiabatic rho formula
@@ -950,6 +951,7 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
      .                  .or.(br_pert_freq /= 0d0)
      .                  .or.refine_eq
      .                  .or.post_filter_hel
+     .                  .or.res_wall_bc
 
 #if defined(pit)
       postprocess = .true.

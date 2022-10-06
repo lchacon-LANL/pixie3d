@@ -32,6 +32,7 @@ c####################################################################
         logical :: no_eq_bc,save_tn,no_tn_bc
      $            ,fill_A0_bc=.false.
      $            ,res_wall_bc=.false.
+     $            ,rw_is_vacuum = .false.
         
       contains
 
@@ -1728,6 +1729,7 @@ c     Begin program
       i = nx ; ibc = 2
 
       if (.not.isBdry(g_def,i,igrid,ibc)) return
+
       if (igrid /= 1) then
         write (*,*) 'ExB_flow_bc not ready for MG treatment'
         stop
@@ -1742,6 +1744,8 @@ c     Begin program
           bbcnv = 0.5*(bcnv(i,j,k,:)+bcnv(i+1,j,k,:))
           bbcov = XformToCov_ijk_face(g_def,i,j,k,igrid,bbcnv,1)
 
+          if (.not.rw_is_vacuum) bbcnv(1) = 0d0 !Zero-out normal B-field
+          
 cc          b2 = vectorNorm_ijk(g_def,i,j,k,igrid,bbcnv,.false.)
           b2 = sum(bbcnv*bbcov)/jac
 
@@ -1767,6 +1771,8 @@ cc          b2 = vectorNorm_ijk(g_def,i,j,k,igrid,bbcnv,.false.)
      .                   -etah*grad_p(2))/b2
             v0(i+1,j,k,3)=(E00(1)*bbcov(2)-E00(2)*bbcov(1)
      .                   -etah*grad_p(3))/b2
+            
+            if (.not.rw_is_vacuum) v0(i+1,j,k,2:3) = 0d0 !Zero-out tangential flow
           endif
         enddo
       enddo
