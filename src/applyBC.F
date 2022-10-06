@@ -683,7 +683,7 @@ cc            acov = acov + acov_0
 #else
               if (save_tn) then
                 call rw_Ebc(gv%gparams,igr,bcov_n,E_bc)
-              elseif (implicit_rw_bc) then
+              elseif (rw_implicit_bc) then
                 call find_B(gv%gparams,igr,B0,acov,bcov,.true.
      $                     ,bcond=vaux%vec_list(IACOV)%bconds)
                 call rw_Ebc(gv%gparams,igr,bcov,E_bc)
@@ -721,13 +721,13 @@ c       Magnetic field BC
             if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
               if (save_tn) then
                 call rw_Ebc(gv%gparams,igr,bcov_n,E_bc)
-              elseif (implicit_rw_bc) then
+              elseif (rw_implicit_bc) then
                 call rw_Ebc(gv%gparams,igr,bcov  ,E_bc,extrp_b=.true.)
               endif
             endif
 c$$$#else
 c$$$            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
-c$$$              if ((.not.save_tn).and.implicit_rw_bc) then
+c$$$              if ((.not.save_tn).and.rw_implicit_bc) then
 c$$$                call rw_Ebc(gv%gparams,igr,bcov  ,E_bc,implicit=.true.)
 c$$$              endif
 c$$$            endif

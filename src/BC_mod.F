@@ -28,11 +28,11 @@ c####################################################################
         integer :: order_bc=1
 
         logical :: regularize_A = .false.  !Whether we regularize A @ SP
+     $            ,fill_A0_bc   = .false.
+     $            ,res_wall_bc  = .false.
+     $            ,rw_is_vacuum = .false.
 
         logical :: no_eq_bc,save_tn,no_tn_bc
-     $            ,fill_A0_bc=.false.
-     $            ,res_wall_bc=.false.
-     $            ,rw_is_vacuum = .false.
         
       contains
 

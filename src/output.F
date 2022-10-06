@@ -18,7 +18,7 @@ c----------------------------------------------------------------------
 
       use nlfunction_setup
 
-      use rw_bc, ONLY: res_wall_bc,implicit_rw_bc
+      use rw_bc, ONLY: res_wall_bc,rw_implicit_bc
 
       implicit none
 
@@ -320,7 +320,7 @@ c     Warnings
 #endif
       if (refine_eq) call warning('  Running equilibrium-checking mode')
       if (res_wall_bc)  then
-        if (implicit_rw_bc) then
+        if (rw_implicit_bc) then
           call info('  Applying IMPLICIT Resistive Wall BC')
         else
           call info('  Applying EXPLICIT Resistive Wall BC')

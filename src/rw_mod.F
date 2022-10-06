@@ -5,10 +5,11 @@ c ####################################################################
         use local_BCS_variables
       
         !Resistive wall vars
-        logical :: rw_bcs(6)     =.false.
-     $            ,implicit_rw_bc=.false.
+        logical :: rw_bcs(6)      =.false.
+     $            ,rw_fft_tupdate =.true.
+     $            ,rw_implicit_bc =.false.
 
-        real(8) :: tau_w=1d0,r_v=1.5d0
+        real(8) :: tau_w=1d2,r_v=1.5d0
 
         real(8),pointer,dimension(:,:,:,:) :: E_bc
 
@@ -178,18 +179,18 @@ c$$$        bcovint (:,:,:) = bcov(i_bc-1,:,:,:)
       bcovint(:,:,2) = bcovint(:,:,2) - bcov_avg(2)
       bcovint(:,:,3) = bcovint(:,:,3) - bcov_avg(3)
 
-c     Compute EXTERNAL tangential magnetic field components from NORMAL internal ones
+c     Compute VACUUM response
 
       select case(coords)
       case('hel')
-        call rw_hel(g_def,igr,bcovint(:,:,1),gbcovint(:,:,1),bcovext
-     $             ,.false.)
+        call vacuum_hel(g_def,igr,bcovint(:,:,1),gbcovint(:,:,1),bcovext
+     $                 ,rw_fft_tupdate)
 c$$$        call rw_hel(g_def,igr,bcovint(:,:,1),bcovext)
 c$$$      case('cyl')
 c$$$      case('tor')
       case default
         call critical('rw_bc'
-     .       ,'Resistive wall BC not implemented for '//coords)
+     .       ,'VACUUM response not implemented for '//coords)
       end select
 
 c     Find electric field components @ r=1 (store in (nx+1))
@@ -446,10 +447,10 @@ c$$$      deallocate(theta,mm,phir_m,phii_m,Brn_m,Bin_m,Bth,Bz,Bn)
 c$$$
 c$$$      end subroutine rw_hel
 
-c     rw_hel
+c     vacuum_hel
 c     ####################################################################
-      subroutine rw_hel(g_def,igr,bcovn_int,gbcovn_int,bcov_ext
-     $                 ,new_time)
+      subroutine vacuum_hel(g_def,igr,bcovn_int,gbcovn_int,bcov_ext
+     $                     ,new_time)
       
 c     -----------------------------------------------------------------
 c     Performs RW BC. Inputs normal internal B-component, outputs
@@ -678,7 +679,7 @@ c$$$      endif
 
       deallocate(phir_m_np,phii_m_np)
       
-      end subroutine rw_hel
+      end subroutine vacuum_hel
 
 c$$$c     rw_cyl
 c$$$c     ####################################################################
