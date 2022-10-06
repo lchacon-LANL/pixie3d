@@ -140,7 +140,7 @@ c     Exceptions for specific equilibria
 
         pinch_flow = .true.
 
-        where (bbcs(:,IVX ) == DIR) bbcs(:,IVX) = EQU
+        where (bbcs(:,IVX ) == DIR) bbcs(:,IVX) = EQU  !Normal
 
         if (gamma > 1d0)
      .       where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
@@ -149,11 +149,11 @@ c     Exceptions for specific equilibria
 
         pinch_flow = .true.
 
-        where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = EQU
+        where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = EQU  !Normal
 
         !Dirichlet boundary conditions for tangential components
-        where (bbcs(:,IVY) == NEU) bbcs(:,IVY) = EQU
-        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ) = EQU
+        where (bbcs(:,IVY) == NEU) bbcs(:,IVY) = EQU  !Tangential
+        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ) = EQU  !Tangential
 
         if (gamma > 1d0)
      .       where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
@@ -2064,8 +2064,8 @@ c$$$        bbcs(:,3) = bcsq
 c$$$      else
 
         bcsq = bbcs(:,1)
-        where (bcsq(1:2) == DEF) bcsq(1:2) = DIR
-        where (bcsq(3:6) == DEF) bcsq(3:6) =-NEU !On covariant components
+        where (bcsq(1:2) == DEF) bcsq(1:2) = DIR !Normal
+        where (bcsq(3:6) == DEF) bcsq(3:6) =-NEU !Tangential, on covariant components
         bbcs(:,1) = bcsq
 
         bcsq = bbcs(:,2)
@@ -2073,12 +2073,12 @@ c$$$      else
      .      .or. coords == 'hel'
      .      .or. coords == 'tor'
      .      .or. coords == 'car') then
-          where (bcsq(1:2) == DEF) bcsq(1:2) =  NEU !On contravariant components
+          where (bcsq(1:2) == DEF) bcsq(1:2) =  NEU !Tangential, on contravariant components
         else
-          where (bcsq(1:2) == DEF) bcsq(1:2) = -NEU !On covariant components
+          where (bcsq(1:2) == DEF) bcsq(1:2) = -NEU !Tangential, on covariant components
         endif
-        where (bcsq(3:4) == DEF) bcsq(3:4) = DIR
-        where (bcsq(5:6) == DEF) bcsq(5:6) =-NEU
+        where (bcsq(3:4) == DEF) bcsq(3:4) = DIR !Normal
+        where (bcsq(5:6) == DEF) bcsq(5:6) =-NEU !Tangential, on covariant components
         bbcs(:,2) = bcsq
 
         bcsq = bbcs(:,3)
@@ -2086,12 +2086,12 @@ c$$$      else
      .      .or. coords == 'hel'
      .      .or. coords == 'tor'
      .      .or. coords == 'car') then
-          where (bcsq(1:2) == DEF) bcsq(1:2) =  NEU !On contravariant components
+          where (bcsq(1:2) == DEF) bcsq(1:2) =  NEU !Tangential, on contravariant components
         else
-          where (bcsq(1:2) == DEF) bcsq(1:2) = -NEU !On covariant components
+          where (bcsq(1:2) == DEF) bcsq(1:2) = -NEU !Tangential, on covariant components
         endif
-        where (bcsq(3:4) == DEF) bcsq(3:4) =-NEU
-        where (bcsq(5:6) == DEF) bcsq(5:6) = DIR
+        where (bcsq(3:4) == DEF) bcsq(3:4) =-NEU !Tangential, on covariant components
+        where (bcsq(5:6) == DEF) bcsq(5:6) = DIR !Normal
         bbcs(:,3) = bcsq
 c$$$      endif
 

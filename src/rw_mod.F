@@ -609,10 +609,10 @@ c     Find old-time EXTERNAL magnetic field components outside RW
       Bin_m =-mm*phir_m
       call ifft(nyg,Bth,theta,nyg,Brn_m,Bin_m,mm,0)
 
-c$$$      !Bz [multiply by -sqrt(-1)*k; minus sign from convention of iFFT]
-c$$$      Brn_m = kk*phii_m
-c$$$      Bni_m =-kk*phir_m
-c$$$      call ifft(nyg,Bz,theta,nyg,Brn_m,Bin_m,mm,0)
+      !Bz [multiply by -sqrt(-1)*k; minus sign from convention of iFFT]
+      Brn_m = kk*phii_m
+      Bin_m =-kk*phir_m
+      call ifft(nyg,Bz,theta,nyg,Brn_m,Bin_m,mm,0)
 
       !Get LOCAL helical (cov) magnetic field components @ r=1 
       rbc = 1d0
@@ -623,7 +623,7 @@ c$$$      call ifft(nyg,Bz,theta,nyg,Brn_m,Bin_m,mm,0)
         if (jglobal < 1  ) jglobal = nyg + jglobal
         bcov_ext(j,:,1) = bcovn_int(j,:)
         bcov_ext(j,:,2) = rbc/mmm*Bth(jglobal)
-        bcov_ext(j,:,3) = 0d0 !Bz(jglobal) - kk*bcov_ext(j,:,2)
+        bcov_ext(j,:,3) = Bz(jglobal) - kk*bcov_ext(j,:,2)
       enddo
 
 c     Find new-time EXTERNAL magnetic field components outside RW
@@ -637,10 +637,10 @@ c     Find new-time EXTERNAL magnetic field components outside RW
         Bin_m =-mm*phir_m_np
         call ifft(nyg,Bth,theta,nyg,Brn_m,Bin_m,mm,0)
 
-c$$$        !Bz [multiply by -sqrt(-1)*k; minus sign from convention of iFFT]
-c$$$        Br_m = kk*phii_m_np
-c$$$        Bi_m =-kk*phir_m_np
-c$$$        call ifft(nyg,Bz,theta,nyg,Br_m,Bi_m,mm,0)
+        !Bz [multiply by -sqrt(-1)*k; minus sign from convention of iFFT]
+        Br_m = kk*phii_m_np
+        Bi_m =-kk*phir_m_np
+        call ifft(nyg,Bz,theta,nyg,Br_m,Bi_m,mm,0)
 
         !Get LOCAL helical (cov) magnetic field components @ r=1 
         do j = 0,ny+1
@@ -649,7 +649,7 @@ c$$$        call ifft(nyg,Bz,theta,nyg,Br_m,Bi_m,mm,0)
           if (jglobal < 1  ) jglobal = nyg + jglobal
           bcov_ext_np(j,:,1) = Br(jglobal)
           bcov_ext_np(j,:,2) = rbc/mmm*Bth(jglobal)
-          bcov_ext_np(j,:,3) = 0d0 !Bz(jglobal) - kk*bcov_ext_np(j,:,2)
+          bcov_ext_np(j,:,3) = Bz(jglobal) - kk*bcov_ext_np(j,:,2)
         enddo
 
         !Return new-time EXTERNAL magnetic field components outside RW

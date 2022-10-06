@@ -561,6 +561,8 @@ c       Velocity BC
             prs0 = rho_0*tmp_0
             E_bc = 0d0
             call ExB_flow_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
+          else
+            v0 = 0d0
           endif
 
           !Fill ghost nodes
@@ -673,6 +675,7 @@ cc            acov = acov + acov_0
           else
             if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
 #if defined(plotting)
+              if (save_tn) call rw_Ebc(gv%gparams,igr,bcov_n,E_bc)
               call XferBCs(acov,v0,.true.)  !Reuse existing BC for plotting
               call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .                  ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
