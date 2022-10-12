@@ -404,7 +404,7 @@ c ######################################################################
      .                       ,IBCNV_0 =6
      .                       ,IBCOV   =7
      .                       ,IBCOV_0 =8
-     .                       ,IBCOV_N =22
+     .                       ,IBCNV_N =22
 
         integer, parameter :: IVCNV   =9
      .                       ,IVCNV_N =10
@@ -432,7 +432,7 @@ c ######################################################################
      .                       ,IBCNV_0 =6
      .                       ,IBCOV   =7
      .                       ,IBCOV_0 =8
-     .                       ,IBCOV_N =25
+     .                       ,IBCNV_N =25
 
         integer, parameter :: IACNV   =9
      .                       ,IACOV   =10
@@ -503,7 +503,7 @@ c ######################################################################
      .                                       ,bcnv_0
      .                                       ,bcov
      .                                       ,bcov_0
-     .                                       ,bcov_n
+     .                                       ,bcnv_n
      .                                       ,chi_tnsr
 
         real(8),pointer,dimension(:,:,:,:) :: vcnv
@@ -629,10 +629,10 @@ c     Setup pointers
         vaux%vec_list(IVECOV_N)%time_n= .true.
         vecov_n => vaux%vec_list(IVECOV_N)%vec
 
-        vaux%vec_list(IBCOV_N)%cnv = .false.
-        vaux%vec_list(IBCOV_N)%descr = 'B_n cov'
-        vaux%vec_list(IBCOV_N)%time_n= .true.
-        bcov_n => vaux%vec_list(IBCOV_N)%vec
+        vaux%vec_list(IBCNV_N)%cnv = .false.
+        vaux%vec_list(IBCNV_N)%descr = 'B_n cov'
+        vaux%vec_list(IBCNV_N)%time_n= .true.
+        bcnv_n => vaux%vec_list(IBCNV_N)%vec
 
         !New-time variables
         vaux%var_list(IRHO_AUX)%descr = 'rho'
@@ -760,7 +760,7 @@ c     Begin program
      .       ,bcnv_0
      .       ,bcov
      .       ,bcov_0
-     .       ,bcov_n
+     .       ,bcnv_n
      .       ,jcnv
      .       ,jcnv_0
      .       ,jcov

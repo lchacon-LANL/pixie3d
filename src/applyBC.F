@@ -675,14 +675,14 @@ cc            acov = acov + acov_0
           else
             if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
 #if defined(plotting)
-              if (save_tn) call rw_Ebc(gv%gparams,igr,bcov_n,E_bc)
+              if (save_tn) call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
               call XferBCs(acov,v0,.true.)  !Reuse existing BC for plotting
               call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .                  ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
      .                  ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
 #else
               if (save_tn) then
-                call rw_Ebc(gv%gparams,igr,bcov_n,E_bc)
+                call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
               elseif (rw_implicit_bc) then
                 call find_B(gv%gparams,igr,B0,acov,bcov,.true.
      $                     ,bcond=vaux%vec_list(IACOV)%bconds)
@@ -720,7 +720,7 @@ c       Magnetic field BC
 #if !defined(vec_pot)
             if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
               if (save_tn) then
-                call rw_Ebc(gv%gparams,igr,bcov_n,E_bc)
+                call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
               elseif (rw_implicit_bc) then
                 call rw_Ebc(gv%gparams,igr,bcov  ,E_bc,extrp_b=.true.)
               endif
@@ -746,7 +746,7 @@ c$$$            endif
 
 cc          call XformVector_BC(gv%gparams,igr,bcnv,bcov,.false.)
 
-        case(IBCOV_N)
+        case(IBCNV_N)
 
         case(IJCNV)
 
@@ -1198,22 +1198,24 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
 
           if (electron_hall) vecov_n = vecov     !Does NOT work for BDF2
  
-        case(IBCOV_N)
+        case(IBCNV_N)
 
 #if defined(plotting)
           if (itime==0) then
 #else
           if (source_eval) then
 #endif
-            bcov_n = bcov_0     !Set it to initial cond.
+            bcnv_n = bcnv_0     !Set it to initial cond.
           elseif (save_tn) then
 #if defined(vec_pot)
-            call find_B(gv%gparams,igr,B0,acov_n,bcov_n,.true.)
+            acov_n(:,:,:,1) = varray%array_var(IAX)%array
+            acov_n(:,:,:,2) = varray%array_var(IAY)%array
+            acov_n(:,:,:,3) = varray%array_var(IAZ)%array
+            call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
 #else
-            bcov_n(:,:,:,1) = u_n%array_var(IBX)%array
-            bcov_n(:,:,:,2) = u_n%array_var(IBY)%array
-            bcov_n(:,:,:,3) = u_n%array_var(IBZ)%array
-            bcov_n = XformToCov(gv%gparams,igr,bcov_n)
+            bcnv_n(:,:,:,1) = varray%array_var(IBX)%array
+            bcnv_n(:,:,:,2) = varray%array_var(IBY)%array
+            bcnv_n(:,:,:,3) = varray%array_var(IBZ)%array
 #endif
           endif
           
@@ -1249,7 +1251,7 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
 #else
           if (source_eval) then
             acov_n = acov_0     !Set it to initial cond.
-          else  !This determines bcov_n also
+          else  !This determines bcnv_n also
             acov_n(:,:,:,1) = u_n%array_var(IAX)%array
             acov_n(:,:,:,2) = u_n%array_var(IAY)%array
             acov_n(:,:,:,3) = u_n%array_var(IAZ)%array
@@ -1602,7 +1604,7 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
           vecnv_0 = form_ve(vcnv_0,jcnv_0,rho_0)
 
-        case(IBCOV_N)
+        case(IBCNV_N)
 
         case(IVCNV_N)
 
