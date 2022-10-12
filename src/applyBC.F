@@ -537,16 +537,16 @@ c       Allocate auxiliary variables in local domain
 #else
         case(IBCNV_0)
 
-          if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
-            call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
-     .                ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
-     .                ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
-     .                ,iorder=1)
-          else
-          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          !Provide these in equilibrium routine!
-          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          endif
+c$$$          if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
+c$$$            call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
+c$$$     .                ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
+c$$$     .                ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
+c$$$     .                ,iorder=1)
+c$$$          else
+c$$$          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+c$$$          !Provide these in equilibrium routine!
+c$$$          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+c$$$          endif
 
         case(IBCOV_0)
 
@@ -577,12 +577,23 @@ c       Velocity BC
 c       Current BC
 
           v0 = 0d0
-          
-          call setBC(gv%gparams,IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0
+
+          if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
+            prs0 = rho_0*tmp_0
+            E_bc = 0d0
+            call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
+
+            call setBC(gv%gparams,IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0
+     .                ,vaux%vec_list(IJCNV)%bconds,igr,igr,igr
+     .                ,iorder=order)
+
+          else
+            call setBC(gv%gparams,IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0
      .              ,vaux%vec_list(IJCNV_0)%bconds,igr,igr,igr
      .              ,is_cnv=vaux%vec_list(IJCNV_0)%cnv
      .              ,iorder=1)
-
+          endif
+          
         case(IJCOV_0)  !Done when computing jcov_0
 
 cc          call XformVector_BC(gv%gparams,igr,jcnv_0,jcov_0,.false.)

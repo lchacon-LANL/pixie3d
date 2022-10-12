@@ -614,6 +614,18 @@ c     Find VACUUM potential solution Phi outside of resistive wall
 
 c     Find old-time EXTERNAL magnetic field components outside RW
 
+c diag ****
+#if defined(plotting)
+c$$$        do i=-nyd/2,nyd/2
+c$$$          do j=1,nyd
+c$$$            if (nint(mm(j))-i == 0) exit
+c$$$          enddo
+c$$$          write (*,'(a,i0,a,2e14.7)')
+c$$$     $    "Br FFT m=",i," ",time,sqrt(Brn_m(j)**2+Bin_m(j)**2)
+c$$$        enddo
+#endif
+c diag ****
+
       !Bth [multiply by -sqrt(-1)*m; minus sign from convention of iFFT]
       Brn_m = mm*phii_m
       Bin_m =-mm*phir_m

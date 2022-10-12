@@ -824,39 +824,59 @@ c     Equilibrium quantities
       vaux%vec_list(IBCOV_0)%bc_dep_list(1,3) = 0 !trivial
 
       !V0 cnv
-      vaux%vec_list(IVCNV_0)%bc_dep_list(1,1) = IRHO_0*AUX
-      vaux%vec_list(IVCNV_0)%bc_dep_list(1,2) = SCALAR
-      vaux%vec_list(IVCNV_0)%bc_dep_list(1,3) = 1 !non-trivial
+      if (pinch_bc) then
+        vaux%vec_list(IVCNV_0)%bc_dep_list(1,1) = IRHO_0*AUX
+        vaux%vec_list(IVCNV_0)%bc_dep_list(1,2) = SCALAR
+        vaux%vec_list(IVCNV_0)%bc_dep_list(1,3) = 1 !non-trivial
 
-      vaux%vec_list(IVCNV_0)%bc_dep_list(2,1) = ITMP_0*AUX
-      vaux%vec_list(IVCNV_0)%bc_dep_list(2,2) = SCALAR
-      vaux%vec_list(IVCNV_0)%bc_dep_list(2,3) = 1 !non-trivial
+        vaux%vec_list(IVCNV_0)%bc_dep_list(2,1) = ITMP_0*AUX
+        vaux%vec_list(IVCNV_0)%bc_dep_list(2,2) = SCALAR
+        vaux%vec_list(IVCNV_0)%bc_dep_list(2,3) = 1 !non-trivial
 
-      vaux%vec_list(IVCNV_0)%bc_dep_list(3,1) = IETA_0*AUX
-      vaux%vec_list(IVCNV_0)%bc_dep_list(3,2) = SCALAR
-      vaux%vec_list(IVCNV_0)%bc_dep_list(3,3) = 0 !trivial
+        vaux%vec_list(IVCNV_0)%bc_dep_list(3,1) = IETA_0*AUX
+        vaux%vec_list(IVCNV_0)%bc_dep_list(3,2) = SCALAR
+        vaux%vec_list(IVCNV_0)%bc_dep_list(3,3) = 0 !trivial
 
-      vaux%vec_list(IVCNV_0)%bc_dep_list(4,1) = IBCOV_0*AUX
-      vaux%vec_list(IVCNV_0)%bc_dep_list(4,2) = VECTOR
-      vaux%vec_list(IVCNV_0)%bc_dep_list(4,3) = 0 !trivial
+        vaux%vec_list(IVCNV_0)%bc_dep_list(4,1) = IBCOV_0*AUX
+        vaux%vec_list(IVCNV_0)%bc_dep_list(4,2) = VECTOR
+        vaux%vec_list(IVCNV_0)%bc_dep_list(4,3) = 0 !trivial
 
-      vaux%vec_list(IVCNV_0)%bc_dep_list(5,1) = IVCNV_0*AUX
-      vaux%vec_list(IVCNV_0)%bc_dep_list(5,2) = VECTOR
-      vaux%vec_list(IVCNV_0)%bc_dep_list(5,3) = 0 !trivial
-
+        vaux%vec_list(IVCNV_0)%bc_dep_list(5,1) = IVCNV_0*AUX
+        vaux%vec_list(IVCNV_0)%bc_dep_list(5,2) = VECTOR
+        vaux%vec_list(IVCNV_0)%bc_dep_list(5,3) = 0 !trivial
+      else
+        vaux%vec_list(IVCNV_0)%bc_dep_list(1,1) = IVCNV_0*AUX
+        vaux%vec_list(IVCNV_0)%bc_dep_list(1,2) = VECTOR
+        vaux%vec_list(IVCNV_0)%bc_dep_list(1,3) = 0 !trivial
+      endif
+      
       !J0 cnv
-      vaux%vec_list(IJCNV_0)%bc_dep_list(1,1) = IETA_0*AUX
-      vaux%vec_list(IJCNV_0)%bc_dep_list(1,2) = SCALAR
-      vaux%vec_list(IJCNV_0)%bc_dep_list(1,3) = 0 !trivial
+      if (pinch_bc) then
+        vaux%vec_list(IVCNV_0)%bc_dep_list(1,1) = IRHO_0*AUX
+        vaux%vec_list(IVCNV_0)%bc_dep_list(1,2) = SCALAR
+        vaux%vec_list(IVCNV_0)%bc_dep_list(1,3) = 1 !non-trivial
 
-      vaux%vec_list(IJCNV_0)%bc_dep_list(2,1) = IBCOV_0*AUX
-      vaux%vec_list(IJCNV_0)%bc_dep_list(2,2) = VECTOR
-      vaux%vec_list(IJCNV_0)%bc_dep_list(2,3) = 1 !non-trivial
+        vaux%vec_list(IVCNV_0)%bc_dep_list(2,1) = ITMP_0*AUX
+        vaux%vec_list(IVCNV_0)%bc_dep_list(2,2) = SCALAR
+        vaux%vec_list(IVCNV_0)%bc_dep_list(2,3) = 1 !non-trivial
 
-      vaux%vec_list(IJCNV_0)%bc_dep_list(3,1) = IJCNV_0*AUX
-      vaux%vec_list(IJCNV_0)%bc_dep_list(3,2) = VECTOR
-      vaux%vec_list(IJCNV_0)%bc_dep_list(3,3) = 0 !trivial
+        vaux%vec_list(IJCNV_0)%bc_dep_list(3,1) = IETA_0*AUX
+        vaux%vec_list(IJCNV_0)%bc_dep_list(3,2) = SCALAR
+        vaux%vec_list(IJCNV_0)%bc_dep_list(3,3) = 0 !trivial
 
+        vaux%vec_list(IJCNV_0)%bc_dep_list(4,1) = IBCOV_0*AUX
+        vaux%vec_list(IJCNV_0)%bc_dep_list(4,2) = VECTOR
+        vaux%vec_list(IJCNV_0)%bc_dep_list(4,3) = 1 !non-trivial
+
+        vaux%vec_list(IJCNV_0)%bc_dep_list(5,1) = IJCNV_0*AUX
+        vaux%vec_list(IJCNV_0)%bc_dep_list(5,2) = VECTOR
+        vaux%vec_list(IJCNV_0)%bc_dep_list(5,3) = 0 !trivial
+      else
+        vaux%vec_list(IJCNV_0)%bc_dep_list(1,1) = IJCNV_0*AUX
+        vaux%vec_list(IJCNV_0)%bc_dep_list(1,2) = VECTOR
+        vaux%vec_list(IJCNV_0)%bc_dep_list(1,3) = 0 !trivial
+      endif
+      
       !J0 cov
       vaux%vec_list(IJCOV_0)%bc_dep_list(1,1) = IJCNV_0*AUX
       vaux%vec_list(IJCOV_0)%bc_dep_list(1,2) = VECTOR
@@ -1746,7 +1766,6 @@ c     Begin program
 
           if (.not.rw_is_vacuum) bbcnv(1) = 0d0 !Zero-out normal B-field
           
-cc          b2 = vectorNorm_ijk(g_def,i,j,k,igrid,bbcnv,.false.)
           b2 = sum(bbcnv*bbcov)/jac
 
           if (b2 > 0d0) then
