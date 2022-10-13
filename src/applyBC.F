@@ -589,9 +589,9 @@ c       Current BC
 
           else
             call setBC(gv%gparams,IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0
-     .              ,vaux%vec_list(IJCNV_0)%bconds,igr,igr,igr
-     .              ,is_cnv=vaux%vec_list(IJCNV_0)%cnv
-     .              ,iorder=1)
+     .                ,vaux%vec_list(IJCNV_0)%bconds,igr,igr,igr
+     .                ,is_cnv=vaux%vec_list(IJCNV_0)%cnv
+     .                ,iorder=1)
           endif
           
         case(IJCOV_0)  !Done when computing jcov_0

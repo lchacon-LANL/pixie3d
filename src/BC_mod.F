@@ -1762,9 +1762,8 @@ c     Begin program
      .              +g_def%gmetric%grid(igrid)%jac(i+1,j,k))
 
           bbcnv = 0.5*(bcnv(i,j,k,:)+bcnv(i+1,j,k,:))
-          bbcov = XformToCov_ijk_face(g_def,i,j,k,igrid,bbcnv,1)
-
           if (.not.rw_is_vacuum) bbcnv(1) = 0d0 !Zero-out normal B-field
+          bbcov = XformToCov_ijk_face(g_def,i,j,k,igrid,bbcnv,1)
           
           b2 = sum(bbcnv*bbcov)/jac
 
@@ -1859,9 +1858,11 @@ c$$$     $                                -    g_def%xx(ig-1))
           call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
      .                    ,1,xh,bbcnv(3),ord,0)
 
-          gsub = 0.5*(g_def%gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
-     .               +g_def%gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
-          bbcov = matmul(gsub,bbcnv)
+          if (.not.rw_is_vacuum) bbcnv(1) = 0d0 !Zero-out normal B-field
+          bbcov = XformToCov_ijk_face(g_def,i,j,k,igrid,bbcnv,1)
+c$$$          gsub = 0.5*(g_def%gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
+c$$$     .               +g_def%gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
+c$$$          bbcov = matmul(gsub,bbcnv)
 
           jach = 0.5*(g_def%gmetric%grid(igrid)%jac(i  ,j,k)
      .               +g_def%gmetric%grid(igrid)%jac(i+1,j,k))
