@@ -960,7 +960,11 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
 #if defined(pit)
       postprocess = .true.
 #endif
-      
+
+#if defined(vec_pot)
+      rtol = rtol*5
+#endif
+
       !Vector advection
       if (v_advect == 0) v_advect = advect
 

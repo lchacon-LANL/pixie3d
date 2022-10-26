@@ -736,19 +736,13 @@ c       Magnetic field BC
                 call rw_Ebc(gv%gparams,igr,bcov  ,E_bc,extrp_b=.true.)
               endif
             endif
-c$$$#else
-c$$$            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
-c$$$              if ((.not.save_tn).and.rw_implicit_bc) then
-c$$$                call rw_Ebc(gv%gparams,igr,bcov  ,E_bc,implicit=.true.)
-c$$$              endif
-c$$$            endif
 #endif
             v0 = 0d0 ; prs1 = rho*tmp
             call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
           else
             call XferBCs(jcnv_0,v0,.true.)
           endif
-
+c$$$#endif
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
      .              ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
      .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)

@@ -282,6 +282,13 @@
           enddo
           close(110)
 
+          !Plot pressure profile (gnuplot)
+          open(unit=110,file="efit_prs.txt",status='unknown')
+          do i=1,nw
+             write(110,*) 1d0*i/nw,abs(pres(i))
+          enddo
+          close(110)
+
           if (flag == 0) return
           
           write(*,2000) case,idum,nw,nh
@@ -357,6 +364,7 @@
         IF (istat .ne. 0) STOP 'Read-efit error in efit_init'
         
         if (my_rank == 0) then
+          write (*,*) "Magnetic axis (R,Z)",rmaxis,zmaxis
           write (*,*) "Psi at magnetic axis",simag
           write (*,*) "Psi at magnetic bdry",sibry
         endif
@@ -371,6 +379,14 @@
 
         LL = 0.5*(r_max-r_min) !Dimensionalization length
 
+        if (LL == 0d0) then
+           LL = 1d0
+           r_max = rleft+rdim
+           r_min = rleft
+           z_max = zmid + zdim/2d0
+           z_min = zmid - zdim/2d0
+        endif
+        
         iLL = 1d0/LL
         
         if (my_rank == 0) then
@@ -714,8 +730,11 @@
 
         gparams(1) = 0.5*((1-gparams(1))*r_max+(1+gparams(1))*r_min)   !Major radius (biased)
 !!        gparams(2) = scale               !Horizontal elliptical radius
-        gparams(3) = z_max*gparams(3)    !Vertical elliptical radius
-        
+        if (gparams(3) > 0d0) then
+           gparams(3) = z_max*gparams(3)    !Vertical elliptical radius
+        else
+           gparams(3) = gparams(2)
+        endif
       case('sh3')
 
         coords = coord
@@ -778,7 +797,7 @@
         if (gparams(3) == 0d0) gparams(3) = r_max-r_min        !Horizontal dimension
         if (gparams(4) == 0d0) gparams(4) = z_max-z_min        !Vertical   dimension
 
-     case default
+      case default
 
         call pstop("efit_map","Coordinates unknown")
 
@@ -872,8 +891,8 @@
                                  ,kx,kz,psi_coef,work)
 
               !Interpolate pressure
-!!$              if (psi(i,j,k) < sibry) then
-              if (inside_sptrx(RR,ZZ)) then
+              if (  (nbbbs >0.and.inside_sptrx(RR,ZZ)) &
+                .or.(nbbbs==0.and.(psi(i,j,k)<=sibry))) then
                 if (psi(i,j,k) > sibry) then
                   call pstop("efit_equ","Error in separatrix boundary")
                 endif
