@@ -31,7 +31,7 @@ c####################################################################
      $            ,fill_A0_bc   = .false.
      $            ,res_wall_bc  = .false.
      $            ,rw_is_vacuum = .false.
-     $            ,v00_ppnch_bc = .false.
+     $            ,v00_ExB_bc = .false.
 
         logical :: no_eq_bc,save_tn,no_tn_bc
         
@@ -1798,7 +1798,7 @@ c     Begin program
         enddo
       enddo
 
-      if (v00_ppnch_bc) then
+      if (v00_ExB_bc) then
         dum(1) = sum(v0(i+1,1:ny,1:nz,1))
         v0(i+1,:,:,1) = psum(dum(1:1),mpi_comm=g_def%MPI_COMM_YZ)
      $                /(nyd*nzd)
