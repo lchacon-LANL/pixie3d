@@ -1083,10 +1083,14 @@
            psi_mag = db2val(rmaxis*iLL,zmaxis*iLL,0,0,tx,tz,nxs,nzs  &
      &                     ,kx,kz,psi_coef,work)
 
-           psi_bry = db2val(rbbbs(1)*iLL,zbbbs(1)*iLL,0,0,tx,tz,nxs,nzs  &
+           if (nbbbs > 0) then
+              psi_bry = db2val(rbbbs(1)*iLL,zbbbs(1)*iLL,0,0,tx,tz,nxs,nzs  &
      &                     ,kx,kz,psi_coef,work)
-
-!!           write (*,*) simag,sibry
+           else
+              psi_bry = sibry
+           endif
+           
+!!           write (*,*) simag,sibry,psi_mag,psi_bry
            write (*,*) "delta psi_mag =",(psi_mag-simag)/max(simag,sibry)
            write (*,*) "delta psi_bry =",(psi_bry-sibry)/max(simag,sibry)
         endif
