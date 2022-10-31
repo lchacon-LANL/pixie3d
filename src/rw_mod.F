@@ -527,14 +527,14 @@ c     FFT Bnormal at plasma wall
 
       !Gather Bnormal in parallel along boundary
 #if defined(petsc)
-      call find_global_nobc(Bnl ,Bn,mpi_comm=g_def%MPI_COMM_Y)
+      call find_global_nobc(Bnl,Bn,mpi_comm=g_def%MPI_COMM_Y)
 #else
-      call find_global_nobc(Bnl ,Bn)
+      call find_global_nobc(Bnl,Bn)
 #endif
 
       !Perform FFT
       call fft(nyg,Bn(1,:,1),theta,nyg,Brn_m,Bin_m,mm,0,0)
-
+      
 c     Process gradient of Bnormal (new time)
       
       !Compute gradient of Bn
@@ -615,7 +615,7 @@ c     Find VACUUM potential solution Phi outside of resistive wall
 c     Find old-time EXTERNAL magnetic field components outside RW
 
 c diag ****
-#if defined(plotting)
+c$$$#if defined(plotting)
 c$$$        do i=-nyd/2,nyd/2
 c$$$          do j=1,nyd
 c$$$            if (nint(mm(j))-i == 0) exit
@@ -623,7 +623,7 @@ c$$$          enddo
 c$$$          write (*,'(a,i0,a,2e14.7)')
 c$$$     $    "Br FFT m=",i," ",time,sqrt(Brn_m(j)**2+Bin_m(j)**2)
 c$$$        enddo
-#endif
+c$$$#endif
 c diag ****
 
       !Bth [multiply by -sqrt(-1)*m; minus sign from convention of iFFT]
@@ -631,10 +631,10 @@ c diag ****
       Bin_m =-mm*phir_m
       call ifft(nyg,Bth,theta,nyg,Brn_m,Bin_m,mm,0)
 
-      !Bz [multiply by -sqrt(-1)*k; minus sign from convention of iFFT]
-      Brn_m = kk*phii_m
-      Bin_m =-kk*phir_m
-      call ifft(nyg,Bz,theta,nyg,Brn_m,Bin_m,mm,0)
+c$$$      !Bz [multiply by -sqrt(-1)*k; minus sign from convention of iFFT]
+c$$$      Brn_m = kk*phii_m
+c$$$      Bin_m =-kk*phir_m
+c$$$      call ifft(nyg,Bz,theta,nyg,Brn_m,Bin_m,mm,0)
 
       !Get LOCAL helical (cov) magnetic field components @ r=1 
       rbc = 1d0
@@ -645,7 +645,7 @@ c diag ****
         if (jglobal < 1  ) jglobal = nyg + jglobal
         bcov_ext(j,:,1) = 0d0 !bcovn_int(j,:)
         bcov_ext(j,:,2) = rbc/mmm*Bth(jglobal)
-        bcov_ext(j,:,3) = Bz(jglobal) - kk*bcov_ext(j,:,2)
+        bcov_ext(j,:,3) = 0d0 !implies Bz(jglobal) = kk*bcov_ext(j,:,2)
       enddo
 
 c     Find new-time EXTERNAL magnetic field components outside RW
@@ -659,10 +659,10 @@ c     Find new-time EXTERNAL magnetic field components outside RW
         Bin_m =-mm*phir_m_np
         call ifft(nyg,Bth,theta,nyg,Brn_m,Bin_m,mm,0)
 
-        !Bz [multiply by -sqrt(-1)*k; minus sign from convention of iFFT]
-        Br_m = kk*phii_m_np
-        Bi_m =-kk*phir_m_np
-        call ifft(nyg,Bz,theta,nyg,Br_m,Bi_m,mm,0)
+c$$$        !Bz [multiply by -sqrt(-1)*k; minus sign from convention of iFFT]
+c$$$        Br_m = kk*phii_m_np
+c$$$        Bi_m =-kk*phir_m_np
+c$$$        call ifft(nyg,Bz,theta,nyg,Br_m,Bi_m,mm,0)
 
         !Get LOCAL helical (cov) magnetic field components @ r=1 
         do j = 0,ny+1
@@ -671,7 +671,7 @@ c     Find new-time EXTERNAL magnetic field components outside RW
           if (jglobal < 1  ) jglobal = nyg + jglobal
           bcov_ext_np(j,:,1) = 0d0 !Br(jglobal)
           bcov_ext_np(j,:,2) = rbc/mmm*Bth(jglobal)
-          bcov_ext_np(j,:,3) = Bz(jglobal) - kk*bcov_ext_np(j,:,2)
+          bcov_ext_np(j,:,3) = 0d0 !implies Bz(jglobal) = kk*bcov_ext_np(j,:,2)
         enddo
 
         !Return new-time EXTERNAL magnetic field components outside RW
