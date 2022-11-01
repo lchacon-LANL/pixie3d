@@ -1103,7 +1103,7 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IVCNV)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IVCNV)%bc_dep_list(1,3) = 0 !trivial
 
-      if (pinch_bc) then
+      if (pinch_bc.or.sheath_bc) then
         vaux%vec_list(IVCNV)%bc_dep_list(2,1) = IRHO_AUX*AUX
         vaux%vec_list(IVCNV)%bc_dep_list(2,2) = SCALAR
         vaux%vec_list(IVCNV)%bc_dep_list(2,3) = 1 !non-trivial
@@ -1717,7 +1717,7 @@ c     End program
 
 c     ExB_flow_bc
 c     #################################################################
-      subroutine ExB_flow_bc(g_def,igrid,bcnv,prs,eta,E_0,v0,dbcov)
+      function ExB_flow_bc(g_def,igrid,bcnv,prs,eta,E_0,dbcov)result(v0)
 
 c     -----------------------------------------------------------------
 c     Finds ExB flow boundary condition when Eo is imposed at boundary
@@ -1732,8 +1732,11 @@ c     Call variables
 
       integer :: igrid
       real(8),dimension(0:,0:,0:)   :: prs,eta
-      real(8),dimension(0:,0:,0:,:) :: bcnv,v0,E_0
+      real(8),dimension(0:,0:,0:,:) :: bcnv,E_0
       real(8),dimension(0:,0:,0:,:),optional :: dbcov
+      real(8),dimension(0:size(bcnv,1)-1
+     $                 ,0:size(bcnv,2)-1
+     $                 ,0:size(bcnv,3)-1,3) :: v0
 
 c     Local variables
 
@@ -1807,7 +1810,7 @@ c     Begin program
 
 c     End program
 
-      end subroutine ExB_flow_bc
+      end function ExB_flow_bc
 
 c     J_pinch_bc
 c     #################################################################
@@ -1903,7 +1906,7 @@ c     End program
 
 c     sheath_flow_bc
 c     #################################################################
-      subroutine sheath_flow_bc(g_def,igrid,bcnv,tmp,v0)
+      function sheath_flow_bc(g_def,igrid,bcnv,tmpe) result(v0)
 
 c     -----------------------------------------------------------------
 c     Finds parallel Bohm flowboundary condition
@@ -1917,14 +1920,18 @@ c     Call variables
       type(grid_mg_def),pointer :: g_def
 
       integer :: igrid
-      real(8),dimension(0:,0:,0:)   :: tmp
-      real(8),dimension(0:,0:,0:,:) :: bcnv,v0
+      real(8),dimension(0:,0:,0:)   :: tmpe
+      real(8),dimension(0:,0:,0:,:) :: bcnv
+      real(8),dimension(0:size(bcnv,1)-1
+     $                 ,0:size(bcnv,2)-1
+     $                 ,0:size(bcnv,3)-1,3) :: v0
 
 c     Local variables
 
       integer :: i,j,k,ig,jg,kg,ord,nx,ny,nz,ibc
 
-      real(8) :: bmag,bbcnv(3),bbcov(3),jac,bhat(3),u_bohm,th
+      real(8) :: bmag,bbcnv(3),bbcov(3),jac,bhat(3)
+      real(8) :: u_bohm,te_up,ti_up,Z_i
 
 c     Begin program
 
@@ -1942,6 +1949,8 @@ c     Begin program
       endif
 
       v0 = 0d0
+
+      Z_i = 1d0
       
       !Compute value at face
       do k=0,nz+1
@@ -1960,19 +1969,19 @@ c     Begin program
             !Compute B unit vector, pointing outwards
             bhat = bbcnv/bmag*sign(1d0,bbcnv(1))
 
-            !Compute Bohm velocity (in Alfenic units)
-            th = 0.5*(tmp(i,j,k)+tmp(i+1,j,k))
-            u_bohm = 0d0
+            !Compute Bohm velocity (in Alfenic units) from upstream Te
+            te_up = tmpe(i,j,k)
+            ti_up = te_up*temp_ratio
+            u_bohm = sqrt(Z_i*te_up + 3*ti_up)
 
             v0(i+1,j,k,:) = u_bohm*bhat
-            
           endif
         enddo
       enddo
 
 c     End program
 
-      end subroutine sheath_flow_bc
+      end function sheath_flow_bc
       
 c     init_BCs
 c     ####################################################################

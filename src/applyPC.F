@@ -1442,9 +1442,8 @@ c Find dj* from dB*
 c Find dv (w/ Bcs)
 
       if (pinch_flow) then
-        v0(nx+1,:,:,:) = 0d0
-        call ExB_flow_bc(gv%gparams,igrid,bcnv0,d_prs
-     .                  ,eta0(:,:,:,1),E_0,v0,dbcov=db_cov)
+        v0 = ExB_flow_bc(gv%gparams,igrid,bcnv0,d_prs
+     .                  ,eta0(:,:,:,1),E_0,dbcov=db_cov)
         v0(nx+1,:,:,:) = 0.5*v0(nx+1,:,:,:)
       endif
 
