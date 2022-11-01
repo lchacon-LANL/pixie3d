@@ -31,7 +31,7 @@ c####################################################################
      $            ,fill_A0_bc   = .false.
      $            ,res_wall_bc  = .false.
      $            ,rw_is_vacuum = .false.
-     $            ,v00_ExB_bc = .false.
+     $            ,v00_ExB_bc   = .false.
 
         logical :: no_eq_bc,save_tn,no_tn_bc
         

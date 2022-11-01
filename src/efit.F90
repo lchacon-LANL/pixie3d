@@ -735,7 +735,8 @@
         else
            gparams(3) = gparams(2)
         endif
-      case('sh3')
+
+      case('sh3')  !See grid_anal_map_mod.F for gparams legend
 
         coords = coord
 
