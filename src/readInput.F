@@ -88,7 +88,7 @@ c Namelists
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
      .                   ,subtract_E0,e_cons_vstar,post_smooth_B
      .                   ,regularize_A,use_p_classic_eq,post_filter_hel
-     .                   ,binom_alph,v00_ExB_bc
+     .                   ,binom_alph,v00_ExB_bc,sheath_bc
      .                ,prt_file,equ_file,map_file,dcon
      .                !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -118,7 +118,7 @@ c Namelists
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
      .                   ,r_v,tau_w,rw_implicit_bc,rw_is_vacuum
-     .                   ,rw_fft_tupdate,v00_ExB_bc
+     .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_bc
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal

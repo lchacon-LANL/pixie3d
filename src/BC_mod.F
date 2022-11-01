@@ -32,6 +32,7 @@ c####################################################################
      $            ,res_wall_bc  = .false.
      $            ,rw_is_vacuum = .false.
      $            ,v00_ExB_bc   = .false.
+     $            ,sheath_bc    = .false.
 
         logical :: no_eq_bc,save_tn,no_tn_bc
         
@@ -1900,6 +1901,79 @@ c     End program
 
       end subroutine J_pinch_bc
 
+c     sheath_flow_bc
+c     #################################################################
+      subroutine sheath_flow_bc(g_def,igrid,bcnv,tmp,v0)
+
+c     -----------------------------------------------------------------
+c     Finds parallel Bohm flowboundary condition
+c     (returns contravariant components).
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: igrid
+      real(8),dimension(0:,0:,0:)   :: tmp
+      real(8),dimension(0:,0:,0:,:) :: bcnv,v0
+
+c     Local variables
+
+      integer :: i,j,k,ig,jg,kg,ord,nx,ny,nz,ibc
+
+      real(8) :: bmag,bbcnv(3),bbcov(3),jac,bhat(3),u_bohm,th
+
+c     Begin program
+
+      nx = size(bcnv,1)-2
+      ny = size(bcnv,2)-2
+      nz = size(bcnv,3)-2
+
+      i = nx ; ibc = 2
+
+      if (.not.isBdry(g_def,i,igrid,ibc)) return
+
+      if (igrid /= 1) then
+        write (*,*) 'sheath_flow_bc not ready for MG treatment'
+        stop
+      endif
+
+      v0 = 0d0
+      
+      !Compute value at face
+      do k=0,nz+1
+        do j=0,ny+1
+          jac = 0.5*(g_def%gmetric%grid(igrid)%jac(i  ,j,k)
+     .              +g_def%gmetric%grid(igrid)%jac(i+1,j,k))
+
+          bbcnv = 0.5*(bcnv(i,j,k,:)+bcnv(i+1,j,k,:))
+          if (.not.rw_is_vacuum) bbcnv(1) = 0d0 !Zero-out normal B-field
+          bbcov = XformToCov_ijk_face(g_def,i,j,k,igrid,bbcnv,1)
+          
+          bmag = sqrt(sum(bbcnv*bbcov)/jac)
+
+          if (bmag > 0d0) then
+
+            !Compute B unit vector, pointing outwards
+            bhat = bbcnv/bmag*sign(1d0,bbcnv(1))
+
+            !Compute Bohm velocity (in Alfenic units)
+            th = 0.5*(tmp(i,j,k)+tmp(i+1,j,k))
+            u_bohm = 0d0
+
+            v0(i+1,j,k,:) = u_bohm*bhat
+            
+          endif
+        enddo
+      enddo
+
+c     End program
+
+      end subroutine sheath_flow_bc
+      
 c     init_BCs
 c     ####################################################################
       subroutine init_BCs(bcsq)
