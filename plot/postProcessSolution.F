@@ -23,7 +23,7 @@ c--------------------------------------------------------------------
 
       use poincare_io
 
-      use app_iosetup, ONLY: car_diag_plots
+      use app_iosetup, ONLY: car_diag_plots,heat_flx_diag
 
 #if defined(RFX)
       use rfx
@@ -638,7 +638,7 @@ c     Begin program
      .    .or. coords == 'cyl'
      .    .or. coords == 'tor') call q_profile_simple
 
-      if (trim(equil)=="efit") call heat_flx_tor_diag
+      if (heat_flx_diag) call heat_flx_tor_diag
 
       end subroutine tor_diag
 

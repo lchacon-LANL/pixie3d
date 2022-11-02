@@ -30,7 +30,7 @@ c####################################################################
         logical :: regularize_A = .false.  !Whether we regularize A @ SP
      $            ,fill_A0_bc   = .false.
      $            ,res_wall_bc  = .false.
-     $            ,rw_is_vacuum = .false.
+     $            ,zero_ExB_tang= .true.
      $            ,v00_ExB_bc   = .false.
      $            ,sheath_bc    = .false.
 
@@ -217,11 +217,14 @@ cc        where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = EQU
       case ('efit')
 
 cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
+        pinch_flow = .false.
+
+        where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = EQU
 
         !Dirichlet boundary conditions for tangential components
-        where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
-        where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
-
+        where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = EQU
+        where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = EQU
+        
 cc        where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = EQU
         where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
 
@@ -1769,7 +1772,7 @@ c     Begin program
      .              +g_def%gmetric%grid(igrid)%jac(i+1,j,k))
 
           bbcnv = 0.5*(bcnv(i,j,k,:)+bcnv(i+1,j,k,:))
-          if (.not.rw_is_vacuum) bbcnv(1) = 0d0 !Zero-out normal B-field
+          if (zero_ExB_tang) bbcnv(1) = 0d0 !Zero-out normal B-field
           bbcov = XformToCov_ijk_face(g_def,i,j,k,igrid,bbcnv,1)
           
           b2 = sum(bbcnv*bbcov)/jac
@@ -1797,7 +1800,7 @@ c     Begin program
             v0(i+1,j,k,3)=(E00(1)*bbcov(2)-E00(2)*bbcov(1)
      .                   -etah*grad_p(3))/b2
             
-            if (.not.rw_is_vacuum) v0(i+1,j,k,2:3) = 0d0 !Zero-out tangential flow
+            if (zero_ExB_tang) v0(i+1,j,k,2:3) = 0d0 !Zero-out tangential flow
           endif
         enddo
       enddo
@@ -1871,7 +1874,7 @@ c$$$     $                                -    g_def%xx(ig-1))
           call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
      .                    ,1,xh,bbcnv(3),ord,0)
 
-          if (.not.rw_is_vacuum) bbcnv(1) = 0d0 !Zero-out normal B-field
+          if (zero_ExB_tang) bbcnv(1) = 0d0 !Zero-out normal B-field
           bbcov = XformToCov_ijk_face(g_def,i,j,k,igrid,bbcnv,1)
 c$$$          gsub = 0.5*(g_def%gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
 c$$$     .               +g_def%gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
@@ -1959,25 +1962,25 @@ c     Begin program
      .              +g_def%gmetric%grid(igrid)%jac(i+1,j,k))
 
           bbcnv = 0.5*(bcnv(i,j,k,:)+bcnv(i+1,j,k,:))
-          if (.not.rw_is_vacuum) bbcnv(1) = 0d0 !Zero-out normal B-field
           bbcov = XformToCov_ijk_face(g_def,i,j,k,igrid,bbcnv,1)
           
           bmag = sqrt(sum(bbcnv*bbcov)/jac)
 
           if (bmag > 0d0) then
-
             !Compute B unit vector, pointing outwards
             bhat = bbcnv/bmag*sign(1d0,bbcnv(1))
 
             !Compute Bohm velocity (in Alfenic units) from upstream Te
             te_up = tmpe(i,j,k)
             ti_up = te_up*temp_ratio
-            u_bohm = sqrt(Z_i*te_up + 3*ti_up)
+            u_bohm = sqrt(Z_i*te_up + 3d0*ti_up)
 
             v0(i+1,j,k,:) = u_bohm*bhat
           endif
         enddo
       enddo
+
+      write (*,*) "u_bohm=",u_bohm,u_bohm*bhat
 
 c     End program
 
