@@ -85,7 +85,7 @@ c           + bbcs(3) ---> at y0
 c           + bbcs(4) ---> at y1
 c           + bbcs(5) ---> at z0
 c           + bbcs(6) ---> at z1
-c     Definition of BC identifiers is given in "grid_mod.f". In vectors,
+c     Definition of BC identifiers is given in "grid_petsc_mod.F". In vectors,
 c     a negative BC identifier means that BCs are to be imposed on
 c     covariant components instead of on (default) contravariant comps.
 c     --------------------------------------------------------------------
@@ -205,18 +205,16 @@ c     Exceptions for specific equilibria
 
       case ('vmec','tor','stell','gstor','liu20')
 
-cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
+        pinch_flow = .false.
 
         !Dirichlet boundary conditions for tangential components
         where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
         where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
 
-cc        where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = EQU
         where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
 
       case ('efit')
 
-cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
         pinch_flow = .false.
 
         where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = EQU
@@ -502,7 +500,7 @@ c     End subroutine
 
 c     defineAuxVariables
 c     ###################################################################
-      subroutine defineAuxVariables(vaux)
+      subroutine defineAuxVariables(varray,vaux)
 
 c     -------------------------------------------------------------------
 c     Defines aux variables, creates dependencies for BC scheduler.
@@ -512,6 +510,7 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
+        type(var_array),pointer :: varray
         type(aux_array),pointer :: vaux
 
 c     Local variables
@@ -524,7 +523,7 @@ c     Begin program
 
 c     Define BCs
 
-        call defineAuxBCs(vaux)
+        call defineAuxBCs(varray,vaux)
 
 c     Setup variable dependencies at boundaries
 
@@ -540,7 +539,7 @@ c     End program
 
 c     defineAuxBCs
 c     ###################################################################
-      subroutine defineAuxBCs(vaux)
+      subroutine defineAuxBCs(varray,vaux)
 
 c     -------------------------------------------------------------------
 c     Defines BCs for auxiliary quantities
@@ -550,6 +549,7 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
+      type(var_array),pointer :: varray
       type(aux_array),pointer :: vaux
 
 c     Local variables
@@ -561,7 +561,7 @@ c     Begin program
 c     Read dependent variable BC setup
 
       do ieq=1,neqd
-        bcs(:,ieq) = gv%u_0%array_var(ieq)%bconds
+        bcs(:,ieq) = varray%array_var(ieq)%bconds
       enddo
 
 c     Set auxiliary variable BC

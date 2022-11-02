@@ -34,7 +34,7 @@ c Setup dependent variables
 
 c Setup auxiliary variables
 
-      call defineAuxVariables(vaux)
+      call defineAuxVariables(varray,vaux)
 
 c End program
 
