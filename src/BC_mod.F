@@ -217,15 +217,19 @@ c     Exceptions for specific equilibria
 
         pinch_flow = .false.
 
+        !Dirichlet boundary conditions for normal component
         where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = EQU
 
         !Dirichlet boundary conditions for tangential components
         where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = EQU
         where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = EQU
         
-cc        where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = EQU
-        where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
-
+        if (sheath_bc) then !Needed when restarting from "clean" equ.
+          where (abs(bbcs(:,IPRS)) == EQU) bbcs(:,IPRS) = NEU
+        else
+          where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
+        endif
+        
 cc      case ('ntm2d')                   !No slip BCs
 cc
 cc        !Dirichlet boundary conditions for tangential velocity components
@@ -1980,7 +1984,7 @@ c     Begin program
         enddo
       enddo
 
-      write (*,*) "u_bohm=",u_bohm,u_bohm*bhat
+c$$$      write (*,*) "u_bohm=",u_bohm,u_bohm*bhat
 
 c     End program
 
