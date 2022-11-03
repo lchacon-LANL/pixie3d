@@ -626,12 +626,12 @@ c$$$        enddo
 c$$$#endif
 c diag ****
 
-      !Bth [multiply by -sqrt(-1)*m; minus sign from convention of iFFT]
+      !Bth [multiply by -sqrt(-1)*m]
       Brn_m = mm*phii_m
       Bin_m =-mm*phir_m
       call ifft(nyg,Bth,theta,nyg,Brn_m,Bin_m,mm,0)
 
-c$$$      !Bz [multiply by -sqrt(-1)*k; minus sign from convention of iFFT]
+c$$$      !Bz [multiply by -sqrt(-1)*k]
 c$$$      Brn_m = kk*phii_m
 c$$$      Bin_m =-kk*phir_m
 c$$$      call ifft(nyg,Bz,theta,nyg,Brn_m,Bin_m,mm,0)
@@ -654,12 +654,12 @@ c     Find new-time EXTERNAL magnetic field components outside RW
         !New-time normal component Br
         call ifft(nyg,Br,theta,nyg,Br_m,Bi_m,mm,0)
 
-        !New-time tangential component Bth
+        !New-time Bth  [multiply by -sqrt(-1)*m]
         Brn_m = mm*phii_m_np
         Bin_m =-mm*phir_m_np
         call ifft(nyg,Bth,theta,nyg,Brn_m,Bin_m,mm,0)
 
-c$$$        !Bz [multiply by -sqrt(-1)*k; minus sign from convention of iFFT]
+c$$$        !New-time Bz [multiply by -sqrt(-1)*k]
 c$$$        Br_m = kk*phii_m_np
 c$$$        Bi_m =-kk*phir_m_np
 c$$$        call ifft(nyg,Bz,theta,nyg,Br_m,Bi_m,mm,0)
