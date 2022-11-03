@@ -1994,7 +1994,7 @@ c     init_BCs
 c     ####################################################################
       subroutine init_BCs(bcsq)
 c     --------------------------------------------------------------------
-c     Defines default BCs for SCALARS (rho, T)
+c     Defines default BCs for ALL variables
 c     --------------------------------------------------------------------
 
       implicit none
