@@ -194,7 +194,6 @@ c     Compute VACUUM response
       case('hel')
         call vacuum_hel(g_def,igr,bcnvint(:,:,1),gbcnvint(:,:,1),bcovext
      $                 ,rw_fft_tupdate)
-c$$$        call rw_hel(g_def,igr,bcnvint(:,:,1),bcovext)
 c$$$      case('cyl')
 c$$$      case('tor')
       case default
@@ -486,8 +485,8 @@ c     Local variables
      .                               ,gBr_m,gBi_m,Br,Bth,Bz
      .                               ,phir_m_np,phii_m_np
 
-      real(8) :: dImv,dIm,Im,d2Im,dKmv,dKm,Km,d2Km,pv,pw,RR,kk,rm,rbc
-     .          ,efac,gamma,dum,mmm
+      real(8) :: dImv,dIm,Im,d2Im,dKmv,dKm,Km,d2Km,pv,pw,RR,k_h,rm
+     .          ,efac,gamma,dum,m_h
      .          ,bcov_ext_np(0:size(bcov_ext,1)-1
      .                      ,0:size(bcov_ext,2)-1
      .                      ,  size(bcov_ext,3)  )
@@ -496,8 +495,9 @@ c     Local variables
 
 c     Begin program
 
-      mmm = g_def%params(1)
-      kk  = g_def%params(2)
+      !Helical pitch modes
+      m_h = g_def%params(1)
+      k_h = g_def%params(2)
 
       nx = g_def%nxv(igr) 
       ny = g_def%nyv(igr)
@@ -521,9 +521,9 @@ c     Global angular mesh
 
       theta = g_def%yg(1:nyg)
 
-c     FFT Bnormal at plasma wall
+c     FFT Bnormal at plasma wall (transform to cov by dividing by J=r/m*, r=1)
 
-      Bnl(1,:,1) = mmm*bcnvn_int(1:ny,1)
+      Bnl(1,:,1) = m_h*bcnvn_int(1:ny,1)  
 
       !Gather Bnormal in parallel along boundary
 #if defined(petsc)
@@ -537,8 +537,8 @@ c     FFT Bnormal at plasma wall
       
 c     Process gradient of Bnormal (new time)
       
-      !Compute gradient of Bn
-      gBnl(1,:,1) = mmm*gbcnvn_int(1:ny,1)
+      !Compute gradient of Bn (transform to cov by dividing by J=r/m*, r=1)
+      gBnl(1,:,1) = m_h*gbcnvn_int(1:ny,1)
 
       !Gather gradient in parallel along boundary
 #if defined(petsc)
@@ -552,36 +552,45 @@ c     Process gradient of Bnormal (new time)
 
 c     Find VACUUM potential solution Phi outside of resistive wall
 
-      if (kk == 0d0) then
+      if (k_h == 0d0) then
         do m=1,nyg
           m1   = abs(nint(mm(m)))
           if (m1 == 0) then
-            phir_m(m) = 0d0 ; phii_m(m) = 0d0
-          else
-            rm = r_v**(2*mm(m))
-
-            !Evolve normal B component
-            gamma = 1 + mm(m)*(rm+1d0)/(rm-1d0)
-            efac  = exp(-gamma*dt/tau_w)
-
-            Br_m(m) = efac*Brn_m(m)-(1d0-efac)/gamma*gBr_m(m)
-            Bi_m(m) = efac*Bin_m(m)-(1d0-efac)/gamma*gBi_m(m)
-
-            !Find phi_nm
-            dum = (rm+1d0)/((1d0-rm)*mm(m))
-            phir_m_np(m) = Br_m(m)*dum
-            phii_m_np(m) = Bi_m(m)*dum
-            phir_m   (m) = Brn_m(m)*dum
-            phii_m   (m) = Bin_m(m)*dum
+            phir_m   (m) = 0d0 ; phii_m   (m) = 0d0
+            phir_m_np(m) = 0d0 ; phii_m_np(m) = 0d0
+            cycle
           endif
+
+          rm = r_v**(2*mm(m))
+
+          !Evolve normal B component
+          gamma = 1 + mm(m)*(rm+1d0)/(rm-1d0)
+          efac  = exp(-gamma*dt/tau_w)
+
+          Br_m(m) = efac*Brn_m(m)-(1d0-efac)/gamma*gBr_m(m)
+          Bi_m(m) = efac*Bin_m(m)-(1d0-efac)/gamma*gBi_m(m)
+
+          !Find phi_nm
+          dum = (rm+1d0)/((1d0-rm)*mm(m))
+          phir_m_np(m) = Br_m(m)*dum
+          phii_m_np(m) = Bi_m(m)*dum
+          phir_m   (m) = Brn_m(m)*dum
+          phii_m   (m) = Bin_m(m)*dum
         enddo
       else
-        pw = abs(kk)
-        pv = abs(kk)*r_v
         do m=1,nyg
           m1   = abs(nint(mm(m)))
+          if (m1 == 0) then
+            phir_m   (m) = 0d0 ; phii_m   (m) = 0d0
+            phir_m_np(m) = 0d0 ; phii_m_np(m) = 0d0
+            cycle
+          endif
+          
           mm1  = abs(m1-1)
           mm2  = abs(m1-2)
+
+          pw = m1*abs(k_h)/m_h  !Forces helical pitch, k_n = m x (k_n*/m*)
+          pv = pw*r_v
 
           !Bessel function evals
           Km   = BESSK(m1 ,pw)                   
@@ -626,26 +635,20 @@ c$$$        enddo
 c$$$#endif
 c diag ****
 
-      !Bth [multiply by -sqrt(-1)*m]
-      Brn_m = mm*phii_m
-      Bin_m =-mm*phir_m
+      !Bth [multiply by -sqrt(-1)*m/m*]
+      Brn_m = mm/m_h*phii_m
+      Bin_m =-mm/m_h*phir_m
       call ifft(nyg,Bth,theta,nyg,Brn_m,Bin_m,mm,0)
 
-c$$$      !Bz [multiply by -sqrt(-1)*k]
-c$$$      Brn_m = kk*phii_m
-c$$$      Bin_m =-kk*phir_m
-c$$$      call ifft(nyg,Bz,theta,nyg,Brn_m,Bin_m,mm,0)
 
       !Get LOCAL helical (cov) magnetic field components @ r=1 
-      rbc = 1d0
-
       do j = 0,ny+1
         jglobal = j + g_def%jlo(1) - 1
         if (jglobal > nyg) jglobal = jglobal - nyg
         if (jglobal < 1  ) jglobal = nyg + jglobal
-        bcov_ext(j,:,1) = 0d0 !bcovn_int(j,:)
-        bcov_ext(j,:,2) = rbc/mmm*Bth(jglobal)
-        bcov_ext(j,:,3) = 0d0 !implies Bz(jglobal) = kk*bcov_ext(j,:,2)
+        bcov_ext(j,:,1) = 0d0 !Not needed
+        bcov_ext(j,:,2) = Bth(jglobal)
+        bcov_ext(j,:,3) = 0d0 !implies Bz(jglobal) = k_h*bcov_ext(j,:,2)
       enddo
 
 c     Find new-time EXTERNAL magnetic field components outside RW
@@ -654,24 +657,19 @@ c     Find new-time EXTERNAL magnetic field components outside RW
         !New-time normal component Br
         call ifft(nyg,Br,theta,nyg,Br_m,Bi_m,mm,0)
 
-        !New-time Bth  [multiply by -sqrt(-1)*m]
-        Brn_m = mm*phii_m_np
-        Bin_m =-mm*phir_m_np
+        !New-time Bth  [multiply by -sqrt(-1)*m/m*]
+        Brn_m = mm/m_h*phii_m_np
+        Bin_m =-mm/m_h*phir_m_np
         call ifft(nyg,Bth,theta,nyg,Brn_m,Bin_m,mm,0)
-
-c$$$        !New-time Bz [multiply by -sqrt(-1)*k]
-c$$$        Br_m = kk*phii_m_np
-c$$$        Bi_m =-kk*phir_m_np
-c$$$        call ifft(nyg,Bz,theta,nyg,Br_m,Bi_m,mm,0)
 
         !Get LOCAL helical (cov) magnetic field components @ r=1 
         do j = 0,ny+1
           jglobal = j + g_def%jlo(1) - 1
           if (jglobal > nyg) jglobal = jglobal - nyg
           if (jglobal < 1  ) jglobal = nyg + jglobal
-          bcov_ext_np(j,:,1) = 0d0 !Br(jglobal)
-          bcov_ext_np(j,:,2) = rbc/mmm*Bth(jglobal)
-          bcov_ext_np(j,:,3) = 0d0 !implies Bz(jglobal) = kk*bcov_ext_np(j,:,2)
+          bcov_ext_np(j,:,1) = 0d0 !Not needed
+          bcov_ext_np(j,:,2) = Bth(jglobal)
+          bcov_ext_np(j,:,3) = 0d0 !implies Bz(jglobal) = k_h*bcov_ext_np(j,:,2)
         enddo
 
         !Return new-time EXTERNAL magnetic field components outside RW
@@ -685,7 +683,7 @@ c$$$#else
 c$$$        dum = sum(Bnl(1,1:ny,1))/nyg
 c$$$#endif
 c$$$        if (debug_io)
-c$$$     $    write(*,*) "Bt norm. decay rate, m =",nint(mmm)," is",dum
+c$$$     $    write(*,*) "Bt norm. decay rate, m =",nint(m_h)," is",dum
 c$$$      endif
 
       endif

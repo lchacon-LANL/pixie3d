@@ -742,7 +742,7 @@ c       Magnetic field BC
           else
             call XferBCs(jcnv_0,v0,.true.)
           endif
-c$$$#endif
+
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
      .              ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
      .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
