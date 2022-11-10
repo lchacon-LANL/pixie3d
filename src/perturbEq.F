@@ -156,7 +156,7 @@ cc          nn = gv%gparams%params(5)
 
             if (my_rank == 0) then
               write (*,*)
-              write (*,*) 'Reading external perturbation file '
+              write (*,*) ' Reading external perturbation file '
      .                ,trim(prt_file)
             endif
 
@@ -164,7 +164,7 @@ cc          nn = gv%gparams%params(5)
 
             read(u_prtf,*) npw
 
-            if (my_rank == 0) write(*,*) 'Perturbed harmonics=',npw
+            if (my_rank == 0) write(*,*) ' Perturbed harmonics=',npw
 
             allocate(mm_arr(npw)
      .              ,nn_arr(npw)
@@ -177,10 +177,10 @@ cc          nn = gv%gparams%params(5)
             read(u_prtf,*) br_pert_phase_arr
 
             if (my_rank == 0) then
-              write(*,*) 'mm array=',mm_arr
-              write(*,*) 'nn array=',nn_arr
-              write(*,*) 'br_pert_bc array=',br_pert_bc_arr
-              write(*,*) 'br_pert_phase array=',br_pert_phase_arr
+              write(*,*) ' mm array=',mm_arr
+              write(*,*) ' nn array=',nn_arr
+              write(*,*) ' br_pert_bc array=',br_pert_bc_arr
+              write(*,*) ' br_pert_phase array=',br_pert_phase_arr
             endif
 
             close(u_prtf)
