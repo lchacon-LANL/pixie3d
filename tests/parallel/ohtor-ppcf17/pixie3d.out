@@ -1,0 +1,61 @@
+
+
+ ************************************
+ 2D Ohmic GS equilibrium solver
+ ************************************
+
+ 2D equilibrium converged in   8 iterations with error =  4.05E-08
+
+ EOM force residual comp 1=   8.5252941589524437E-010
+ EOM force residual comp 2=   4.5170747631186007E-003
+ EOM force residual comp 3=   8.7564442037500170E-004
+ EOM force residual total =   4.6011648054093386E-003
+
+ Ohms law residual comp 1=  0.34488252564767563     
+ Ohms law residual comp 2=   2.7584780972290359E-010
+ Ohms law residual comp 3=   2.8041797211513677E-009
+ Ohms law residual total =  0.34488252564767563     
+
+ Toroidal Ohmic equilibrium features:
+   Theta   = 0.1139849
+   Bz(r=0) = 1.0000000
+   I0      = 0.3894196
+   E0/eta  = 1.5151000
+   Tor_flx = 3.4164134
+   beta_pol [2 p0/Bth(a)^2]= 0.0000000
+   beta_tor [2 <p>/<Bz^2>] = 0.0000000
+
+  Reading external perturbation file pixie3d.eig
+  Perturbed harmonics=           2
+  mm array=           2           3
+  nn array=           0           0
+  br_pert_bc array=  -4.0000000000000001E-002   8.0000000000000002E-002
+  br_pert_phase array=   0.0000000000000000        0.0000000000000000     
+
+  Grid mesh:................  128x   64x    1
+  Number of processors:.....    4,    2,    1
+  Preconditioning method:... SI PC w/o flow
+  Timestep adaption......... T
+  External source........... F
+  Numerical grid............ F
+  Scalar advection scheme... ZIP      
+  Velocity advection scheme. SMART    
+  Anisotropic transport sch. 4th-7pt  
+  TS scheme................. BDF2     
+
+    itime      time     dt     #CFL   vx_max   vy_max   vz_max    GMRES Newton CN factor  GMRES-DC
+         1      0.00  1.8E-04 1.0E+00  1.0E-03  6.4E-06  8.0E-08     1     1     0.000       10
+         2      0.08  8.0E-02 4.3E+02  8.6E-04  1.8E-03  6.6E-05     7     4     0.000        9
+         3      0.16  8.4E-02 4.6E+02  1.4E-03  3.1E-03  1.4E-04     7     4     0.000       11
+         4      0.25  8.8E-02 4.8E+02  1.8E-03  4.1E-03  2.1E-04     9     4     0.000       11
+         5      0.34  9.3E-02 5.0E+02  2.1E-03  5.5E-03  2.8E-04    10     4     0.000       10
+         6      0.44  9.7E-02 5.3E+02  2.4E-03  7.2E-03  3.4E-04    10     4     0.000       10
+         7      0.54  1.0E-01 5.4E+02  2.7E-03  9.1E-03  4.1E-04    10     4     0.000       12
+         8      0.64  1.0E-01 5.4E+02  2.9E-03  1.1E-02  4.7E-04     9     4     0.000       13
+         9      0.74  1.0E-01 5.4E+02  2.9E-03  1.2E-02  5.3E-04     9     4     0.000       12
+        10      0.84  1.0E-01 5.4E+02  2.9E-03  1.3E-02  6.0E-04     8     4     0.000       12
+
+Final statistics
+
+ itime  Newt/ndt  GMRES/ndt  GMRES/Newt
+   10       3.7        8.0        2.2

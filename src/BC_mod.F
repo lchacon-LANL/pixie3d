@@ -1811,8 +1811,12 @@ c     Begin program
 
       if (v00_ExB_bc) then
         dum(1) = sum(v0(i+1,1:ny,1:nz,1))
+#if defined(petsc)
         v0(i+1,:,:,1) = psum(dum(1:1),mpi_comm=g_def%MPI_COMM_YZ)
-     $                /(nyd*nzd)
+     $                  /(nyd*nzd)
+#else
+        v0(i+1,:,:,1) = dum(1)/(nyd*nzd)
+#endif
       endif
 
 c     End program
