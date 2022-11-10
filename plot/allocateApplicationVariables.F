@@ -36,7 +36,7 @@ c Begin program
 
 c Allocate auxiliary variables
 
-      call defineAuxVariables(gv%aux)
+      call defineAuxVariables(gv%u_np,gv%aux)
 
 c Read coordinate map
       

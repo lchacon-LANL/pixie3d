@@ -34,7 +34,7 @@ c Setup dependent variables
 
 c Setup auxiliary variables
 
-      call defineAuxVariables(vaux)
+      call defineAuxVariables(varray,vaux)
 
 c End program
 
@@ -560,7 +560,7 @@ c       Velocity BC
           if (pinch_bc) then
             prs0 = rho_0*tmp_0
             E_bc = 0d0
-            call ExB_flow_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
+            v0 = ExB_flow_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc)
           else
             v0 = 0d0
           endif
@@ -631,13 +631,18 @@ c$$$          call XferBCs(vcnv,vcnv_n,.false.)
 
 c       Velocity BC
 
+          !Perpendicular flow
           if (pinch_bc) then
             prs1 = rho*tmp
-            call ExB_flow_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
+            v0 = ExB_flow_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc)
           else
             call XferBCs(vcnv_0,v0,.true.)
           endif
 
+          !Parallel flow
+          if (sheath_bc) then
+            v0 = v0 + sheath_flow_bc(gv%gparams,igr,bcnv,tmpe)
+          endif
           call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vcnv,vcov,v0
      .              ,vaux%vec_list(IVCNV)%bconds,igr,igr,igr
      .              ,iorder=order)

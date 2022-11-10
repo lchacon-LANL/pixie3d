@@ -30,8 +30,9 @@ c####################################################################
         logical :: regularize_A = .false.  !Whether we regularize A @ SP
      $            ,fill_A0_bc   = .false.
      $            ,res_wall_bc  = .false.
-     $            ,rw_is_vacuum = .false.
+     $            ,zero_ExB_tang= .true.
      $            ,v00_ExB_bc   = .false.
+     $            ,sheath_bc    = .false.
 
         logical :: no_eq_bc,save_tn,no_tn_bc
         
@@ -84,7 +85,7 @@ c           + bbcs(3) ---> at y0
 c           + bbcs(4) ---> at y1
 c           + bbcs(5) ---> at z0
 c           + bbcs(6) ---> at z1
-c     Definition of BC identifiers is given in "grid_mod.f". In vectors,
+c     Definition of BC identifiers is given in "grid_petsc_mod.F". In vectors,
 c     a negative BC identifier means that BCs are to be imposed on
 c     covariant components instead of on (default) contravariant comps.
 c     --------------------------------------------------------------------
@@ -204,26 +205,31 @@ c     Exceptions for specific equilibria
 
       case ('vmec','tor','stell','gstor','liu20')
 
-cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
+        pinch_flow = .false.
 
         !Dirichlet boundary conditions for tangential components
         where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
         where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
 
-cc        where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = EQU
         where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
 
       case ('efit')
 
-cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
+        pinch_flow = .false.
+
+        !Dirichlet boundary conditions for normal component
+        where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = EQU
 
         !Dirichlet boundary conditions for tangential components
-        where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
-        where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
-
-cc        where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = EQU
-        where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
-
+        where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = EQU
+        where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = EQU
+        
+        if (sheath_bc) then !Needed when restarting from "clean" equ.
+          where (abs(bbcs(:,IPRS)) == EQU) bbcs(:,IPRS) = NEU
+        else
+          where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
+        endif
+        
 cc      case ('ntm2d')                   !No slip BCs
 cc
 cc        !Dirichlet boundary conditions for tangential velocity components
@@ -498,7 +504,7 @@ c     End subroutine
 
 c     defineAuxVariables
 c     ###################################################################
-      subroutine defineAuxVariables(vaux)
+      subroutine defineAuxVariables(varray,vaux)
 
 c     -------------------------------------------------------------------
 c     Defines aux variables, creates dependencies for BC scheduler.
@@ -508,6 +514,7 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
+        type(var_array),pointer :: varray
         type(aux_array),pointer :: vaux
 
 c     Local variables
@@ -520,7 +527,7 @@ c     Begin program
 
 c     Define BCs
 
-        call defineAuxBCs(vaux)
+        call defineAuxBCs(varray,vaux)
 
 c     Setup variable dependencies at boundaries
 
@@ -536,7 +543,7 @@ c     End program
 
 c     defineAuxBCs
 c     ###################################################################
-      subroutine defineAuxBCs(vaux)
+      subroutine defineAuxBCs(varray,vaux)
 
 c     -------------------------------------------------------------------
 c     Defines BCs for auxiliary quantities
@@ -546,6 +553,7 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
+      type(var_array),pointer :: varray
       type(aux_array),pointer :: vaux
 
 c     Local variables
@@ -557,7 +565,7 @@ c     Begin program
 c     Read dependent variable BC setup
 
       do ieq=1,neqd
-        bcs(:,ieq) = gv%u_0%array_var(ieq)%bconds
+        bcs(:,ieq) = varray%array_var(ieq)%bconds
       enddo
 
 c     Set auxiliary variable BC
@@ -1102,7 +1110,7 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IVCNV)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IVCNV)%bc_dep_list(1,3) = 0 !trivial
 
-      if (pinch_bc) then
+      if (pinch_bc.or.sheath_bc) then
         vaux%vec_list(IVCNV)%bc_dep_list(2,1) = IRHO_AUX*AUX
         vaux%vec_list(IVCNV)%bc_dep_list(2,2) = SCALAR
         vaux%vec_list(IVCNV)%bc_dep_list(2,3) = 1 !non-trivial
@@ -1716,7 +1724,7 @@ c     End program
 
 c     ExB_flow_bc
 c     #################################################################
-      subroutine ExB_flow_bc(g_def,igrid,bcnv,prs,eta,E_0,v0,dbcov)
+      function ExB_flow_bc(g_def,igrid,bcnv,prs,eta,E_0,dbcov)result(v0)
 
 c     -----------------------------------------------------------------
 c     Finds ExB flow boundary condition when Eo is imposed at boundary
@@ -1731,8 +1739,11 @@ c     Call variables
 
       integer :: igrid
       real(8),dimension(0:,0:,0:)   :: prs,eta
-      real(8),dimension(0:,0:,0:,:) :: bcnv,v0,E_0
+      real(8),dimension(0:,0:,0:,:) :: bcnv,E_0
       real(8),dimension(0:,0:,0:,:),optional :: dbcov
+      real(8),dimension(0:size(bcnv,1)-1
+     $                 ,0:size(bcnv,2)-1
+     $                 ,0:size(bcnv,3)-1,3) :: v0
 
 c     Local variables
 
@@ -1765,7 +1776,7 @@ c     Begin program
      .              +g_def%gmetric%grid(igrid)%jac(i+1,j,k))
 
           bbcnv = 0.5*(bcnv(i,j,k,:)+bcnv(i+1,j,k,:))
-          if (.not.rw_is_vacuum) bbcnv(1) = 0d0 !Zero-out normal B-field
+          if (zero_ExB_tang) bbcnv(1) = 0d0 !Zero-out normal B-field
           bbcov = XformToCov_ijk_face(g_def,i,j,k,igrid,bbcnv,1)
           
           b2 = sum(bbcnv*bbcov)/jac
@@ -1793,7 +1804,7 @@ c     Begin program
             v0(i+1,j,k,3)=(E00(1)*bbcov(2)-E00(2)*bbcov(1)
      .                   -etah*grad_p(3))/b2
             
-            if (.not.rw_is_vacuum) v0(i+1,j,k,2:3) = 0d0 !Zero-out tangential flow
+            if (zero_ExB_tang) v0(i+1,j,k,2:3) = 0d0 !Zero-out tangential flow
           endif
         enddo
       enddo
@@ -1806,7 +1817,7 @@ c     Begin program
 
 c     End program
 
-      end subroutine ExB_flow_bc
+      end function ExB_flow_bc
 
 c     J_pinch_bc
 c     #################################################################
@@ -1867,7 +1878,7 @@ c$$$     $                                -    g_def%xx(ig-1))
           call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
      .                    ,1,xh,bbcnv(3),ord,0)
 
-          if (.not.rw_is_vacuum) bbcnv(1) = 0d0 !Zero-out normal B-field
+          if (zero_ExB_tang) bbcnv(1) = 0d0 !Zero-out normal B-field
           bbcov = XformToCov_ijk_face(g_def,i,j,k,igrid,bbcnv,1)
 c$$$          gsub = 0.5*(g_def%gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
 c$$$     .               +g_def%gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
@@ -1900,11 +1911,90 @@ c     End program
 
       end subroutine J_pinch_bc
 
+c     sheath_flow_bc
+c     #################################################################
+      function sheath_flow_bc(g_def,igrid,bcnv,tmpe) result(v0)
+
+c     -----------------------------------------------------------------
+c     Finds parallel Bohm flowboundary condition
+c     (returns contravariant components).
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: igrid
+      real(8),dimension(0:,0:,0:)   :: tmpe
+      real(8),dimension(0:,0:,0:,:) :: bcnv
+      real(8),dimension(0:size(bcnv,1)-1
+     $                 ,0:size(bcnv,2)-1
+     $                 ,0:size(bcnv,3)-1,3) :: v0
+
+c     Local variables
+
+      integer :: i,j,k,ig,jg,kg,ord,nx,ny,nz,ibc
+
+      real(8) :: bmag,bbcnv(3),bbcov(3),jac,bhat(3)
+      real(8) :: u_bohm,te_up,ti_up,Z_i
+
+c     Begin program
+
+      nx = size(bcnv,1)-2
+      ny = size(bcnv,2)-2
+      nz = size(bcnv,3)-2
+
+      i = nx ; ibc = 2
+
+      if (.not.isBdry(g_def,i,igrid,ibc)) return
+
+      if (igrid /= 1) then
+        write (*,*) 'sheath_flow_bc not ready for MG treatment'
+        stop
+      endif
+
+      v0 = 0d0
+
+      Z_i = 1d0
+      
+      !Compute value at face
+      do k=0,nz+1
+        do j=0,ny+1
+          jac = 0.5*(g_def%gmetric%grid(igrid)%jac(i  ,j,k)
+     .              +g_def%gmetric%grid(igrid)%jac(i+1,j,k))
+
+          bbcnv = 0.5*(bcnv(i,j,k,:)+bcnv(i+1,j,k,:))
+          bbcov = XformToCov_ijk_face(g_def,i,j,k,igrid,bbcnv,1)
+          
+          bmag = sqrt(sum(bbcnv*bbcov)/jac)
+
+          if (bmag > 0d0) then
+            !Compute B unit vector, pointing outwards
+            bhat = bbcnv/bmag*sign(1d0,bbcnv(1))
+
+            !Compute Bohm velocity (in Alfenic units) from upstream Te
+            te_up = tmpe(i,j,k)
+            ti_up = te_up*temp_ratio
+            u_bohm = sqrt(Z_i*te_up + 3d0*ti_up)
+
+            v0(i+1,j,k,:) = u_bohm*bhat
+          endif
+        enddo
+      enddo
+
+c$$$      write (*,*) "u_bohm=",u_bohm,u_bohm*bhat
+
+c     End program
+
+      end function sheath_flow_bc
+      
 c     init_BCs
 c     ####################################################################
       subroutine init_BCs(bcsq)
 c     --------------------------------------------------------------------
-c     Defines default BCs for SCALARS (rho, T)
+c     Defines default BCs for ALL variables
 c     --------------------------------------------------------------------
 
       implicit none

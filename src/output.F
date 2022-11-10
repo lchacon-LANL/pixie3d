@@ -18,7 +18,7 @@ c----------------------------------------------------------------------
 
       use nlfunction_setup
 
-      use rw_bc, ONLY: res_wall_bc,rw_implicit_bc
+      use rw_bc, ONLY: res_wall_bc,rw_implicit_bc,sheath_bc
 
       implicit none
 
@@ -282,9 +282,9 @@ c     Warnings
       if (.not.solve_rho)
      .     call info('  Not solving for density')
       if (solve_prs) then
-        call info('  Solving for P=Pi+Pe')
+        call info('  Solving for P=Pi+Pe instead of Te')
       else
-        call info('  Solving for Te')
+        call info('  Solving for Te instead of P')
       endif
 
       if (adiabatic_rho) call info('  Using polytropic EOS for density')
@@ -326,6 +326,8 @@ c     Warnings
           call info('  Applying EXPLICIT Resistive Wall BC')
         endif
       endif
+
+      if (sheath_bc) call info('  Applying SHEATH BC')
       
       call info('  ***************************************************')
 

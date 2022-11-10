@@ -29,6 +29,7 @@ c Local variables
      .                   ,prof_conf,cont_conf,clean
      .                   ,iplot,jplot,kplot,poincare,xdraw_plot
      .                   ,adios_plot,temp_acc,acc_ref_file
+     .                   ,heat_flx_diag
 
       namelist /plots/    clean,poincare
 
@@ -43,7 +44,8 @@ c Graphics defaults
       adios_plot =.false.   ! Whether an ADIOS-BP file is to be created
       xdraw_plot = .true.   ! Whether to dump XDRAW files
       car_diag_plots=.true. ! Whether diagnostic plots are in Cartesian geom or not
-
+      heat_flx_diag =.false.! Whether to output heat-flux boundary plots
+      
       !Local (point) diagnostic configuration (XDRAW)
       iplot = 1
       jplot = 1

@@ -159,7 +159,7 @@ c Faraday's law <<<<<<<<<<<<<<<<<<<<<<
 
 #endif
 
-c Total kinetic pressure equation <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+c Pressure/Temperature equation <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 c     Heat flux
 

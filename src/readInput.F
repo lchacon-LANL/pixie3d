@@ -58,7 +58,7 @@ c Namelists
      .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old,xport_order
-     .                   ,r_v,tau_w,rw_implicit_bc,rw_is_vacuum
+     .                   ,r_v,tau_w,rw_implicit_bc,zero_ExB_tang
      .                   ,rw_fft_tupdate
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
@@ -88,7 +88,7 @@ c Namelists
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
      .                   ,subtract_E0,e_cons_vstar,post_smooth_B
      .                   ,regularize_A,use_p_classic_eq,post_filter_hel
-     .                   ,binom_alph,v00_ExB_bc
+     .                   ,binom_alph,v00_ExB_bc,sheath_bc
      .                ,prt_file,equ_file,map_file,dcon
      .                !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -117,8 +117,8 @@ c Namelists
      .                   ,equil,gstor_I_drive,refine_eq
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
-     .                   ,r_v,tau_w,rw_implicit_bc,rw_is_vacuum
-     .                   ,rw_fft_tupdate,v00_ExB_bc
+     .                   ,r_v,tau_w,rw_implicit_bc,zero_ExB_tang
+     .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_bc
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
@@ -507,7 +507,7 @@ c     #####################################################################
 
       tau_w    = 1d2           ! Resistive wall thin-shell time
       r_v      = 1.5           ! Radius of outer conducting shell
-      rw_is_vacuum   = .false. ! Whether RW is emulating vacuum
+      zero_ExB_tang  = .true.  ! Whether we zero out tangential ExB flow
       rw_implicit_bc = .false. ! Whether we perform implicit RW update (alpha)
       rw_fft_tupdate = .true.  ! Whether we integrate RW eqs in Fourier space
       
@@ -732,14 +732,16 @@ c     #####################################################################
       if (tst_flg) test = .true.
 
       if (refine_eq) then
+        ts_restart = .false.
         aa_nu = 0d0 ; bb_nu = 0d0 ; cc_nu = 0d0 !Flat nu profile
-        dd  = 0d0        !To avoid dens decay
-        chi = 0d0        !To avoid temp decay due to perpendicular xport
-        nu  = 1d0        !To damp flow
-        eta = 0d0        !To avoid resistive diffusion
-        source = .false. !To let equilibrium float
-        pert = 0d0       !Zero out perturbations
-        chk_src = .true.
+        dd  = 0d0         !To avoid dens decay
+        chi = 0d0         !To avoid temp decay due to perpendicular xport
+        nu  = 1d0         !To damp flow
+        eta = 0d0         !To avoid resistive diffusion
+        source = .false.  !To let equilibrium float
+        pert = 0d0        !Zero out perturbations
+        chk_src  = .true.
+        sheath_bc= .false.!Do not sheath BCs
       endif
 
       !Face symmetric if "sym"
@@ -770,6 +772,8 @@ c$$$          write (messg,*) "dt must be <",tau_w/nxd,"for RW BC stability"
 c$$$          call critical('readInput',messg)
         endif
       endif
+
+      if (sheath_bc) zero_ExB_tang = .false. !Consider full ExB flow
       
       !Adequate size for collapsed dimension
       if (coords /= 'car') then
