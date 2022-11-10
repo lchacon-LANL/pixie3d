@@ -59,7 +59,7 @@ qos="standard"
 np=""
 omp_tasks=1
 email="chacon@lanl.gov"
-env="gcc"
+environment="gcc"
 
 # Parse command line options
 
