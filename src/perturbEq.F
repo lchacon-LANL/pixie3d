@@ -203,29 +203,18 @@ cc          nn = gv%gparams%params(5)
 
           do ipw = 1,npw
 
-#if !defined(vec_pot)
-             daa=0d0
-             dbb=0d0
-#endif
-
             mm = mm_arr(ipw)
             nn = nn_arr(ipw)
             br_pert_bc = br_pert_bc_arr(ipw)
             br_pert_phase = br_pert_phase_arr(ipw)
-
+            
 #if defined(vec_pot)
-
             do k = klom,khip
               do j = jlom,jhip
                 do i = ilom,ihip
 
-                  call getCartesianCoordinates(gv%gparams,i,j,k
-     .                              ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
-
-                  xi = sqrt((sqrt(x1**2+y1**2)-RR)**2 + z1**2)
-
-                  call getCurvilinearCoordinates(gv%gparams,i,j,k
-     .                              ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
+                  call find_polar_coords(gv%gparams,igx,i,j,k,xi,y1,z1
+     $                                  ,"tor")
 
                   varr%array_var(IAZ)%array(i,j,k) =
      .                  varr%array_var(IAZ)%array(i,j,k)
@@ -260,22 +249,17 @@ cc          nn = gv%gparams%params(5)
             u_0%array_var(IAZ)%array=varr%array_var(IAZ)%array
 
 #else
+            daa=0d0
+            dbb=0d0
+            
             do k = klom,khip
               do j = jlom,jhip
                 do i = ilom,ihip
 
-
-                  call getCartesianCoordinates(gv%gparams,i,j,k
-     .                              ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
-
-                  xi = sqrt((sqrt(x1**2+y1**2)-RR)**2 + z1**2)
-
-                  call getCurvilinearCoordinates(gv%gparams,i,j,k
-     .                                   ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
-
+                  call find_polar_coords(gv%gparams,igx,i,j,k,xi,y1,z1
+     $                                  ,"tor")
 
                   daa(i,j,k,3) =
-     .                  daa(i,j,k,3)
      .                  +xi**mm*br_pert_bc*RR
      .                  *cos(mm*y1+nn*z1+br_pert_phase)/mm
 
@@ -303,7 +287,7 @@ cc          nn = gv%gparams%params(5)
 
             dbb = curl(gv%gparams,igx,daa)
 
-           do k = klom,khip
+            do k = klom,khip
               do j = jlom,jhip
                 do i = ilom,ihip
 
@@ -318,124 +302,15 @@ cc          nn = gv%gparams%params(5)
 
                 enddo
              enddo
-          enddo
+           enddo
 
 #endif 
 
-      enddo
+         enddo
 #if !defined(vec_pot) 
-       deallocate(daa,dbb)
+         deallocate(daa,dbb)
 #endif
-      endif
-
-
-!                  ip = ig+1
-!                  im = ig-1
-!                  jp = jg+1
-!                  jm = jg-1
-!                  kp = kg+1
-!                  km = kg-1
-!
-!                  dxx = 2*gv%gparams%dxh(ig)
-!                  dyy = 2*gv%gparams%dyh(jg)
-!                  dzz = 2*gv%gparams%dzh(kg)
-!
-!                  ! Daniele, 19 Dec. 2014
-!                  ! divergence-free perturbation with b^3=0 (and limited to the n=0 case)
-!                  ! used for the n=0 case when the divergence-free perturbation with b^2=0 fails
-!                  ! to be extended to generic br_pert_phase (now only particular case br_pert_phase=0.)
-!                  ! to be possibly extended to generic n
-!                  ! b^1=r^m instead of r^(m+2) similar to the helical/cylindrical case
-!                  if (nn == 0) then
-!
-!                    varr%array_var(IBX)%array(i,j,k) =
-!     .                  varr%array_var(IBX)%array(i,j,k)
-!     .                  +x1**mm*br_pert_bc*RR
-!     .                  *(cos(mm*gv%gparams%yy(jp))
-!     .                  -cos(mm*gv%gparams%yy(jm)))
-!     .                  /dyy/mm !Derivative done numerically to preserve div(B)=0
-!
-!                    varr%array_var(IBY)%array(i,j,k) =
-!     .                  varr%array_var(IBY)%array(i,j,k)
-!     .                  -br_pert_bc*RR
-!     .                  *(gv%gparams%xx(ip)**mm
-!     .                  -gv%gparams%xx(im)**mm)
-!     .                  /dxx !Derivative done numerically to preserve div(B)=0
-!     .                  *cos(mm*y1)/mm
-!
-!                    if (mm /= -1) then
-!
-!                      varr%array_var(IBX)%array(i,j,k) =
-!     .                     varr%array_var(IBX)%array(i,j,k)
-!     .                     +0.5*x1**(mm+1)*br_pert_bc
-!     .                     *(cos((mm+1)*gv%gparams%yy(jp))
-!     .                     -cos((mm+1)*gv%gparams%yy(jm)))
-!     .                     /dyy/(mm+1) !Derivative done numerically to preserve div(B)=0
-!
-!                      varr%array_var(IBY)%array(i,j,k) =
-!     .                     varr%array_var(IBY)%array(i,j,k)
-!     .                     -0.5*br_pert_bc
-!     .                     *(gv%gparams%xx(ip)**(mm+1)
-!     .                     -gv%gparams%xx(im)**(mm+1))
-!     .                     /dxx !Derivative done numerically to preserve div(B)=0
-!     .                     *cos((mm+1)*y1)/(mm+1)
-!    
-!                    endif
-!
-!                    if (mm /= 1) then
-!                      varr%array_var(IBX)%array(i,j,k) =
-!     .                     varr%array_var(IBX)%array(i,j,k)
-!     .                     +0.5*x1**(mm+1)*br_pert_bc
-!     .                     *(cos((mm-1)*gv%gparams%yy(jp))
-!     .                     -cos((mm-1)*gv%gparams%yy(jm)))
-!     .                     /dyy/(mm-1) !Derivative done numerically to preserve div(B)=0
-!
-!                      varr%array_var(IBY)%array(i,j,k) =
-!     .                     varr%array_var(IBY)%array(i,j,k)
-!     .                     -0.5*br_pert_bc
-!     .                     *(gv%gparams%xx(ip)**(mm+1)
-!     .                     -gv%gparams%xx(im)**(mm+1))
-!     .                     /dxx !Derivative done numerically to preserve div(B)=0
-!     .                     *cos((mm-1)*y1)/(mm-1)
-!
-!                    endif
-!
-!                  else
-!
-!                    !Daniele, 19 Dec. 2014
-!                    !divergence-free perturbation with b^3=0 (fails in the n=0 case)
-!                    varr%array_var(IBX)%array(i,j,k) =
-!     .                varr%array_var(IBX)%array(i,j,k)
-!!     .               +x1**(mm+10)*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
-!     .               +x1**(mm+2)*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
-!!     .               +x1**mm*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
-!     .                 *(cos(mm*y1+nn*gv%gparams%zz(kp)+br_pert_phase)
-!     .                  -cos(mm*y1+nn*gv%gparams%zz(km)+br_pert_phase))
-!     .                 /dzz/nn !Derivative done numerically to preserve div(B)=0
-!    
-!                    varr%array_var(IBZ)%array(i,j,k) =
-!     .                varr%array_var(IBZ)%array(i,j,k)
-!     .               -br_pert_bc*
-!!     .               (gv%gparams%xx(ip)**(mm+10)
-!     .               (gv%gparams%xx(ip)**(mm+2)
-!!     .               (gv%gparams%xx(ip)**mm
-!     .                *(RR+gv%gparams%xx(ip)*cos(y1))
-!!     .               -gv%gparams%xx(im)**(mm+10)
-!     .               -gv%gparams%xx(im)**(mm+2)
-!!     .               -gv%gparams%xx(im)**mm
-!     .                *(RR+gv%gparams%xx(im)*cos(y1)))
-!     .                 /dxx !Derivative done numerically to preserve div(B)=0
-!     .               *cos(mm*y1+nn*z1+br_pert_phase)/nn
-!                      
-!                  endif
-!
-!                enddo
-!              enddo
-!            enddo
-!#endif
-!          enddo
-!
-!        endif
+       endif
 
       case ('msw')
 
