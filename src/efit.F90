@@ -194,7 +194,7 @@
           return
         endif
 
-        call clean_sptrx(nbbbs,rbbbs,zbbbs)
+        if (nbbbs > 0) call clean_sptrx(nbbbs,rbbbs,zbbbs)
         
         if (.not.short_efit_file) then
           read (neqdsk,2024,IOSTAT=istat) kvtor,rvtor,nmass
@@ -593,6 +593,11 @@
 
         npt = size(rlim)
 
+        if (npt <= 1) then
+           inside = .true.
+           return
+        endif
+
         !Order N algorithm based on angular integration
         !(approximates shape by a polygon)
         !Works for arbitrary curve shape
@@ -630,7 +635,7 @@
 !       Local variables
 
         integer :: np,i
-        real(8) :: mag,iLL
+        real(8) :: mag,iLL,LL
         real(8), allocatable,dimension(:) :: rl,zl
 
 !       Begin program
@@ -652,7 +657,9 @@
         zb(1:np) = zl(1:np)
 
         !Second pass (detect jumps in curve)
-        iLL = 1d0/(maxval(rlim)-minval(rlim))
+        LL = (maxval(rlim)-minval(rlim))
+        if (LL == 0d0) return
+        iLL = 1d0/LL
         mag = 0d0
         np = 0
         do i=1,npt-1
