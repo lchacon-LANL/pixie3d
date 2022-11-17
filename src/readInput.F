@@ -982,6 +982,7 @@ cc         maxitnwt = 10
 
       !Magnetic perturbation
       if (br_pert_freq /= 0d0) irrot_br_pert = .true.
+      if (br_pert_bc   /= 0d0) irrot_br_pert = .true.
 
       !Parallelization
 #if defined(petsc)

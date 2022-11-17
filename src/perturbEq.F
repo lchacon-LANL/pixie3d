@@ -27,7 +27,7 @@ c     Call variables
 
 c     Local variables
 
-      integer :: i,j,k,ig,jg,kg,igx,igy,igz,ieq
+      integer :: i,j,k,ig,jg,kg,igx,igy,igz,ieq,nx,ny,nz
       real(8) :: x1,y1,z1,jac,kx,ky,kk,eps
      .          ,vplus,vminus,vshear,cs2,kdotB,cth
      .          ,vxx,vyy,vzz,ivxx,ivyy,ivzz,xi,ixi,yy,iyy
@@ -40,8 +40,6 @@ c     Local variables
       real(8) :: dxx,dyy,dzz,RR
 
       integer :: mm,nn
-
-cc      real(8) :: kbesel, beseli, dbeseli, dbeselip, dbeselim
 
       logical :: check
 
@@ -77,6 +75,10 @@ c     Begin program
       igy = 1
       igz = 1
 
+      nx = gv%gparams%nxv(igx)
+      ny = gv%gparams%nyv(igy)
+      nz = gv%gparams%nzv(igz)
+      
       select case(equil)
 c$$$      case ('2dkai','3dkai')
 c$$$
@@ -136,19 +138,9 @@ cc          enddo
         enddo
 
         !Perturb normal B-field component ensuring div(B)=0 numerically
-        if (br_pert_bc /= 0d0) then
-
-#if !defined(vec_pot) 
-           allocate(daa(ilom:ihip,jlom:jhip,klom:khip,3)
-     .             ,dbb(ilom:ihip,jlom:jhip,klom:khip,3))
-#endif
-
+        if (irrot_br_pert) then
 
           RR = gv%gparams%params(1)
-cc          mm = gv%gparams%params(4)
-cc          nn = gv%gparams%params(5)
-!          mm = nh2
-!          nn =-nh3
 
 ! Daniele, 04 May 2015
 ! to allow for multiple perturbed harmonics in the ohtor case
@@ -201,116 +193,78 @@ cc          nn = gv%gparams%params(5)
 
           endif
 
-          do ipw = 1,npw
+          allocate(daa(0:nx+1,0:ny+1,0:nz+1,3))
 
-            mm = mm_arr(ipw)
-            nn = nn_arr(ipw)
-            br_pert_bc = br_pert_bc_arr(ipw)
-            br_pert_phase = br_pert_phase_arr(ipw)
-            
-#if defined(vec_pot)
-            do k = klom,khip
-              do j = jlom,jhip
-                do i = ilom,ihip
+          daa=0d0
 
-                  call find_polar_coords(gv%gparams,igx,i,j,k,xi,y1,z1
-     $                                  ,"tor")
+          do k = 0,nz+1
+            do j = 0,ny+1
+              do i = 0,nx+1
 
-                  varr%array_var(IAZ)%array(i,j,k) =
-     .                  varr%array_var(IAZ)%array(i,j,k)
-     .                  +xi**mm*br_pert_bc*RR
+                call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+     $                                ,"tor")
+
+                do ipw = 1,npw
+                  mm = mm_arr(ipw)
+                  nn = nn_arr(ipw)
+                  br_pert_bc = br_pert_bc_arr(ipw)
+                  br_pert_phase = br_pert_phase_arr(ipw)
+
+                  daa(i,j,k,3) = daa(i,j,k,3)
+     .                  +x1**mm*br_pert_bc*RR
      .                  *cos(mm*y1+nn*z1+br_pert_phase)/mm
 
                   if (mm /= -1) then
 
-                    varr%array_var(IAZ)%array(i,j,k) =
-     .                     varr%array_var(IAZ)%array(i,j,k)
-     .                     +0.5*xi**(mm+1)*br_pert_bc
+                    daa(i,j,k,3) = daa(i,j,k,3)
+     .                     +0.5*x1**(mm+1)*br_pert_bc
      .                    *cos((mm+1)*y1+nn*z1+br_pert_phase)/(mm+1)
 
                   endif
 
                   if (mm /= 1) then
 
-                    varr%array_var(IAZ)%array(i,j,k) =
-     .                     varr%array_var(IAZ)%array(i,j,k)
-     .                     +0.5*xi**(mm+1)*br_pert_bc
+                    daa(i,j,k,3) = daa(i,j,k,3)
+     .                     +0.5*x1**(mm+1)*br_pert_bc
      .                    *cos((mm-1)*y1+nn*z1+br_pert_phase)/(mm-1)
 
                   endif
-
                 enddo
+                
               enddo
             enddo
+          enddo
 
-            !Redefine equilibrium to force correct BCs on perturbed A
-            u_0%array_var(IAX)%array=varr%array_var(IAX)%array
-            u_0%array_var(IAY)%array=varr%array_var(IAY)%array
-            u_0%array_var(IAZ)%array=varr%array_var(IAZ)%array
-
+#if defined(vecpot)
+          varr%array_var(IAX)%array =
+     .             varr%array_var(IAX)%array + daa(:,:,:,1)
+          varr%array_var(IAY)%array =
+     .             varr%array_var(IAY)%array + daa(:,:,:,2)
+          varr%array_var(IAZ)%array =
+     .             varr%array_var(IAZ)%array + daa(:,:,:,3)
+            
+          !Redefine equilibrium to force correct BCs on perturbed A
+          u_0%array_var(IAX)%array = varr%array_var(IAX)%array
+          u_0%array_var(IAY)%array = varr%array_var(IAY)%array
+          u_0%array_var(IAZ)%array = varr%array_var(IAZ)%array
 #else
-            daa=0d0
-            dbb=0d0
-            
-            do k = klom,khip
-              do j = jlom,jhip
-                do i = ilom,ihip
+          allocate(dbb(ilom:ihip,jlom:jhip,klom:khip,3))
 
-                  call find_polar_coords(gv%gparams,igx,i,j,k,xi,y1,z1
-     $                                  ,"tor")
+          dbb = curl(gv%gparams,igx,daa)
 
-                  daa(i,j,k,3) =
-     .                  +xi**mm*br_pert_bc*RR
-     .                  *cos(mm*y1+nn*z1+br_pert_phase)/mm
+          varr%array_var(IBX)%array =
+     .             varr%array_var(IBX)%array + dbb(:,:,:,1)
+          varr%array_var(IBY)%array =
+     .             varr%array_var(IBY)%array + dbb(:,:,:,2)
+          varr%array_var(IBZ)%array =
+     .             varr%array_var(IBZ)%array + dbb(:,:,:,3)
 
-                  if (mm /= -1) then
-
-                    daa(i,j,k,3) =
-     .                     daa(i,j,k,3)
-     .                     +0.5*xi**(mm+1)*br_pert_bc
-     .                    *cos((mm+1)*y1+nn*z1+br_pert_phase)/(mm+1)
-
-                  endif
-
-                  if (mm /= 1) then
-
-                    daa(i,j,k,3) =
-     .                     daa(i,j,k,3)
-     .                     +0.5*xi**(mm+1)*br_pert_bc
-     .                    *cos((mm-1)*y1+nn*z1+br_pert_phase)/(mm-1)
-
-                  endif
-
-                enddo
-              enddo
-            enddo
-
-            dbb = curl(gv%gparams,igx,daa)
-
-            do k = klom,khip
-              do j = jlom,jhip
-                do i = ilom,ihip
-
-                   varr%array_var(IBX)%array(i,j,k) =
-     .             varr%array_var(IBX)%array(i,j,k) + dbb(i,j,k,1)
-
-                   varr%array_var(IBY)%array(i,j,k) =
-     .             varr%array_var(IBY)%array(i,j,k) + dbb(i,j,k,2)
-
-                   varr%array_var(IBZ)%array(i,j,k) =
-     .             varr%array_var(IBZ)%array(i,j,k) + dbb(i,j,k,3)
-
-                enddo
-             enddo
-           enddo
-
+          deallocate(dbb)
 #endif 
 
-         enddo
-#if !defined(vec_pot) 
-         deallocate(daa,dbb)
-#endif
-       endif
+          deallocate(daa)
+
+        endif
 
       case ('msw')
 

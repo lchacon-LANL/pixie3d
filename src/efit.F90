@@ -925,8 +925,8 @@
         where (bcs == -EQU) bcs = -DEF  !Do nothing to tangential components
 
         call setMGBC(gv%gparams,0,3,nx,ny,nz,igrid,aa,bcs &
-     &              ,icomp=(/IAX/),is_vec=.true.           &
-     &              ,is_cnv=.false.,iorder=2)
+                    ,icomp=(/IAX/),is_vec=.true.          &
+                    ,is_cnv=.false.,iorder=2)
 
 !     Normalization constants for magnetic field (toroidal at magnetic axis) and pressure
         

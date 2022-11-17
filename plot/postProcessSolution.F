@@ -516,21 +516,17 @@ c     Local variables
       
 c     Begin program
       
-!Average fields toroidally
+      !Average fields toroidally
       allocate(bcnvavg(0:nx+1,0:ny+1,3))
       
       bcnvavg = sum(bcnv(:,:,1:nz,:),3)
 #if defined(petsc)
-      nn = (nx+2)*(ny+2)*3
-      allocate(mpivec(nn))
-      mpivec = reshape(bcnvavg,shape(mpivec))
-      call MPI_Allreduce(mpivec,bcnvavg,nn
+      call MPI_Allreduce(bcnvavg,bcnvavg,size(bcnvavg)
      .                  ,MPI_DOUBLE_PRECISION,MPI_SUM
      .                  ,gv%gparams%MPI_COMM_Z,mpierr)
-      deallocate(mpivec)
 #endif
       bcnvavg = bcnvavg/nzd
-
+      
       !Integrate poloidal flux
       Pflux(0,0,0) = 0d0   !Set value at origin
 
