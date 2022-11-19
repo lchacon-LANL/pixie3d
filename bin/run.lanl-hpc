@@ -340,7 +340,7 @@ date
 
 $load_mod
 
-mpiexec -np $((np/omp_tasks)) -x OMP_NUM_THREADS=$omp_tasks $executable $options -cpu_quota $((wtime*55)) -log_summary >> $inputfile.out
+mpiexec -np $((np/omp_tasks)) -x OMP_NUM_THREADS=$omp_tasks $executable $options -cpu_quota $((wtime*59)) -log_summary >> $inputfile.out
 
 RETURN_VALUE=\$?  #Exit code from last job
 
