@@ -182,6 +182,8 @@
         
         allocate(rbbbs(nbbbs),zbbbs(nbbbs),rlim(limitr),zlim(limitr))
 
+        rbbbs = 0d0 ; zbbbs = 0d0 ; rlim = 0d0 ; zlim = 0d0
+        
         read (neqdsk,2020,IOSTAT=istat) (rbbbs(i),zbbbs(i),i=1,nbbbs)
         if (istat /= 0) then
           write (*,*) "EFIT read error 13"
@@ -361,7 +363,7 @@
 !     READ-IN DATA FROM EFIT
 
         CALL read_efit_file(efit_file, istat)
-        IF (istat .ne. 0) STOP 'Read-efit error in efit_init'
+        IF (istat .ne. 0) STOP 'Read EFIT error in efit_init'
         
         if (my_rank == 0) then
           write (*,*) "Magnetic axis (R,Z)",rmaxis,zmaxis
@@ -371,21 +373,28 @@
         
 !     FIND DOMAIN LIMITS AND SETUP GEOMETRY
 
-        !Limiter box
-        z_max = maxval(zlim)
-        z_min = minval(zlim)
-        r_max = maxval(rlim)
-        r_min = minval(rlim)
-
-        LL = 0.5*(r_max-r_min) !Dimensionalization length
-
-        if (LL == 0d0) then
-           LL = 1d0
+        if (limitr > 0) then
+           !Limiter curve provided
+           z_max = maxval(zlim)
+           z_min = minval(zlim)
+           r_max = maxval(rlim)
+           r_min = minval(rlim)
+        elseif (nbbbs > 0) then
+           !Separatrix curve provided
+           z_max = maxval(zbbbs)
+           z_min = minval(zbbbs)
+           r_max = maxval(rbbbs)
+           r_min = minval(rbbbs)
+        else
+           !Use psi box
            r_max = rleft+rdim
            r_min = rleft
            z_max = zmid + zdim/2d0
            z_min = zmid - zdim/2d0
         endif
+
+        LL = 0.5*(r_max-r_min) !Dimensionalization length
+        if (LL == 0d0) LL = 1d0
         
         iLL = 1d0/LL
         
@@ -895,15 +904,17 @@
               call find_RZ(gv%gparams,igrid,i,j,k,RR,ZZ)
 
               !Interpolate poloidal flux
-              psi(i,j,k) = db2val(RR,ZZ,0,0,tx,tz,nxs,nzs  &
-                                 ,kx,kz,psi_coef,work)
+              psi(i,j,k) = max(db2val(RR,ZZ,0,0,tx,tz,nxs,nzs  &
+                                 ,kx,kz,psi_coef,work),0d0)
 
               !Interpolate pressure
-              if (  (nbbbs >0.and.inside_sptrx(RR,ZZ)) &
-                .or.(nbbbs==0.and.(psi(i,j,k)<=sibry))) then
+              if (  (nbbbs >1.and.inside_sptrx(RR,ZZ)) &
+                .or.(nbbbs<=1.and.(psi(i,j,k)<=sibry))) then
                 if (psi(i,j,k) > sibry) then
-                  call pstop("efit_equ","Error in separatrix boundary")
+                  call pstop("efit_equ","Error in separatrix boundary: Psi > sibry")
                 endif
+                write (*,*) psi(i,j,k)
+!!$              if ((psi(i,j,k)<=sibry)) then
                 prs  (i,j,k) = dbvalu(tps,pres_coef,nxs,kx,0,psi(i,j,k),inbv,work)
                 bsub3(i,j,k) = dbvalu(tps,fpol_coef,nxs,kx,0,psi(i,j,k),inbv,work)
               else
