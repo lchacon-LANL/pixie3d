@@ -126,6 +126,7 @@ endif
 
 ifeq ($(RFX),t)
   CPPFLAGS += $(PREPROC)RFX
+  RFX_LABEL="-rfx"
 endif
 
 #Export required variables
@@ -136,7 +137,7 @@ else
   COMMON = common
 endif
 
-export CPPFLAGS MODPATH CONTRIBLIBS BINDIR PIT REL1 COMMON #MPI_HOME
+export CPPFLAGS MODPATH CONTRIBLIBS BINDIR PIT REL1 COMMON RFX_LABEL #MPI_HOME
 
 #Define targets
 

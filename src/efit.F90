@@ -913,7 +913,6 @@
                 if (psi(i,j,k) > sibry) then
                   call pstop("efit_equ","Error in separatrix boundary: Psi > sibry")
                 endif
-                write (*,*) psi(i,j,k)
 !!$              if ((psi(i,j,k)<=sibry)) then
                 prs  (i,j,k) = dbvalu(tps,pres_coef,nxs,kx,0,psi(i,j,k),inbv,work)
                 bsub3(i,j,k) = dbvalu(tps,fpol_coef,nxs,kx,0,psi(i,j,k),inbv,work)

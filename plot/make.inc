@@ -1,6 +1,6 @@
 BASE         = pixplot
-EXEC         = $(BASE)-$(MACHINE)-$(REL1)-$(LABEL)_$(OPT)
-EXECA        = $(BASE)_a-$(MACHINE)-$(REL1)-$(LABEL)_$(OPT)
+EXEC         = $(BASE)-$(MACHINE)-$(REL1)-$(LABEL)_$(OPT)$(RFX_LABEL)
+EXECA        = $(BASE)_a-$(MACHINE)-$(REL1)-$(LABEL)_$(OPT)$(RFX_LABEL)
 CODE         = $(EXEC).x
 A_CODE       = $(EXECA).x
 ifdef ADIOS_VER
