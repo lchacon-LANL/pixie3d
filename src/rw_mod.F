@@ -9,7 +9,7 @@ c ####################################################################
      $            ,rw_fft_tupdate =.true.
      $            ,rw_implicit_bc =.false.
 
-        real(8) :: tau_w=1d2,r_v=1.5d0
+        real(8) :: tau_w=1d30,r_v=1d0  !Ideal wall by default
 
         real(8),pointer,dimension(:,:,:,:) :: E_bc
 

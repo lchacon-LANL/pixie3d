@@ -305,7 +305,7 @@ c Local variables
       integer :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz
      .          ,ig,jg,kg
 
-      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal
+      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal,xi_rw
 
       real(8),allocatable,dimension(:,:,:,:) :: v0,vdum,acnv_n
 
@@ -705,8 +705,25 @@ cc            acov = acov + acov_0
                 call rw_Ebc(gv%gparams,igr,bcov,E_bc)
               endif
 
-              call XferBCs(acov_n,v0,.true.)
-              v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt*E_bc(nnx+1,:,:,:)
+              !Second-order SSP explicit update of RW BC
+              if (dt_n == 0d0.or.dt_nm == 0d0) then
+                xi_rw = 0d0
+              else
+                xi_rw = dt/(dt_n+dt_nm)
+              endif
+              vdum(:,:,:,1) = u_n%array_var(IAX)%array
+     $                       -xi_rw**2*(u_n  %array_var(IAX)%array
+     $                                 -u_nm2%array_var(IAX)%array)
+              vdum(:,:,:,2) = u_n%array_var(IAY)%array
+     $                       -xi_rw**2*(u_n  %array_var(IAY)%array
+     $                                 -u_nm2%array_var(IAY)%array)
+              vdum(:,:,:,3) = u_n%array_var(IAZ)%array
+     $                       -xi_rw**2*(u_n  %array_var(IAZ)%array
+     $                                 -u_nm2%array_var(IAZ)%array)
+
+              call XferBCs(vdum,v0,.true.)
+              v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
+     $                         -dt*(1d0+xi_rw)*E_bc(nnx+1,:,:,:)
 
               if (.not.init_time_eval) then
                 call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
@@ -1218,10 +1235,11 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
             bcnv_n = bcnv_0     !Set it to initial cond.
           elseif (save_tn) then
 #if defined(vec_pot)
-            acov_n(:,:,:,1) = varray%array_var(IAX)%array
-            acov_n(:,:,:,2) = varray%array_var(IAY)%array
-            acov_n(:,:,:,3) = varray%array_var(IAZ)%array
-            call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
+c$$$            acov_n(:,:,:,1) = varray%array_var(IAX)%array
+c$$$            acov_n(:,:,:,2) = varray%array_var(IAY)%array
+c$$$            acov_n(:,:,:,3) = varray%array_var(IAZ)%array
+c$$$            call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
+            bcnv_n = bcnv
 #else
             bcnv_n(:,:,:,1) = varray%array_var(IBX)%array
             bcnv_n(:,:,:,2) = varray%array_var(IBY)%array

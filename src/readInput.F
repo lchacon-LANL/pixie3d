@@ -765,7 +765,7 @@ c     #####################################################################
 
       if (res_wall_bc.and.(.not.rw_implicit_bc)) then
         if (dt > tau_w/nxd) then
-          dt = min(0.95*tau_w/nxd,dt)
+          dt = min(0.5*tau_w/nxd,dt)
           write (messg,*) " Adjusted dt for RW BC stability"
           call warning(messg)
 c$$$          write (messg,*) "dt must be <",tau_w/nxd,"for RW BC stability"
