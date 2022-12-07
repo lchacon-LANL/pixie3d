@@ -36,6 +36,8 @@ c Local variables
       integer :: i,j,k,igx,igy,igz,nx,ny,nz,ieq,igrid
       real(8) :: tol,acc
 
+      type(var_array),pointer :: vnm2
+
 c Interfaces
 
       INTERFACE
@@ -66,6 +68,8 @@ c Begin program
       ny = gv%gparams%nyv(igy)
       nz = gv%gparams%nzv(igz)
 
+      vnm2 => gv%u_nm2
+      
 c Add random noise in EOM (to break symmetry)
 
       if (noise) then
@@ -567,7 +571,7 @@ c     ###############################################################
 
         implicit none
 
-        real(8) :: tol_divcl
+        real(8) :: tol_divcl,xi_rw
         real(8),allocatable,dimension(:,:,:,:) :: db_cnv,da_cov,b_cov
 
         if (ilevel > 0 .and. my_rank == 0) then
@@ -596,16 +600,24 @@ c       Find db=B^(n+1)-B^n
 c       Find vector potential RW boundary condition at face
 
         if (res_wall_bc) then
-c$$$          E_bc = 0d0
-c$$$          allocate(b_cov(0:nx+1,0:ny+1,0:nz+1,3))
-c$$$          b_cov(:,:,:,1) = vn%array_var(IBX)%array
-c$$$          b_cov(:,:,:,2) = vn%array_var(IBY)%array
-c$$$          b_cov(:,:,:,3) = vn%array_var(IBZ)%array
-c$$$          b_cov = XformToCov(gv%gparams,igx,b_cov)
-c$$$          call rw_Ebc(gv%gparams,igx,b_cov,E_bc)
-c$$$          deallocate(b_cov)
-c$$$          call XferBCs(-dt*E_bc,da_cov,.false.)
-          da_cov(nx+1,:,:,:) = -dt*E_bc(nx+1,:,:,:)
+          !Second-order SSP explicit update of RW BC
+          if (dt_n == 0d0.or.dt_nm == 0d0) then
+            xi_rw = 0d0
+          else
+            xi_rw = dt/(dt_n+dt_nm)
+          endif
+
+          db_cnv(:,:,:,1) = db_cnv(:,:,:,1)
+     $                     +xi_rw**2*(vn  %array_var(IBX)%array
+     $                               -vnm2%array_var(IBX)%array)
+          db_cnv(:,:,:,2) = db_cnv(:,:,:,2)
+     $                     +xi_rw**2*(vn  %array_var(IBY)%array
+     $                               -vnm2%array_var(IBY)%array)
+          db_cnv(:,:,:,3) = db_cnv(:,:,:,3)
+     $                     +xi_rw**2*(vn  %array_var(IBZ)%array
+     $                               -vnm2%array_var(IBZ)%array)
+
+          da_cov(nx+1,:,:,:) = -dt*(1d0+xi_rw)*E_bc(nx+1,:,:,:)
         endif
         
 c       Clean db (and impose RW BC, if applicable)
@@ -625,6 +637,18 @@ c       Find new B^(n+1)
         vnp%array_var(IBZ)%array = db_cnv(:,:,:,3)
      .                            +vn%array_var(IBZ)%array
 
+        if (res_wall_bc) then
+          vnp%array_var(IBX)%array = vnp%array_var(IBX)%array
+     $                     -xi_rw**2*(vn  %array_var(IBX)%array
+     $                               -vnm2%array_var(IBX)%array)
+          vnp%array_var(IBY)%array = vnp%array_var(IBY)%array
+     $                     -xi_rw**2*(vn  %array_var(IBY)%array
+     $                               -vnm2%array_var(IBY)%array)
+          vnp%array_var(IBZ)%array = vnp%array_var(IBZ)%array
+     $                     -xi_rw**2*(vn  %array_var(IBZ)%array
+     $                               -vnm2%array_var(IBZ)%array)
+        endif
+      
 c       Update helical flux and magnetic field
 
         bcnv(:,:,:,1) = vnp%array_var(IBX)%array
@@ -688,7 +712,7 @@ c     ###############################################################
 c$$$        lag_init = .true.
 c$$$        E_diag   = .true.
 c$$$        call lagr_update(igrid,bcnv
-c$$$     .                  ,u_nm %array_var(IPRS)%array
+c$$$     .                  ,vnm %array_var(IPRS)%array
 c$$$     .                  ,vn  %array_var(IPRS)%array
 c$$$     .                  ,vnp%array_var(IPRS)%array
 c$$$     .                  ,chi_par,chi,lag_init,E_diag,ilevel-3)

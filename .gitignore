@@ -102,3 +102,4 @@ __pycahce__
 
 # IDE files
 *.code-workspace
+exit_code.txt
