@@ -1752,6 +1752,10 @@ c     Local variables
       real(8) :: b2,bbcnv(3),bbcov(3),dum(3),grad_p(3),etah,gsup(3,3)
      .          ,gsub(3,3),jac,E00(3)
 
+      real(8),dimension(0:size(bcnv,1)-1
+     $                 ,0:size(bcnv,2)-1
+     $                 ,0:size(bcnv,3)-1) :: b200
+
 c     Begin program
 
       nx = size(bcnv,1)-2
@@ -1781,6 +1785,8 @@ c     Begin program
           
           b2 = sum(bbcnv*bbcov)/jac
 
+          b200(i+1,j,k) = b2
+          
           if (b2 > 0d0) then
             if (PRESENT(dbcov)) then  !Linearize ExB flow BC
               dum = 0.5*(dbcov(i,j,k,:)+dbcov(i+1,j,k,:))
@@ -1797,6 +1803,7 @@ c     Begin program
             E00 = E0 + E_0(i+1,j,k,:) !E_0(nx+1) contains face value
 
             !ExB velocity
+            if (v00_ExB_bc) b2 = 1d0
             v0(i+1,j,k,1)=(E00(2)*bbcov(3)-E00(3)*bbcov(2)
      .                   -etah*grad_p(1))/b2
             v0(i+1,j,k,2)=(E00(3)*bbcov(1)-E00(1)*bbcov(3)
@@ -1811,12 +1818,14 @@ c     Begin program
 
       if (v00_ExB_bc) then
         dum(1) = sum(v0(i+1,1:ny,1:nz,1))
+        dum(2) = sum(b200(i+1,1:ny,1:nz))
 #if defined(petsc)
         v0(i+1,:,:,1) = psum(dum(1:1),mpi_comm=g_def%MPI_COMM_YZ)
-     $                  /(nyd*nzd)
+     $                 /psum(dum(2:2),mpi_comm=g_def%MPI_COMM_YZ)
 #else
-        v0(i+1,:,:,1) = dum(1)/(nyd*nzd)
+        v0(i+1,:,:,1) = dum(1)/dum(2)
 #endif
+c$$$        v0(i+1,:,:,1) = -4d-4
       endif
 
 c     End program

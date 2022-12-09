@@ -1167,20 +1167,22 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
         case(IVCNV_N)
 
 #if defined(plotting)
-          if (.not.nc_eom_v) then
-              vcnv_n(:,:,:,1) = u_n%array_var(IVX )%array
-     .                         /u_n%array_var(IRHO)%array*jac
-              vcnv_n(:,:,:,2) = u_n%array_var(IVY )%array
-     .                         /u_n%array_var(IRHO)%array*jac
-              vcnv_n(:,:,:,3) = u_n%array_var(IVZ )%array
-     .                         /u_n%array_var(IRHO)%array*jac
-          else
-            vcnv_n(:,:,:,1) = u_n%array_var(IVX)%array
-            vcnv_n(:,:,:,2) = u_n%array_var(IVY)%array
-            vcnv_n(:,:,:,3) = u_n%array_var(IVZ)%array
+          if (save_tn) then
+            if (.not.nc_eom_v) then
+              vcnv_n(:,:,:,1) = varray%array_var(IVX )%array
+     .                         /varray%array_var(IRHO)%array*jac
+              vcnv_n(:,:,:,2) = varray%array_var(IVY )%array
+     .                         /varray%array_var(IRHO)%array*jac
+              vcnv_n(:,:,:,3) = varray%array_var(IVZ )%array
+     .                         /varray%array_var(IRHO)%array*jac
+            else
+              vcnv_n(:,:,:,1) = varray%array_var(IVX)%array
+              vcnv_n(:,:,:,2) = varray%array_var(IVY)%array
+              vcnv_n(:,:,:,3) = varray%array_var(IVZ)%array
+            endif
+            
+            if (alt__eom()) vcnv_n(:,:,:,2) = vcnv_n(:,:,:,2)/jac
           endif
-
-          if (alt__eom()) vcnv_n(:,:,:,2) = vcnv_n(:,:,:,2)/jac
 #else
           if (.not.nc_eom_v) then
               if (cnm == 0d0) then
@@ -1229,24 +1231,23 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
 
 #if defined(plotting)
           if (itime==0) then
-#else
-          if (source_eval) then
-#endif
             bcnv_n = bcnv_0     !Set it to initial cond.
           elseif (save_tn) then
 #if defined(vec_pot)
-c$$$            acov_n(:,:,:,1) = varray%array_var(IAX)%array
-c$$$            acov_n(:,:,:,2) = varray%array_var(IAY)%array
-c$$$            acov_n(:,:,:,3) = varray%array_var(IAZ)%array
-c$$$            call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
-            bcnv_n = bcnv
+            call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
 #else
             bcnv_n(:,:,:,1) = varray%array_var(IBX)%array
             bcnv_n(:,:,:,2) = varray%array_var(IBY)%array
             bcnv_n(:,:,:,3) = varray%array_var(IBZ)%array
 #endif
           endif
-          
+#else
+          if (source_eval) then
+            bcnv_n = bcnv_0     !Set it to initial cond.
+          elseif (save_tn) then
+            bcnv_n = bcnv
+          endif
+#endif          
         case(IVCOV)
 
           vcov = XformVector(gv%gparams,igr,vcnv,.false.)
@@ -1271,18 +1272,18 @@ c$$$            call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
         case(IACOV_N)
 
 #if defined(plotting)
-          if (itime==0) then
-            acov_n = acov_0     !Set it to initial cond.
-          else
-            acov_n = acov       !Save previous time step
-          endif
-#else
           if (source_eval) then
             acov_n = acov_0     !Set it to initial cond.
-          else  !This determines bcnv_n also
-            acov_n(:,:,:,1) = u_n%array_var(IAX)%array
-            acov_n(:,:,:,2) = u_n%array_var(IAY)%array
-            acov_n(:,:,:,3) = u_n%array_var(IAZ)%array
+          elseif (save_tn) then
+            acov_n(:,:,:,1) = varray%array_var(IAX)%array
+            acov_n(:,:,:,2) = varray%array_var(IAY)%array
+            acov_n(:,:,:,3) = varray%array_var(IAZ)%array
+          endif
+#else
+          if (itime==0) then
+            acov_n = acov_0     !Set it to initial cond.
+          elseif (save_tn) then
+            acov_n = acov       !Save previous time step
           endif
 #endif
 
