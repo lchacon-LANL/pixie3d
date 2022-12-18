@@ -289,6 +289,8 @@ c--------------------------------------------------------------------
 
       use rw_bc
 
+      use ts_io, ONLY: ts_after_restart
+
       implicit none
 
 c Call variables
@@ -613,19 +615,9 @@ c$$$#endif
 
         case(IVECNV_0)
 
-c       Electron velocity BC: ve=v-di*j/rho with j=curl(B)
-
-          vecnv_0 = form_ve(vcnv_0,jcnv_0,rho_0)
-
         case(IVECOV_N)
 
-cc          if (electron_hall) call XferBCs(vecov,vecov_n,.false.)
-
         case(IVCNV_N)
-
-#if !defined(plotting)
-c$$$          call XferBCs(vcnv,vcnv_n,.false.)
-#endif
 
         case(IVCNV)
 
@@ -691,7 +683,7 @@ cc            acov = acov + acov_0
           else
             if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
 #if defined(plotting)
-              if (save_tn) call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
+              if (save_tn) call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc) !Recompute E_bc
               call XferBCs(acov,v0,.true.)  !Reuse existing BC for plotting
               call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .                  ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
@@ -706,11 +698,12 @@ cc            acov = acov + acov_0
               endif
 
               !Second-order SSP explicit update of RW BC
-              if (dt_n == 0d0.or.dt_nm == 0d0) then
-                xi_rw = 0d0
-              else
+              if (itime > inewtime + 2) then
                 xi_rw = dt/(dt_n+dt_nm)
+              else
+                xi_rw = 0d0
               endif
+
               vdum(:,:,:,1) = u_n%array_var(IAX)%array
      $                       -xi_rw**2*(u_n  %array_var(IAX)%array
      $                                 -u_nm2%array_var(IAX)%array)
@@ -750,13 +743,9 @@ cc          call XformVector_BC(gv%gparams,igr,acov,acnv,.true.)
 c       Magnetic field BC
 
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
-#if !defined(vec_pot)
+#if !defined(vec_pot) && defined(plotting)
             if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
-              if (save_tn) then
-                call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
-              elseif (rw_implicit_bc) then
-                call rw_Ebc(gv%gparams,igr,bcov  ,E_bc,extrp_b=.true.)
-              endif
+              call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc) !Recompute E_bc 
             endif
 #endif
             v0 = 0d0 ; prs1 = rho*tmp
@@ -769,11 +758,28 @@ c       Magnetic field BC
      .              ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
      .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
 
+c$$$          write (*,*) "bcnv",sqrt(sum(bcnv**2))
         case(IBCOV) !Done when computing bcnv
 
 cc          call XformVector_BC(gv%gparams,igr,bcnv,bcov,.false.)
 
         case(IBCNV_N)
+
+#if defined(vec_pot) && !defined(plotting)
+          if (save_tn.and.ts_after_restart) then
+            if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
+              v0 = 0d0 ; prs1 = rho*tmp
+              call J_pinch_bc(gv%gparams,igr,bcnv_n,prs1,eeta,E_bc,v0)
+            else
+              call XferBCs(jcnv_0,v0,.true.)
+            endif
+
+            call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_n,bcov,v0
+     .                ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
+     .                ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
+          endif
+c$$$          if (save_tn) write (*,*) "bcnv_n",sqrt(sum(bcnv_n**2))
+#endif
 
         case(IJCNV)
 
@@ -798,7 +804,7 @@ cc          call XformVector_BC(gv%gparams,igr,jcnv,jcov,.false.)
 
 c       Electron velocity BC: ve=v-di*j/rho with j=curl(B)
 
-          vecnv = form_ve(vcnv,jcnv,rho)
+c$$$          vecnv = form_ve(vcnv,jcnv,rho)
 
         case(IVECOV)
 
@@ -890,6 +896,8 @@ c--------------------------------------------------------------------
       use auxiliaryVariables
 
       use var_setup
+
+      use ts_io, ONLY: ts_after_restart
 
       implicit none
 
@@ -1219,13 +1227,13 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
           endif
 
           if (alt__eom()) vcnv_n(:,:,:,2) = vcnv_n(:,:,:,2)/jac
-
-c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
 #endif
 
         case(IVECOV_N)
 
-          if (electron_hall) vecov_n = vecov     !Does NOT work for BDF2
+          if (sm_flag == 2)
+     .         call pstop("applyBC","IVECOV_N not BDF2-ready")
+          if (electron_hall.and.save_tn) vecov_n = vecov     !Does NOT work for BDF2
  
         case(IBCNV_N)
 
@@ -1234,7 +1242,7 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
             bcnv_n = bcnv_0     !Set it to initial cond.
           elseif (save_tn) then
 #if defined(vec_pot)
-            call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
+            bcnv_n = bcnv
 #else
             bcnv_n(:,:,:,1) = varray%array_var(IBX)%array
             bcnv_n(:,:,:,2) = varray%array_var(IBY)%array
@@ -1245,7 +1253,18 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
           if (source_eval) then
             bcnv_n = bcnv_0     !Set it to initial cond.
           elseif (save_tn) then
-            bcnv_n = bcnv
+#if defined(vec_pot)
+            if (ts_after_restart) then
+              call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
+              bcov = XformVector(gv%gparams,igr,bcnv_n,.false.)
+            else
+              bcnv_n = bcnv
+            endif
+#else
+            bcnv_n(:,:,:,1) = varray%array_var(IBX)%array
+            bcnv_n(:,:,:,2) = varray%array_var(IBY)%array
+            bcnv_n(:,:,:,3) = varray%array_var(IBZ)%array
+#endif
           endif
 #endif          
         case(IVCOV)
@@ -1272,20 +1291,16 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
         case(IACOV_N)
 
 #if defined(plotting)
+          if (itime==0) then
+#else
           if (source_eval) then
+#endif
             acov_n = acov_0     !Set it to initial cond.
           elseif (save_tn) then
             acov_n(:,:,:,1) = varray%array_var(IAX)%array
             acov_n(:,:,:,2) = varray%array_var(IAY)%array
             acov_n(:,:,:,3) = varray%array_var(IAZ)%array
           endif
-#else
-          if (itime==0) then
-            acov_n = acov_0     !Set it to initial cond.
-          elseif (save_tn) then
-            acov_n = acov       !Save previous time step
-          endif
-#endif
 
         case(IACOV)
 

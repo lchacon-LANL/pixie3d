@@ -902,9 +902,32 @@ c     Equilibrium quantities
       vaux%vec_list(IVECOV_N)%bc_dep_list(1,3) = 0 !trivial
 
       !B_n cov
+#if !defined(vec_pot)
       vaux%vec_list(IBCNV_N)%bc_dep_list(1,1) = IBCNV_N*AUX
       vaux%vec_list(IBCNV_N)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IBCNV_N)%bc_dep_list(1,3) = 0 !trivial
+#else
+      vaux%vec_list(IBCNV_N)%bc_dep_list(1,1) = IACOV_N*AUX
+      vaux%vec_list(IBCNV_N)%bc_dep_list(1,2) = VECTOR
+      vaux%vec_list(IBCNV_N)%bc_dep_list(1,3) = 0 !trivial
+      if (.not.pinch_bc) then
+        vaux%vec_list(IBCNV_N)%bc_dep_list(2,1) = IJCOV_0*AUX
+        vaux%vec_list(IBCNV_N)%bc_dep_list(2,2) = VECTOR
+        vaux%vec_list(IBCNV_N)%bc_dep_list(2,3) = 0 !trivial
+      else
+        vaux%vec_list(IBCNV_N)%bc_dep_list(2,1) = IRHO_AUX*AUX
+        vaux%vec_list(IBCNV_N)%bc_dep_list(2,2) = SCALAR
+        vaux%vec_list(IBCNV_N)%bc_dep_list(2,3) = 1 !non-trivial
+
+        vaux%vec_list(IBCNV_N)%bc_dep_list(3,1) = ITMP_AUX*AUX
+        vaux%vec_list(IBCNV_N)%bc_dep_list(3,2) = SCALAR
+        vaux%vec_list(IBCNV_N)%bc_dep_list(3,3) = 1 !non-trivial
+        
+        vaux%vec_list(IBCNV_N)%bc_dep_list(4,1) = IETA*AUX
+        vaux%vec_list(IBCNV_N)%bc_dep_list(4,2) = SCALAR
+        vaux%vec_list(IBCNV_N)%bc_dep_list(4,3) = 0 !trivial
+      endif
+#endif
 
       !E-field cov
       vaux%vec_list(IENI_0)%bc_dep_list(1,1) = IETA_0*AUX
@@ -1371,7 +1394,7 @@ c     Equilibrium quantities
       !B_n cov
       vaux%vec_list(IBCNV_N)%dom_dep_list(1,1) = IACOV_N*AUX
       vaux%vec_list(IBCNV_N)%dom_dep_list(1,2) = VECTOR
-      vaux%vec_list(IBCNV_N)%dom_dep_list(1,3) = 1 !non-trivial     
+      vaux%vec_list(IBCNV_N)%dom_dep_list(1,3) = 0 !non-trivial     
 #else
       !B_n cov
       vaux%vec_list(IBCNV_N)%dom_dep_list(1,1) = IBCNV_N*AUX
