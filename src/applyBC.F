@@ -682,21 +682,15 @@ cc            acov = acov + acov_0
             deallocate(acnv_n)
           else
             if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
+              !Recompute E_bc
+              if (save_tn) call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
+
 #if defined(plotting)
-              if (save_tn) call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc) !Recompute E_bc
               call XferBCs(acov,v0,.true.)  !Reuse existing BC for plotting
               call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .                  ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
      .                  ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
 #else
-              if (save_tn) then
-                call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
-              elseif (rw_implicit_bc) then
-                call find_B(gv%gparams,igr,B0,acov,bcov,.true.
-     $                     ,bcond=vaux%vec_list(IACOV)%bconds)
-                call rw_Ebc(gv%gparams,igr,bcov,E_bc)
-              endif
-
               !Second-order SSP explicit update of RW BC
               if (itime > inewtime + 2) then
                 xi_rw = dt/(dt_n+dt_nm)
@@ -758,7 +752,6 @@ c       Magnetic field BC
      .              ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
      .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
 
-c$$$          write (*,*) "bcnv",sqrt(sum(bcnv**2))
         case(IBCOV) !Done when computing bcnv
 
 cc          call XformVector_BC(gv%gparams,igr,bcnv,bcov,.false.)
@@ -778,7 +771,6 @@ cc          call XformVector_BC(gv%gparams,igr,bcnv,bcov,.false.)
      .                ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
      .                ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
           endif
-c$$$          if (save_tn) write (*,*) "bcnv_n",sqrt(sum(bcnv_n**2))
 #endif
 
         case(IJCNV)

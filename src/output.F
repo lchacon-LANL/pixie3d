@@ -18,7 +18,7 @@ c----------------------------------------------------------------------
 
       use nlfunction_setup
 
-      use rw_bc, ONLY: res_wall_bc,rw_implicit_bc,sheath_bc
+      use rw_bc, ONLY: res_wall_bc,sheath_bc
 
       implicit none
 
@@ -319,13 +319,6 @@ c     Warnings
       if (.not.pc_divclean) call info('  Div-cleaning postprocessed')
 #endif
       if (refine_eq) call warning('  Running equilibrium-checking mode')
-      if (res_wall_bc)  then
-        if (rw_implicit_bc) then
-          call info('  Applying IMPLICIT Resistive Wall BC')
-        else
-          call info('  Applying EXPLICIT Resistive Wall BC')
-        endif
-      endif
 
       if (sheath_bc) call info('  Applying SHEATH BC')
       

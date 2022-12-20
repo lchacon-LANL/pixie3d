@@ -42,6 +42,7 @@ c Local variables
      .                ,pc_debug_it,pc_max_iter
       logical       :: zebra_relax,hall_new,lag_pinch_bc,debug
      .                ,mg_zebra_relax,restart,timecorr,fake_ve
+     $                ,rw_implicit_bc
       real(8)       :: mgtol
 
 c Namelists
@@ -58,7 +59,7 @@ c Namelists
      .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old,xport_order
-     .                   ,r_v,tau_w,rw_implicit_bc,zero_ExB_tang
+     .                   ,r_v,tau_w,zero_ExB_tang
      .                   ,rw_fft_tupdate
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
@@ -97,7 +98,8 @@ c Namelists
      .                   ,mg_zebra_relax,pc_max_iter,timecorr,restart
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
-
+     .                   ,rw_implicit_bc
+      
       !Problem setup
       namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
@@ -117,7 +119,7 @@ c Namelists
      .                   ,equil,gstor_I_drive,refine_eq
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
-     .                   ,r_v,tau_w,rw_implicit_bc,zero_ExB_tang
+     .                   ,r_v,tau_w,zero_ExB_tang
      .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_bc
 
       !Spatial discretization
@@ -508,7 +510,6 @@ c     #####################################################################
       tau_w    = 1d2           ! Resistive wall thin-shell time
       r_v      = 1.5           ! Radius of outer conducting shell
       zero_ExB_tang  = .true.  ! Whether we zero out tangential ExB flow
-      rw_implicit_bc = .false. ! Whether we perform implicit RW update (alpha)
       rw_fft_tupdate = .true.  ! Whether we integrate RW eqs in Fourier space
       
       !Nonlinear function parameters
@@ -763,7 +764,7 @@ c     #####################################################################
         res_wall_bc = res_wall_bc.or.rw_bcs(i)
       enddo
 
-      if (res_wall_bc.and.(.not.rw_implicit_bc)) then
+      if (res_wall_bc) then
         if (dt > tau_w/nxd) then
           dt = min(0.5*tau_w/nxd,dt)
           write (messg,*) " Adjusted dt for RW BC stability"
