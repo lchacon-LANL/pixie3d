@@ -1561,12 +1561,14 @@ c Free memory
      .          ,db_cov
      .          ,dv_cnv
      .          ,v0
+     .          ,E_0
      .          ,dp_cnv
      .          ,dve_cnv
      .          ,dve_cov
      .          ,dE_cnv
      .          ,drho  
-     .          ,dprs,d_prs  
+     .          ,dprs
+     .          ,d_prs  
 #if defined(vec_pot)
      .          ,da_cov
 #endif
