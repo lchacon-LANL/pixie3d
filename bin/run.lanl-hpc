@@ -342,9 +342,9 @@ $load_mod
 
 mpiexec -np $((np/omp_tasks)) -x OMP_NUM_THREADS=$omp_tasks $executable $options -cpu_quota $((wtime*59)) -log_summary >> $inputfile.out
 
-RETURN_VALUE=\$?  #Exit code from last job
+#RETURN_VALUE=\$?  #Exit code from last job
 
-echo "\$RETURN_VALUE" > exit_code.txt
+#echo "\$RETURN_VALUE" > exit_code.txt
 
 date
 

@@ -1325,7 +1325,7 @@ c     RFP equilibria (analytical)
             do j = jlom,jhip
               do i = ilom,ihip
                 call find_polar_coords(gv%gparams,igx,i,j,k,r1,y1,z1
-     .                              ,coords)
+     .                                ,coords)
 
                 var(i,j,k,IRHO) = 1d0/(1d0+(r1/dlambda)**2)**2
               enddo
@@ -1338,7 +1338,7 @@ c     RFP equilibria (analytical)
             do j = jlom,jhip
               do i = ilom,ihip
                 call find_polar_coords(gv%gparams,igx,i,j,k,r1,y1,z1
-     .                              ,coords)
+     .                                ,coords)
 
                 var(i,j,k,ITMPE) = 0.5*beta/a_p/(1d0+(r1/dlambda)**2)**2
               enddo
