@@ -525,12 +525,17 @@ c     Begin program
 
 c     Find Lap(A0) for Dirichlet BCs (use curlcurl to avoid gauge assumption)
 
+      dlapa0 = 0d0
       if (PRESENT(da0cov)) then
-        !Factor of 2 because da0cov is at face
-        dlapa0 = -2*curlcurl_mesh2(g_def,igrid,da0cov,.false.)  !Returns covariant
+        !Extrapolate from face to ghost cell
+        call setMGBC(g_def,0,3,nx,ny,nz,igrid,dlapa0,bcsa
+     .              ,icomp=(/IAX/),arr0=da0cov,is_vec=.true.
+     .              ,is_cnv=.false.,iorder=1)
+        dlapa0 = -curlcurl_mesh2(g_def,igrid,dlapa0,.false.)  !Returns cov
+c$$$        !old
+c$$$        dlapa0 = -2*curlcurl_mesh2(g_def,igrid,da0cov,.false.) !Returns cov
+
         dlapa0 = XformToCnv(g_def,igrid,dlapa0)
-      else
-        dlapa0 = 0d0
       endif
 
 c     Find rhs of vec_lap solve: rhs=-vol*dJ (with dJ=curl(dB); dB already has BCs)
