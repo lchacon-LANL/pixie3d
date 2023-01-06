@@ -6,7 +6,7 @@ c ####################################################################
       
         !Resistive wall vars
         logical :: rw_bcs(6)      =.false.
-     $            ,rw_fft_tupdate =.true.
+     $            ,rw_fft_tupdate =.false.
 
         real(8) :: tau_w=1d30,r_v=1d0  !Ideal wall by default
 

@@ -321,7 +321,9 @@ c     Warnings
       if (refine_eq) call warning('  Running equilibrium-checking mode')
 
       if (sheath_bc) call info('  Applying SHEATH BC')
-      
+
+      if (res_wall_bc) call info('  Applying RW BC')
+ 
       call info('  ***************************************************')
 
       if (advect == 5) then

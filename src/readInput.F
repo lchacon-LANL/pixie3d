@@ -510,7 +510,7 @@ c     #####################################################################
       tau_w    = 1d2           ! Resistive wall thin-shell time
       r_v      = 1.5           ! Radius of outer conducting shell
       zero_ExB_tang  = .true.  ! Whether we zero out tangential ExB flow
-      rw_fft_tupdate = .true.  ! Whether we integrate RW eqs in Fourier space
+      rw_fft_tupdate = .false. ! Whether we integrate RW eqs in Fourier space
       
       !Nonlinear function parameters
       adiabatic  = .false.     ! Whether we use adiabatic EoS or not

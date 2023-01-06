@@ -29,10 +29,10 @@ c####################################################################
 
         logical :: regularize_A = .false.  !Whether we regularize A @ SP
      $            ,fill_A0_bc   = .false.
-     $            ,res_wall_bc  = .false.
-     $            ,zero_ExB_tang= .true.
-     $            ,v00_ExB_bc   = .false.
-     $            ,sheath_bc    = .false.
+     $            ,res_wall_bc  = .false.  !Whether we are applying RW BCs
+     $            ,zero_ExB_tang= .true.   !Whether we zero out tangential ExB flow
+     $            ,v00_ExB_bc   = .false.  !Whether we average tangential ExB flow
+     $            ,sheath_bc    = .false.  !Whether we are applying sheath BCs (in v_||)
 
         logical :: no_eq_bc,save_tn,no_tn_bc
         
