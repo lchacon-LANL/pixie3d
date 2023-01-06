@@ -523,19 +523,24 @@ c     Begin program
         etol = 1d-7
       endif
 
-c     Find Lap(A0) for Dirichlet BCs (use curlcurl to avoid gauge assumption)
+c     Find Lap(A0) for Dirichlet BCs
 
       dlapa0 = 0d0
+
       if (PRESENT(da0cov)) then
+        bc_order_a = 1          !To ensure consistency with Dirichlet BC provided
         !Extrapolate from face to ghost cell
         call setMGBC(g_def,0,3,nx,ny,nz,igrid,dlapa0,bcsa
      .              ,icomp=(/IAX/),arr0=da0cov,is_vec=.true.
-     .              ,is_cnv=.false.,iorder=1)
-        dlapa0 = -curlcurl_mesh2(g_def,igrid,dlapa0,.false.)  !Returns cov
-c$$$        !old
-c$$$        dlapa0 = -2*curlcurl_mesh2(g_def,igrid,da0cov,.false.) !Returns cov
-
+     .              ,is_cnv=.false.,iorder=bc_order_a)
+c     =================
+c$$$        dlapa0 = veclap_cov(g_def,igrid,dlapa0) !Returns cov
+c$$$        dlapa0 = XformToCnv(g_def,igrid,dlapa0)
+c     =================
         dlapa0 = XformToCnv(g_def,igrid,dlapa0)
+        dlapa0 = veclap(g_def,igrid,dlapa0)  !Returns cnv
+      else
+        bc_order_a = 2
       endif
 
 c     Find rhs of vec_lap solve: rhs=-vol*dJ (with dJ=curl(dB); dB already has BCs)
@@ -580,12 +585,6 @@ c     Setup solver parameters
       else
         order_res  = 0
         order_prol = 1
-      endif
-
-      if (PRESENT(da0cov)) then
-        bc_order_a = 1          !To ensure consistency with Dirichlet BC provided
-      else
-        bc_order_a = 2
       endif
       
 c     Invert vector laplacian to find dA=vlap^-1(dJ)
