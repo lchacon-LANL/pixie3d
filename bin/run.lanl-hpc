@@ -38,7 +38,9 @@ exit 0
 
 # Defaults
 
-cores_per_node=$(lscpu | grep "CPU(s):         " | cut -c8- | xargs)
+cores_per_node=$(lscpu | grep "CPU(s):         " | grep -v "NUMA" | cut -c8- | xargs)
+threads_per_core=$(lscpu | grep "Thread(s)" | cut -c20- | xargs)
+cores_per_node=$((cores_per_node/threads_per_core))
 
 restart=f
 parallel=f
@@ -53,7 +55,7 @@ wtime=960
 adiosfile="adios_config.xml"
 recursive=f
 create_dir=t
-account="w21_magfusion"
+account="w23_magfusion"
 qos="standard"
 np=""
 omp_tasks=1
@@ -184,7 +186,7 @@ fi
 
 if [ "$environment" = "gcc" ]
 then
-  load_mod="source ~/bin/load_gcc-9.3.0_badger"
+  load_mod="source ~/bin/load_gcc-12.1.0_chicoma"
 else
   load_mod="source ~/bin/load_intel-19.0.4_badger"
 fi
@@ -255,7 +257,7 @@ then
        echo "==> Restarting using $restartfile.tar.gz"
      fi
      tar xzf $rpath/$restartfile.tar.gz --exclude $restartfile.in --exclude $machinefile --exclude $executable
-     mv $restartfile.log $inputfile.log
+#     mv $restartfile.log $inputfile.log
 
      if [ "$debug" = "t" ]; then
        echo "==> Figuring out number of processors"
@@ -330,6 +332,7 @@ cat > go.sub <<QSUB
 #SBATCH --job-name $inputfile
 #  select account
 #SBATCH -A $account
+#SBATCH -p standard
 #  send email at beginning, end, and abort
 #SBATCH --mail-type=FAIL,BEGIN,END
 #SBATCH --mail-user=$USER@lanl.gov
@@ -340,8 +343,9 @@ date
 
 $load_mod
 
-mpiexec -np $((np/omp_tasks)) -x OMP_NUM_THREADS=$omp_tasks $executable $options -cpu_quota $((wtime*59)) -log_summary >> $inputfile.out
+OMP_NUM_THREADS=$omp_tasks srun -np $((np/omp_tasks)) -x $executable $options -cpu_quota $((wtime*59)) -log_summary >> $inputfile.out
 
+RETURN_VALUE=$(<exit_code.txt)
 #RETURN_VALUE=\$?  #Exit code from last job
 
 #echo "\$RETURN_VALUE" > exit_code.txt
