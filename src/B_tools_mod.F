@@ -577,7 +577,7 @@ c     Find rhs of vec_lap solve: rhs=-vol*dJ (with dJ=curl(dB); dB already has B
 
 c     Setup solver parameters
 
-      sing_mat = no_map
+      sing_mat = .not.have_map()
 
       if (sing_mat) then
         order_res  = 0         !To ensure conservation (avoid null space)
