@@ -30,7 +30,7 @@ c####################################################################
         logical :: regularize_A = .false.  !Whether we regularize A @ SP
      $            ,fill_A0_bc   = .false.
      $            ,res_wall_bc  = .false.  !Whether we are applying RW BCs
-     $            ,zero_ExB_tang= .true.   !Whether we zero out tangential ExB flow
+     $            ,zero_vpar_bc = .false.  !Whether we zero out parallel flow at bdry
      $            ,v00_ExB_bc   = .false.  !Whether we average tangential ExB flow
      $            ,sheath_bc    = .false.  !Whether we are applying sheath BCs (in v_||)
 
@@ -1803,7 +1803,7 @@ c     Begin program
      .              +g_def%gmetric%grid(igrid)%jac(i+1,j,k))
 
           bbcnv = 0.5*(bcnv(i,j,k,:)+bcnv(i+1,j,k,:))
-          if (zero_ExB_tang) bbcnv(1) = 0d0 !Zero-out normal B-field
+          if (.not.zero_vpar_bc) bbcnv(1) = 0d0 !Zero-out normal B-field
           bbcov = XformToCov_ijk_face(g_def,i,j,k,igrid,bbcnv,1)
           
           b2 = sum(bbcnv*bbcov)/jac
@@ -1834,7 +1834,7 @@ c     Begin program
             v0(i+1,j,k,3)=(E00(1)*bbcov(2)-E00(2)*bbcov(1)
      .                   -etah*grad_p(3))/b2
             
-            if (zero_ExB_tang) v0(i+1,j,k,2:3) = 0d0 !Zero-out tangential flow
+            if (.not.zero_vpar_bc) v0(i+1,j,k,2:3) = 0d0 !Zero-out tangential flow
           endif
         enddo
       enddo
@@ -1914,7 +1914,7 @@ c$$$     $                                -    g_def%xx(ig-1))
           call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
      .                    ,1,xh,bbcnv(3),ord,0)
 
-          if (zero_ExB_tang) bbcnv(1) = 0d0 !Zero-out normal B-field
+          if (.not.zero_vpar_bc) bbcnv(1) = 0d0 !Zero-out normal B-field
           bbcov = XformToCov_ijk_face(g_def,i,j,k,igrid,bbcnv,1)
 c$$$          gsub = 0.5*(g_def%gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
 c$$$     .               +g_def%gmetric%grid(igrid)%gsub(i+1,j,k,:,:))

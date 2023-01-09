@@ -42,7 +42,7 @@ c Local variables
      .                ,pc_debug_it,pc_max_iter
       logical       :: zebra_relax,hall_new,lag_pinch_bc,debug
      .                ,mg_zebra_relax,restart,timecorr,fake_ve
-     $                ,rw_implicit_bc
+     $                ,rw_implicit_bc,zero_ExB_tang
       real(8)       :: mgtol
 
 c Namelists
@@ -59,7 +59,7 @@ c Namelists
      .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old,xport_order
-     .                   ,r_v,tau_w,zero_ExB_tang
+     .                   ,r_v,tau_w,zero_vpar_bc
      .                   ,rw_fft_tupdate
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
@@ -98,7 +98,7 @@ c Namelists
      .                   ,mg_zebra_relax,pc_max_iter,timecorr,restart
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
-     .                   ,rw_implicit_bc
+     .                   ,rw_implicit_bc,zero_ExB_tang
       
       !Problem setup
       namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
@@ -119,7 +119,7 @@ c Namelists
      .                   ,equil,gstor_I_drive,refine_eq
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
-     .                   ,r_v,tau_w,zero_ExB_tang
+     .                   ,r_v,tau_w,zero_vpar_bc
      .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_bc
 
       !Spatial discretization
@@ -509,7 +509,7 @@ c     #####################################################################
 
       tau_w    = 1d2           ! Resistive wall thin-shell time
       r_v      = 1.5           ! Radius of outer conducting shell
-      zero_ExB_tang  = .true.  ! Whether we zero out tangential ExB flow
+      zero_vpar_bc = .false.   ! Whether we zero out parallel flow at bdry
       rw_fft_tupdate = .false. ! Whether we integrate RW eqs in Fourier space
       
       !Nonlinear function parameters
@@ -695,6 +695,7 @@ c     #####################################################################
       pc_max_iter = 0
       timecorr = .true.
       restart  = .false.
+      zero_ExB_tang = .true.
 
       end subroutine set_defaults
 
@@ -727,6 +728,8 @@ c     #####################################################################
 
       if (restart) ts_restart = restart
 
+      if (.not.zero_ExB_tang) zero_vpar_bc = .true.
+      
       !Time stepping
       if (sm_flag == 2) cnfactor = 0d0  !Force BDF2
 
@@ -774,7 +777,7 @@ c$$$          call critical('readInput',messg)
         endif
       endif
 
-      if (sheath_bc) zero_ExB_tang = .false. !Consider full ExB flow
+      if (sheath_bc) zero_vpar_bc = .true. !Consider full ExB flow
       
       !Adequate size for collapsed dimension
       if (coords /= 'car') then
