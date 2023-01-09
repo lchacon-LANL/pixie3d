@@ -2268,7 +2268,7 @@ c     Begin program
       select case (ieq)
       case (IVX,IVY,IVZ) !Velocity components
 
-        if ((.not.no_map).and.(.not.bcSYM(ibc))) then
+        if (have_map().and.(.not.bcSYM(ibc))) then
 
           call findBCLoopLimits(g_def,dim,loc
      .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
