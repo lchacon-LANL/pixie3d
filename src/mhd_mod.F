@@ -1269,17 +1269,6 @@ c     Defaults
         idhy = half/g_def%dyh(jg)
         idhz = half/g_def%dzh(kg)
 
-cc        jac  = g_def%gmetric%grid(igx)%jac(i,j,k)
-
-cc        if (no_map) then
-cc          ijacip  = one
-cc          ijacim  = one
-cc          ijacjp  = one
-cc          ijacjm  = one
-cc          ijackp  = one
-cc          ijackm  = one
-cc        endif
-
 c     Exceptions
 
         select case(half_elem)
@@ -1287,7 +1276,7 @@ c     Exceptions
           idhx = one/g_def%dx(ig)
           im = i
 
-          if (.not.no_map) then
+          if (have_map()) then
             jacip  = g_def%gmetric%grid(igx)%jac(ip,j,k)
             jacim  = g_def%gmetric%grid(igx)%jac(i ,j,k)
             jacjp  = half*(g_def%gmetric%grid(igx)%jac(ip,jp,k)
@@ -1359,7 +1348,7 @@ cc              jackm = one!SP_flsv
           idhy = one/g_def%dy(jg)
           jm = j
 
-          if (.not.no_map) then
+          if (have_map()) then
             jacip  = half*(g_def%gmetric%grid(igx)%jac(ip,jp,k)
      .                    +g_def%gmetric%grid(igx)%jac(ip,j ,k))
             jacim  = half*(g_def%gmetric%grid(igx)%jac(im,jp,k)
@@ -1418,7 +1407,7 @@ cc              jackm = one!SP_flsv
           idhz = one/g_def%dz(kg)
           km = k
 
-          if (.not.no_map) then
+          if (have_map()) then
             jacip  = half*(g_def%gmetric%grid(igx)%jac(ip,j,kp)
      .                    +g_def%gmetric%grid(igx)%jac(ip,j,k ))
             jacim  = half*(g_def%gmetric%grid(igx)%jac(im,j,kp)
@@ -1475,7 +1464,7 @@ cc              jackm = one!SP_flsv
 
         case default
 
-          if (.not.no_map) then
+          if (have_map()) then
             jacip  = g_def%gmetric%grid(igx)%jac(ip,j,k)
             jacim  = g_def%gmetric%grid(igx)%jac(im,j,k)
             jacjp  = g_def%gmetric%grid(igx)%jac(i,jp,k)
@@ -1530,7 +1519,7 @@ cc              jackm = one!SP_flsv
 
 c     Components
 
-        if (.not.no_map) then
+        if (have_map()) then
           ijacip  = one/jacip
           ijacim  = one/jacim
           ijacjp  = one/jacjp
