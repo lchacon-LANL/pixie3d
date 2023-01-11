@@ -17,25 +17,19 @@ exit 0
 
 check_job()
 {
-ERROR=$(scontrol show job $1 2>&1 | grep error)
-if [ "x$ERROR" = "x" ]; then
-  RUNTEST=$(scontrol show job $1 | grep State | cut -d "=" -f 2 | cut -d " " -f 1)
-  echo "Job $1 is $RUNTEST"
-else
-  echo "Error in job $1. Exiting."
-  exit 1
-fi
-while [ "$RUNTEST" != "RUNNING" -a "$RUNTEST" != "COMPLETED" -a "$RUNTEST" != "CANCELLED" -a "x$ERROR" == "x" ]
+ERROR=""
+RUNTEST="IN QUEUE"    
+while [ "$RUNTEST" != "COMPLETED" -a "$RUNTEST" != "CANCELLED" -a "x$ERROR" == "x" ]
 do
   sleep 10
+  RUNTEST_OLD=$RUNTEST
   ERROR=$(scontrol show job $1 2>&1 | grep error)
   RUNTEST=$(scontrol show job $1 | grep State | cut -d "=" -f 2 | cut -d " " -f 1)
-  #echo "Job $1 is $RUNTEST"
+  if [ "x$RUNTEST" != "x$RUNTEST_OLD" ]; then
+      echo "Job $1 is $RUNTEST"
+  fi
 done
-if [ "x$ERROR" = "x" ]; then
-  echo "Job $1 is $RUNTEST"
-  rm exit_code.txt 2> /dev/null  
-else
+if [ "x$ERROR" != "x" ]; then
   echo "Error in job $1. Exiting."
   exit 1
 fi
@@ -44,13 +38,8 @@ fi
 check_return_code()
 {
 echo "Checking return value for job $1 ..."
-RETURN_VALUE=""
-while [ "$RETURN_VALUE" = "" ]
-do
-  sleep 60
-  RETURN_VALUE=$(cat exit_code.txt 2> /dev/null)
-done
-echo "Return value found: $RETURN_VALUE"
+RETURN_VALUE=$(cat exit_code.txt 2> /dev/null)
+echo "Return value: $RETURN_VALUE"
 }
 
 new_job()
@@ -73,7 +62,7 @@ if [ "$RETURN_VALUE" = "1" ]; then
 fi
 }
 
-#Parse input options
+# Parse input options
 
 if [ "$#" = 0 ]; then
   help
@@ -83,7 +72,6 @@ fi
 # Begin script
 
 date
-rm exit_code.txt 2> /dev/null
 
 # First submission
 
@@ -99,13 +87,13 @@ check_job $JOB
 
 check_return_code $JOB
 
-#Subsequent submissions
+# Subsequent submissions
 
 if [ "$RETURN_VALUE" = "1" ]; then  #CPU quota exit; restart
   new_job $1
 fi
 
-#Clean up
+# Clean up
 
 date
 
