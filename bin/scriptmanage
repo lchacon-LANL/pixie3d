@@ -19,7 +19,7 @@ check_job()
 {
 ERROR=""
 RUNTEST="IN QUEUE"    
-while [ "$RUNTEST" != "COMPLETED" -a "$RUNTEST" != "CANCELLED" -a "x$ERROR" == "x" ]
+while [  "$RUNTEST" != "TIMEOUT" -a "$RUNTEST" != "COMPLETING" -a "$RUNTEST" != "COMPLETED" -a "$RUNTEST" != "CANCELLED" -a "x$ERROR" == "x" ]
 do
   sleep 10
   RUNTEST_OLD=$RUNTEST
