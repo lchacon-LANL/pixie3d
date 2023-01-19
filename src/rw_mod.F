@@ -337,7 +337,7 @@ c     Find VACUUM potential solution Phi outside of resistive wall
           !Evolve normal B component
           if (rw_fft_tupdate) then
             gamma = 1 + mm(m)*(rm+1d0)/(rm-1d0)
-            efac  = exp(-gamma*dt/tau_w)
+            efac  = exp(-MIN(gamma*dt/tau_w,175d0))
             Br_m(m) = efac*Brn_m(m)-(1d0-efac)/gamma*gBr_m(m)
             Bi_m(m) = efac*Bin_m(m)-(1d0-efac)/gamma*gBi_m(m)
           endif
@@ -380,22 +380,25 @@ c     Find VACUUM potential solution Phi outside of resistive wall
      .         + m1*(m1+1)/(pw*pw)*BESSI(m1 ,pw)
           dImv = BESSI(mm1,pv) - m1/pv*BESSI(m1,pv)
 
+          dum = (dImv*Km-dKmv*Im)/((dImv*dKm-dKmv*dIm)*pw)
+
+          !Find phi_nm
+          phir_m(m) = Brn_m(m)*dum
+          phii_m(m) = Bin_m(m)*dum
+
           if (rw_fft_tupdate) then
             !Evolve normal B component
             gamma =-pw*(dImv*d2Km-dKmv*d2Im)/(dImv*dKm -dKmv*dIm)
-            efac  = exp(-gamma*dt/tau_w)
+            efac  = exp(-MIN(gamma*dt/tau_w,175d0))
             Br_m(m) = efac*Brn_m(m)-(1d0-efac)/gamma*gBr_m(m)
             Bi_m(m) = efac*Bin_m(m)-(1d0-efac)/gamma*gBi_m(m)
-          endif
-        
-          !Find phi_nm
-          dum = (dImv*Km-dKmv*Im)/((dImv*dKm-dKmv*dIm)*pw)
-          if (rw_fft_tupdate) then
+c$$$            efac  = 1d0/(1d0 + gamma*dt/tau_w)
+c$$$            Br_m(m) = efac*(Brn_m(m)-dt/tau_w*gBr_m(m))
+c$$$            Bi_m(m) = efac*(Bin_m(m)-dt/tau_w*gBi_m(m))
+
             phir_m_np(m) = Br_m(m)*dum
             phii_m_np(m) = Bi_m(m)*dum
           endif
-          phir_m   (m) = Brn_m(m)*dum
-          phii_m   (m) = Bin_m(m)*dum
         enddo
       endif
 
@@ -431,9 +434,6 @@ c diag ****
 c     Find new-time EXTERNAL magnetic field components outside RW
 
       if (rw_fft_tupdate) then
-        !New-time normal component Br
-        call ifft(nyg,Br,theta,nyg,Br_m,Bi_m,mm,0)
-
         !New-time Bth  [multiply by -sqrt(-1)*m/m*]
         Brn_m = mm/m_h*phii_m_np
         Bin_m =-mm/m_h*phir_m_np
@@ -448,21 +448,21 @@ c     Find new-time EXTERNAL magnetic field components outside RW
           bcov_ext_np(j,:,2) = Bth(jglobal)
           bcov_ext_np(j,:,3) = 0d0 !implies Bz(jglobal) = k_h*bcov_ext_np(j,:,2)
         enddo
+     
+        if (rw_dbg.and.save_tn) then
+          Bnl(1,1:ny,1)=(bcov_ext_np(1:ny,1,2)/bcov_ext(1:ny,1,2)-1d0)
+     $                 /dt
+#if defined(petsc)
+          dum = psum(Bnl(1,1:ny,1),mpi_comm=g_def%MPI_COMM_Y)/nyg
+#else
+          dum = sum(Bnl(1,1:ny,1))/nyg
+#endif
+          if (debug_io)
+     $      write(*,*) "Bt norm. decay rate, m =",nint(m_h)," is",dum
+        endif
 
         !Return new-time EXTERNAL magnetic field components outside RW
         bcov_ext = bcov_ext_np
-     
-c$$$      if (rw_dbg.and.save_tn) then
-c$$$        Bnl(1,1:ny,1)=(bcov_ext_np(1:ny,1,2)/bcov_ext(1:ny,1,2)-1d0)/dt
-c$$$#if defined(petsc)
-c$$$        dum = psum(Bnl(1,1:ny,1),mpi_comm=g_def%MPI_COMM_Y)/nyg
-c$$$#else
-c$$$        dum = sum(Bnl(1,1:ny,1))/nyg
-c$$$#endif
-c$$$        if (debug_io)
-c$$$     $    write(*,*) "Bt norm. decay rate, m =",nint(m_h)," is",dum
-c$$$      endif
-
       endif
        
       deallocate(Bnl,gBnl,Bn,gBn)
