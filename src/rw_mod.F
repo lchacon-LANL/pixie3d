@@ -7,6 +7,7 @@ c ####################################################################
         !Resistive wall vars
         logical :: rw_bcs(6)      =.false.
      $            ,rw_fft_tupdate =.false.
+     $            ,rw_implicit_bc =.false.
 
         real(8) :: tau_w=1d30,r_v=1d0  !Ideal wall by default
 
@@ -144,15 +145,15 @@ c     Begin program
 c     Compute INTERNAL tangential magnetic field components, EXCLUDING m=n=0 mode (CRITICAL)
 
       if (extrap) then
-c$$$        bcnvint (:,:,:) = bcnv(i_bc-1,:,:,:)
-        !Extrapolate to face from interior
-        call getMGmap(g_def,i_bc,1,1,igr,igr,igr,ig,jg,kg)
-        bcnvint (:,:,:) = bcnv(i_bc-2,:,:,:)
-     $                  +(bcnv(i_bc-1,:,:,:)-bcnv(i_bc-2,:,:,:))
-     $                   /(g_def%xx(ig-1)-g_def%xx(ig-2))
-     $                    *(0.5*g_def%xx(ig  )
-     $                     +0.5*g_def%xx(ig-1)
-     $                     -    g_def%xx(ig-2))
+        bcnvint (:,:,:) = bcnv(i_bc-1,:,:,:)
+c$$$        !Extrapolate to face from interior
+c$$$        call getMGmap(g_def,i_bc,1,1,igr,igr,igr,ig,jg,kg)
+c$$$        bcnvint (:,:,:) = bcnv(i_bc-2,:,:,:)
+c$$$     $                  +(bcnv(i_bc-1,:,:,:)-bcnv(i_bc-2,:,:,:))
+c$$$     $                   /(g_def%xx(ig-1)-g_def%xx(ig-2))
+c$$$     $                    *(0.5*g_def%xx(ig  )
+c$$$     $                     +0.5*g_def%xx(ig-1)
+c$$$     $                     -    g_def%xx(ig-2))
       else
         !Interpolate to face
         bcnvint (:,:,:)= 0.5*bcnv(i_bc  ,:,:,:)
@@ -166,10 +167,16 @@ c$$$        bcnvint (:,:,:) = bcnv(i_bc-1,:,:,:)
         enddo
       enddo
 
-      gbcnvint(:,:,:)=(bcnv(i_bc  ,:,:,:)
-     .                -bcnv(i_bc-1,:,:,:))
-     .                /(g_def%xg(nxg+1)-g_def%xg(nxg))
-
+      if (extrap) then
+        gbcnvint(:,:,:)=(bcnv(i_bc-1,:,:,:)
+     .                  -bcnv(i_bc-2,:,:,:))
+     .                 /(g_def%xg(nxg)-g_def%xg(nxg-1))
+      else
+        gbcnvint(:,:,:)=(bcnv(i_bc  ,:,:,:)
+     .                  -bcnv(i_bc-1,:,:,:))
+     .                  /(g_def%xg(nxg+1)-g_def%xg(nxg))
+      endif
+      
       !Perform angular average
       bcov_avg(2) = sum(bcovint(1:ny,1:nz,2))
       bcov_avg(3) = sum(bcovint(1:ny,1:nz,3))

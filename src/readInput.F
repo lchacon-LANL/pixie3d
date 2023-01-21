@@ -42,7 +42,7 @@ c Local variables
      .                ,pc_debug_it,pc_max_iter
       logical       :: zebra_relax,hall_new,lag_pinch_bc,debug
      .                ,mg_zebra_relax,restart,timecorr,fake_ve
-     $                ,rw_implicit_bc,zero_ExB_tang
+     $                ,zero_ExB_tang
       real(8)       :: mgtol
 
 c Namelists
@@ -60,7 +60,7 @@ c Namelists
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old,xport_order
      .                   ,r_v,tau_w,zero_vpar_bc
-     .                   ,rw_fft_tupdate
+     .                   ,rw_fft_tupdate,rw_implicit_bc
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                   ,pc_as_solver,fpa,fpa_it
@@ -98,7 +98,7 @@ c Namelists
      .                   ,mg_zebra_relax,pc_max_iter,timecorr,restart
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
-     .                   ,rw_implicit_bc,zero_ExB_tang
+     .                   ,zero_ExB_tang
       
       !Problem setup
       namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
@@ -119,7 +119,7 @@ c Namelists
      .                   ,equil,gstor_I_drive,refine_eq
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
-     .                   ,r_v,tau_w,zero_vpar_bc
+     .                   ,r_v,tau_w,zero_vpar_bc,rw_implicit_bc
      .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_bc
 
       !Spatial discretization
@@ -768,7 +768,7 @@ c     #####################################################################
       enddo
 
       if (res_wall_bc) then
-        if (dt > tau_w/nxd) then
+        if (dt > tau_w/nxd.and.(.not.rw_implicit_bc)) then
           dt = min(0.5*tau_w/nxd,dt)
           write (messg,*) " Adjusted dt for RW BC stability"
           call warning(messg)
