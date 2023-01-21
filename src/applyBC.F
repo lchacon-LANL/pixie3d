@@ -1234,7 +1234,8 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
             bcnv_n = bcnv_0     !Set it to initial cond.
           elseif (save_tn) then
 #if defined(vec_pot)
-            bcnv_n = bcnv
+            call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
+cc            bcnv_n = bcnv
 #else
             bcnv_n(:,:,:,1) = varray%array_var(IBX)%array
             bcnv_n(:,:,:,2) = varray%array_var(IBY)%array
