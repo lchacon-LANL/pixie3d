@@ -1282,7 +1282,6 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
           elseif (save_tn) then
 #if defined(vec_pot)
             call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
-cc            bcnv_n = bcnv
 #else
             bcnv_n(:,:,:,1) = varray%array_var(IBX)%array
             bcnv_n(:,:,:,2) = varray%array_var(IBY)%array
@@ -1294,19 +1293,37 @@ cc            bcnv_n = bcnv
             bcnv_n = bcnv_0     !Set it to initial cond.
           elseif (save_tn) then
 #if defined(vec_pot)
-            if (ts_after_restart) then
-              call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
-              bcov = XformVector(gv%gparams,igr,bcnv_n,.false.)
-            else
-              bcnv_n = bcnv
-            endif
+            call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
+c$$$            if (ts_after_restart) then
+c$$$              call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
+c$$$              bcov = XformVector(gv%gparams,igr,bcnv_n,.false.)
+c$$$            else
+c$$$              bcnv_n = bcnv
+c$$$            endif
 #else
             bcnv_n(:,:,:,1) = varray%array_var(IBX)%array
             bcnv_n(:,:,:,2) = varray%array_var(IBY)%array
             bcnv_n(:,:,:,3) = varray%array_var(IBZ)%array
 #endif
           endif
-#endif          
+#endif
+
+c$$$#if defined(plotting)
+c$$$          if (itime==0) then
+c$$$#else
+c$$$          if (source_eval) then
+c$$$#endif
+c$$$            bcnv_n = bcnv_0     !Set it to initial cond.
+c$$$          elseif (save_tn) then
+c$$$#if defined(vec_pot)
+c$$$            call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
+c$$$#else
+c$$$            bcnv_n(:,:,:,1) = varray%array_var(IBX)%array
+c$$$            bcnv_n(:,:,:,2) = varray%array_var(IBY)%array
+c$$$            bcnv_n(:,:,:,3) = varray%array_var(IBZ)%array
+c$$$#endif
+c$$$          endif
+
         case(IVCOV)
 
           vcov = XformVector(gv%gparams,igr,vcnv,.false.)
