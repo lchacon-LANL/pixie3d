@@ -12,6 +12,8 @@ c####################################################################
 
         use ts_setup
 
+        use ts_io, ONLY: TS_chk_after_restart
+
         use equilibrium
 
         use nlfunction_setup, ONLY: res,chi_perp,chi_para,vis,ion_hall
