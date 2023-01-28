@@ -29,8 +29,7 @@ c####################################################################
 
         integer :: order_bc=1
 
-        logical :: regularize_A = .false.  !Whether we regularize A @ SP
-     $            ,fill_A0_bc   = .false.
+        logical :: fill_A0_bc   = .false.
      $            ,res_wall_bc  = .false.  !Whether we are applying RW BCs
      $            ,zero_vpar_bc = .false.  !Whether we zero out parallel flow at bdry
      $            ,v00_ExB_bc   = .false.  !Whether we average tangential ExB flow

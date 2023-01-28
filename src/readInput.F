@@ -42,7 +42,7 @@ c Local variables
      .                ,pc_debug_it,pc_max_iter
       logical       :: zebra_relax,hall_new,lag_pinch_bc,debug
      .                ,mg_zebra_relax,restart,timecorr,fake_ve
-     $                ,zero_ExB_tang
+     $                ,zero_ExB_tang,regularize_A
       real(8)       :: mgtol
 
 c Namelists
@@ -88,7 +88,7 @@ c Namelists
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
      .                   ,subtract_E0,e_cons_vstar,post_smooth_B
-     .                   ,regularize_A,use_p_classic_eq,post_filter_hel
+     .                   ,use_p_classic_eq,post_filter_hel
      .                   ,binom_alph,v00_ExB_bc,sheath_bc
      .                ,prt_file,equ_file,map_file,dcon
      .                !Legacy parameters
@@ -98,7 +98,7 @@ c Namelists
      .                   ,mg_zebra_relax,pc_max_iter,timecorr,restart
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
-     .                   ,zero_ExB_tang
+     .                   ,zero_ExB_tang,regularize_A
       
       !Problem setup
       namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
@@ -128,7 +128,7 @@ c Namelists
      .                   ,ion_hall,slava,noise,noise_lev,post_smooth_B
      .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
      .                   ,heta_is_rhoheta,subtract_E0,e_cons_vstar
-     .                   ,regularize_A,use_p_classic_eq,post_filter_hel
+     .                   ,use_p_classic_eq,post_filter_hel
      .                   ,solve_prs,binom_alph
 
       !Temporal discretization
@@ -554,8 +554,6 @@ c     #####################################################################
       noise_lev  = 0d0         ! Noise level
 
       post_smooth_B = .false.  ! Whether to smooth B at postprocessing stage
-
-      regularize_A  = .false.  ! Whether we regularize A at SP geometries or not
 
       post_filter_hel = .false.! Whether to Fourier filter helical geometry sim
 

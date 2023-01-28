@@ -649,123 +649,91 @@ cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
 
 c       Vector Pot. BC
 
-          if (regularize_A) then
-            allocate(acnv_n(0:nnx+1,0:nny+1,0:nnz+1,3))
-
-            !Subtract previous time step (to regularize delta only)
-c$$$            acov_n(:,:,:,1) = u_n%array_var(IAX)%array
-c$$$            acov_n(:,:,:,2) = u_n%array_var(IAY)%array
-c$$$            acov_n(:,:,:,3) = u_n%array_var(IAZ)%array
-            acnv_n = XformVector(gv%gparams,igr,acov_n,.true.)
-
-            acov = acov-acov_n
-            acnv = acnv-acnv_n
-
-c$$$            acnv_n = XformVector(gv%gparams,igr,acov_0,.true.)
-c$$$
-c$$$            acov = acov-acov_0
-c$$$            acnv = acnv-acnv_n
-
-            !Impose BC
-            v0 = 0d0
-
+          if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
+#if defined(plotting)
+            if (save_tn) call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
+            call XferBCs(acov,v0,.true.) !Reuse existing BC for plotting
             call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
-     .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv
-     .                ,sp_reg=.true.)
-
-            !Add previous time step
-            acov = acov + acov_n
-cc            acov = acov + acov_0
-            acnv = acnv + acnv_n
-
-            deallocate(acnv_n)
-          else
-            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
-#if defined(plotting)
-              if (save_tn) call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
-              call XferBCs(acov,v0,.true.)  !Reuse existing BC for plotting
-              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     .                  ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
-     .                  ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
+     .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
 #else
-              if (rw_implicit_bc) then
-                !Second-order BDF2 implicit update of RW BC
-                if (itime > inewtime + 2) then
-                  vdum(:,:,:,1) =-cn /cnp*u_n %array_var(IAX)%array
-     $                           -cnm/cnp*u_nm%array_var(IAX)%array
-                  vdum(:,:,:,2) =-cn /cnp*u_n %array_var(IAY)%array
-     $                           -cnm/cnp*u_nm%array_var(IAY)%array
-                  vdum(:,:,:,3) =-cn /cnp*u_n %array_var(IAZ)%array
-     $                           -cnm/cnp*u_nm%array_var(IAZ)%array
-                else
-                  vdum = acov_n
-                endif
+            if (rw_implicit_bc) then
+              !Second-order BDF2 implicit update of RW BC
+              if (itime > inewtime + 2) then
+                vdum(:,:,:,1) =-cn /cnp*u_n %array_var(IAX)%array
+     $                         -cnm/cnp*u_nm%array_var(IAX)%array
+                vdum(:,:,:,2) =-cn /cnp*u_n %array_var(IAY)%array
+     $                         -cnm/cnp*u_nm%array_var(IAY)%array
+                vdum(:,:,:,3) =-cn /cnp*u_n %array_var(IAZ)%array
+     $                         -cnm/cnp*u_nm%array_var(IAZ)%array
+              else
+                vdum = acov_n
+              endif
 
-                if (save_tn) then
-c$$$                  call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
-                else
-                  !Predict A @ BC by extrapolation and find B
-                  call find_B(gv%gparams,igr,B0,acov,bcnv,.false.
-     $                       ,bcond=vaux%vec_list(IACOV)%bconds)
-                  call rw_Ebc(gv%gparams,igr,bcnv,E_bc,extrp_b=.true.
-     $                       ,rw_dbg=.false.)
+              if (save_tn) then
+c$$$                call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
+              else
+                !Predict A @ BC by extrapolation and find B
+                call find_B(gv%gparams,igr,B0,acov,bcnv,.false.
+     $                     ,bcond=vaux%vec_list(IACOV)%bconds)
+                call rw_Ebc(gv%gparams,igr,bcnv,E_bc,extrp_b=.true.
+     $                     ,rw_dbg=.false.)
 
-                  !Correct A @ BC and find new E_bc and iterate twice
-                  do it=1,2
-                    !A BCs
-                    v0 = 0d0
-                    call XferBCs(vdum,v0,.true.)
-                    if (itime > inewtime + 2) then
-                      v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
-     $                                 -dt/cnp*E_bc(nnx+1,:,:,:)
-                    else
-                      v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
-     $                                 -dt*E_bc(nnx+1,:,:,:)
-                    endif
+                !Correct A @ BC and find new E_bc and iterate twice
+                do it=1,2
+                  !A BCs
+                  v0 = 0d0
+                  call XferBCs(vdum,v0,.true.)
+                  if (itime > inewtime + 2) then
+                    v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
+     $                               -dt/cnp*E_bc(nnx+1,:,:,:)
+                  else
+                    v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
+     $                               -dt*E_bc(nnx+1,:,:,:)
+                  endif
 
-                    call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+                  call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      $                    ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
      $                    ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
 
-                    !Correct B from A
-                    call find_B(gv%gparams,igr,B0,acov,bcnv,.false.)
+                  !Correct B from A
+                  call find_B(gv%gparams,igr,B0,acov,bcnv,.false.)
 
-                    !Correct E_bc with new B
-                    call rw_Ebc(gv%gparams,igr,bcnv,E_bc,extrp_b=.true.
-     $                         ,rw_dbg=(it==2))
-                  enddo
-                endif
+                  !Correct E_bc with new B
+                  call rw_Ebc(gv%gparams,igr,bcnv,E_bc,extrp_b=.true.
+     $                       ,rw_dbg=(it==2))
+                enddo
+              endif
+            else
+              !Second-order SSP explicit update of RW BC
+              if (itime > inewtime + 2) then
+                xi_rw = dt/(dt_n+dt_nm)
+                vdum(:,:,:,1) = u_n%array_var(IAX)%array
+     $                         -xi_rw**2*(u_n  %array_var(IAX)%array
+     $                                   -u_nm2%array_var(IAX)%array)
+                vdum(:,:,:,2) = u_n%array_var(IAY)%array
+     $                         -xi_rw**2*(u_n  %array_var(IAY)%array
+     $                                   -u_nm2%array_var(IAY)%array)
+                vdum(:,:,:,3) = u_n%array_var(IAZ)%array
+     $                         -xi_rw**2*(u_n  %array_var(IAZ)%array
+     $                                   -u_nm2%array_var(IAZ)%array)
               else
-                !Second-order SSP explicit update of RW BC
-                if (itime > inewtime + 2) then
-                  xi_rw = dt/(dt_n+dt_nm)
-                  vdum(:,:,:,1) = u_n%array_var(IAX)%array
-     $                           -xi_rw**2*(u_n  %array_var(IAX)%array
-     $                                     -u_nm2%array_var(IAX)%array)
-                  vdum(:,:,:,2) = u_n%array_var(IAY)%array
-     $                           -xi_rw**2*(u_n  %array_var(IAY)%array
-     $                                     -u_nm2%array_var(IAY)%array)
-                  vdum(:,:,:,3) = u_n%array_var(IAZ)%array
-     $                           -xi_rw**2*(u_n  %array_var(IAZ)%array
-     $                                     -u_nm2%array_var(IAZ)%array)
-                else
-                  xi_rw = 0d0
-                  vdum = acov_n
-                endif
+                xi_rw = 0d0
+                vdum = acov_n
+              endif
 
-                if (save_tn) call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
+              if (save_tn) call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
               
-                call XferBCs(vdum,v0,.true.)
-                v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
-     $                           -dt*(1d0+xi_rw)*E_bc(nnx+1,:,:,:)
+              call XferBCs(vdum,v0,.true.)
+              v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
+     $                         -dt*(1d0+xi_rw)*E_bc(nnx+1,:,:,:)
 
-                if (.not.init_time_eval) then
-                  call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+              if (.not.init_time_eval) then
+                call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .                    ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
      .                    ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
-                endif
               endif
+            endif
 #endif
             else
               call XferBCs(acov_0,v0,.true.)
@@ -773,7 +741,6 @@ c$$$                  call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
      .                  ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
      .                  ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
             endif
-          endif
 
         case(IACNV)  !Done when computing acov
 
