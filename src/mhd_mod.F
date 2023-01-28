@@ -2939,8 +2939,7 @@ c     Begin program
         bcnd = bcond
         where (bcnd==-EQU) bcnd =-EXT
         call setBC(g_def,IAX,3,nx,ny,nz,acnv,acov,v0
-     .          ,bcnd,igr,igr,igr,iorder=2
-     .          ,is_cnv=.false.)
+     .          ,bcnd,igr,igr,igr,iorder=1,is_cnv=.false.)
       endif
       
       !Find B_cnv

@@ -67,7 +67,7 @@ c applyDepVarBC
 c####################################################################
       subroutine applyDepVarBC(igr,bc_inf,varray,order)
 c--------------------------------------------------------------------
-c     Sets adequate boundary conditions on array structure varray.
+c     Sets adequate boundary conditions on dependent variables.
 c--------------------------------------------------------------------
 
       use local_BCS_variables
@@ -284,7 +284,7 @@ c applyAuxVarBC
 c####################################################################
       subroutine applyAuxVarBC(igr,bc_inf,varray,vaux,order)
 c--------------------------------------------------------------------
-c     Sets adequate boundary conditions on array structure varray.
+c     Sets adequate boundary conditions on auxiliary variables.
 c--------------------------------------------------------------------
 
       use rw_bc
@@ -703,14 +703,15 @@ cc            acov = acov + acov_0
                 endif
 
                 if (save_tn) then
-                  call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
+c$$$                  call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
                 else
-                  !Predict A @ BC by extrapolation and find B, E_bc
+                  !Predict A @ BC by extrapolation and find B
                   call find_B(gv%gparams,igr,B0,acov,bcnv,.false.
      $                       ,bcond=vaux%vec_list(IACOV)%bconds)
-                  call rw_Ebc(gv%gparams,igr,bcnv,E_bc,extrp_b=.true.)
+                  call rw_Ebc(gv%gparams,igr,bcnv,E_bc,extrp_b=.true.
+     $                       ,rw_dbg=.false.)
 
-                  !Correct A @ BC and find new E_bc and iterate
+                  !Correct A @ BC and find new E_bc and iterate twice
                   do it=1,2
                     !A BCs
                     v0 = 0d0
@@ -727,11 +728,12 @@ cc            acov = acov + acov_0
      $                    ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
      $                    ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
 
-                    !Compute new B from A
+                    !Correct B from A
                     call find_B(gv%gparams,igr,B0,acov,bcnv,.false.)
 
                     !Correct E_bc with new B
-                    call rw_Ebc(gv%gparams,igr,bcnv,E_bc,extrp_b=.true.)
+                    call rw_Ebc(gv%gparams,igr,bcnv,E_bc,extrp_b=.true.
+     $                         ,rw_dbg=(it==2))
                   enddo
                 endif
               else
@@ -806,18 +808,19 @@ cc          call XformVector_BC(gv%gparams,igr,bcnv,bcov,.false.)
         case(IBCNV_N)
 
 #if defined(vec_pot) && !defined(plotting)
-          if (save_tn.and.ts_after_restart) then
-            if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
-              v0 = 0d0 ; prs1 = rho*tmp
-              call J_pinch_bc(gv%gparams,igr,bcnv_n,prs1,eeta,E_bc,v0)
-            else
-              call XferBCs(jcnv_0,v0,.true.)
-            endif
-
-            call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_n,bcov,v0
-     .                ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
-     .                ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
-          endif
+c$$$          if (save_tn.and.TS_chk_after_restart(1)) then
+c$$$            if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
+c$$$              v0 = 0d0 ; prs1 = rho*tmp
+c$$$              call J_pinch_bc(gv%gparams,igr,bcnv_n,prs1,eeta,E_bc,v0)
+c$$$            else
+c$$$              call XferBCs(jcnv_0,v0,.true.)
+c$$$            endif
+c$$$            bcov = XformVector(gv%gparams,igr,bcnv_n,.false.)
+c$$$
+c$$$            call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_n,bcov,v0
+c$$$     .                ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
+c$$$     .                ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
+c$$$          endif
 #endif
 
         case(IJCNV)

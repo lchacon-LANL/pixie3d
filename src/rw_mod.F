@@ -14,7 +14,6 @@ c ####################################################################
         real(8),pointer,dimension(:,:,:,:) :: E_bc
 
         logical,private :: debug_io=.false.
-     .                    ,rw_dbg  =.true.
 
       contains
 
@@ -76,7 +75,7 @@ c     End program
 
 c     rw_Ebc
 c     #################################################################
-      subroutine rw_Ebc(g_def,igr,bcnv,E_0,extrp_b)
+      subroutine rw_Ebc(g_def,igr,bcnv,E_0,extrp_b,rw_dbg)
 
 c     -----------------------------------------------------------------
 c     Finds tangential cov electric field components according to
@@ -94,7 +93,7 @@ c     Call variables
       real(8),dimension(0:,0:,0:,:) :: bcnv
       real(8),dimension(0:,0:,0:,:) :: E_0
 
-      logical,optional :: extrp_b
+      logical,optional :: extrp_b,rw_dbg
       
 c     Local variables
 
@@ -115,7 +114,7 @@ c     Local variables
       real(8) :: dum,dh,bcov_avg(2:3),send_buf(2),rec_buf(2),nfactor
       real(8) :: mag
 
-      logical :: extrap
+      logical :: extrap,debug
       
 c     Begin program
 
@@ -133,27 +132,32 @@ c     Begin program
       else
         extrap = .false.
       endif
-      
+
+      if (PRESENT(rw_dbg)) then
+        debug = rw_dbg
+      else
+        debug = .true.
+      endif
+
 #if defined(petsc)
       call MPI_Comm_rank(g_def%MPI_COMM_YZ,my_rank_yz,mpierr)
+      debug_io = debug.and.my_rank_yz==0.and.(.not.test)
 #else
-      my_rank_yz = 0
+      debug_io = debug.and.(.not.test)
 #endif
-      
-      debug_io = rw_dbg.and.my_rank_yz==0.and.(.not.test)
 
 c     Compute INTERNAL tangential magnetic field components, EXCLUDING m=n=0 mode (CRITICAL)
 
       if (extrap) then
-        bcnvint (:,:,:) = bcnv(i_bc-1,:,:,:)
-c$$$        !Extrapolate to face from interior
-c$$$        call getMGmap(g_def,i_bc,1,1,igr,igr,igr,ig,jg,kg)
-c$$$        bcnvint (:,:,:) = bcnv(i_bc-2,:,:,:)
-c$$$     $                  +(bcnv(i_bc-1,:,:,:)-bcnv(i_bc-2,:,:,:))
-c$$$     $                   /(g_def%xx(ig-1)-g_def%xx(ig-2))
-c$$$     $                    *(0.5*g_def%xx(ig  )
-c$$$     $                     +0.5*g_def%xx(ig-1)
-c$$$     $                     -    g_def%xx(ig-2))
+c$$$        bcnvint (:,:,:) = bcnv(i_bc-1,:,:,:)
+        !Extrapolate to face from interior
+        call getMGmap(g_def,i_bc,1,1,igr,igr,igr,ig,jg,kg)
+        bcnvint (:,:,:) = bcnv(i_bc-2,:,:,:)
+     $                  +(bcnv(i_bc-1,:,:,:)-bcnv(i_bc-2,:,:,:))
+     $                   /(g_def%xx(ig-1)-g_def%xx(ig-2))
+     $                    *(0.5*g_def%xx(ig  )
+     $                     +0.5*g_def%xx(ig-1)
+     $                     -    g_def%xx(ig-2))
       else
         !Interpolate to face
         bcnvint (:,:,:)= 0.5*bcnv(i_bc  ,:,:,:)
@@ -198,7 +202,8 @@ c     Compute VACUUM response
 
       select case(coords)
       case('hel')
-       call vacuum_hel(g_def,igr,bcnvint(:,:,1),gbcnvint(:,:,1),bcovext)
+       call vacuum_hel(g_def,igr,bcnvint(:,:,1),gbcnvint(:,:,1),bcovext
+     $                ,debug)
 c$$$      case('cyl')
 c$$$      case('tor')
       case default
@@ -237,7 +242,7 @@ c     End program
 
 c     vacuum_hel
 c     ####################################################################
-      subroutine vacuum_hel(g_def,igr,bcnvn_int,gbcnvn_int,bcov_ext)
+      subroutine vacuum_hel(g_def,igr,bcnvn_int,gbcnvn_int,bcov_ext,dbg)
       
 c     -----------------------------------------------------------------
 c     Performs RW BC. Inputs normal internal B-component, outputs
@@ -254,6 +259,8 @@ c     Call variables
       
       real(8) :: bcnvn_int(0:,0:),gbcnvn_int(0:,0:),bcov_ext(0:,0:,:)
 
+      logical :: dbg
+      
 c     Local variables
       
       integer :: m,n,jglobal,i,j,m1,mm2,mm1,nx,ny,nz,nyg
@@ -456,7 +463,7 @@ c     Find new-time EXTERNAL magnetic field components outside RW
           bcov_ext_np(j,:,3) = 0d0 !implies Bz(jglobal) = k_h*bcov_ext_np(j,:,2)
         enddo
      
-        if (rw_dbg.and.save_tn) then
+        if (dbg.and.save_tn) then
           Bnl(1,1:ny,1)=(bcov_ext_np(1:ny,1,2)/bcov_ext(1:ny,1,2)-1d0)
      $                 /dt
 #if defined(petsc)
