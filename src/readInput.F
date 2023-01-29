@@ -766,7 +766,7 @@ c     #####################################################################
       enddo
 
       if (res_wall_bc) then
-        if (dt > tau_w/nxd.and.(.not.rw_implicit_bc)) then
+        if (dt > tau_w/nxd) then
           dt = min(0.5*tau_w/nxd,dt)
           write (messg,*) " Adjusted dt for RW BC stability"
           call warning(messg)

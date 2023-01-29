@@ -673,7 +673,7 @@ c       Vector Pot. BC
               if (save_tn) then
 c$$$                call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
               else
-                !Predict A @ BC by extrapolation and find B
+                !Predict A @ BC by extrapolation and find B, E_bc
                 call find_B(gv%gparams,igr,B0,acov,bcnv,.false.
      $                     ,bcond=vaux%vec_list(IACOV)%bconds)
                 call rw_Ebc(gv%gparams,igr,bcnv,E_bc,extrp_b=.true.
@@ -701,7 +701,7 @@ c$$$                call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
 
                   !Correct E_bc with new B
                   call rw_Ebc(gv%gparams,igr,bcnv,E_bc,extrp_b=.true.
-     $                       ,rw_dbg=(it==2))
+     $                       ,rw_dbg=(it==2.and.ilevel>=1))
                 enddo
               endif
             else
