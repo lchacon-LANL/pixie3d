@@ -623,6 +623,7 @@ c$$$#endif
 
 c       Velocity BC
 
+#if !defined(plotting)
           !Perpendicular flow
           if (pinch_bc) then
             prs1 = rho*tmp
@@ -638,7 +639,8 @@ c       Velocity BC
           call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vcnv,vcov,v0
      .              ,vaux%vec_list(IVCNV)%bconds,igr,igr,igr
      .              ,iorder=order)
- 
+#endif
+
         case(IVCOV)   !Done when computing vcnv
 
 cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
@@ -649,14 +651,12 @@ cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
 
 c       Vector Pot. BC
 
-          if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
 #if defined(plotting)
-            if (save_tn) call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
-            call XferBCs(acov,v0,.true.) !Reuse existing BC for plotting
-            call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
-     .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
+c$$$          if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
+c$$$            call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
+c$$$          endif
 #else
+          if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
             if (rw_implicit_bc) then
               !Second-order BDF2 implicit update of RW BC
               if (itime > inewtime + 2) then
@@ -734,13 +734,13 @@ c$$$                call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
      .                    ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
               endif
             endif
+          else
+            call XferBCs(acov_0,v0,.true.)
+            call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+     .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
+     .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
+          endif
 #endif
-            else
-              call XferBCs(acov_0,v0,.true.)
-              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     .                  ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
-     .                  ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
-            endif
 
         case(IACNV)  !Done when computing acov
 
@@ -752,12 +752,21 @@ cc          call XformVector_BC(gv%gparams,igr,acov,acnv,.true.)
 
 c       Magnetic field BC
 
-          if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
-#if !defined(vec_pot) && defined(plotting)
-            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
-              call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc) !Recompute E_bc 
-            endif
+#if defined(plotting)
+
+#if !defined(vec_pot)
+c$$$          if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
+c$$$            call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc) !Recompute E_bc 
+c$$$          endif
 #endif
+
+#else
+          if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
+c$$$#if defined(plotting) && !defined(vec_pot)
+c$$$            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
+c$$$              call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc) !Recompute E_bc 
+c$$$            endif
+c$$$#endif
             v0 = 0d0 ; prs1 = rho*tmp
             call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
           else
@@ -767,7 +776,8 @@ c       Magnetic field BC
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
      .              ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
      .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
-
+#endif
+          
         case(IBCOV) !Done when computing bcnv
 
 cc          call XformVector_BC(gv%gparams,igr,bcnv,bcov,.false.)
@@ -794,6 +804,7 @@ c$$$          endif
 
 c       Current BC
 
+#if !defined(plotting)
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
             v0 = 0d0 ; prs1 = rho*tmp
             call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
@@ -804,6 +815,7 @@ c       Current BC
           call setBC(gv%gparams,IJX,3,nnx,nny,nnz,jcnv,jcov,v0
      .              ,vaux%vec_list(IJCNV)%bconds,igr,igr,igr
      .              ,iorder=order)
+#endif
 
         case(IJCOV) !Done when computing jcnv
 

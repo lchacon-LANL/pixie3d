@@ -766,13 +766,14 @@ c     #####################################################################
       enddo
 
       if (res_wall_bc) then
-        if (dt > tau_w/nxd) then
-          dt = min(0.5*tau_w/nxd,dt)
-          write (messg,*) " Adjusted dt for RW BC stability"
-          call warning(messg)
-c$$$          write (messg,*) "dt must be <",tau_w/nxd,"for RW BC stability"
-c$$$          call critical('readInput',messg)
-        endif
+c$$$        if (rw_implicit_bc) then
+c$$$          dt = min(tau_w/nxd,dt)
+c$$$        else
+c$$$          dt = min(0.5*tau_w/nxd,dt)
+c$$$        endif
+        dt = min(0.5*tau_w/nxd,dt)
+        write (messg,*) " Adjusted dt for RW BC stability"
+        call warning(messg)
       endif
 
       if (sheath_bc) zero_vpar_bc = .true. !Consider full ExB flow
