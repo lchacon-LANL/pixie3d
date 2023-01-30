@@ -56,7 +56,7 @@ c Namelists
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
      .                   ,aa_nu,bb_nu,cc_nu,heta,irrot_br_pert,eig_is_T
-     .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
+     .                   ,spitzer,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old,xport_order
      .                   ,r_v,tau_w,zero_vpar_bc
@@ -98,7 +98,7 @@ c Namelists
      .                   ,mg_zebra_relax,pc_max_iter,timecorr,restart
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
-     .                   ,zero_ExB_tang,regularize_A
+     .                   ,zero_ExB_tang,regularize_A!,fixed_Te,lagged_Te
       
       !Problem setup
       namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
@@ -111,7 +111,7 @@ c Namelists
      .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic,adiabatic_rho
      .                   ,dlambda,rshear,vparflow,vperflow,xport_order
      .                   ,eq_params,lagrangian,irrot_br_pert,eig_is_T
-     .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
+     .                   ,spitzer,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
@@ -493,8 +493,6 @@ c     #####################################################################
       heta     = 0d0           ! Coefficient for hyper-resistivity (if negative, it is determined by mesh)
 
       spitzer  = .false.       ! Whether we are using Spitzer resistivity
-      fixed_Te = .false.       ! Whether we are fixing the T to T_0
-      lagged_Te= .false.       ! Whether we are lagging T to T_n
       chi_bgnskii = .false.    ! Whether to use Braginskii conductivities
       
       gamma    = 5./3.         ! Polytropic constant of plasma

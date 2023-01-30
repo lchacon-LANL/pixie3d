@@ -348,27 +348,7 @@ c Select variable
         select case(abs(bc_inf(1)))
         case(IETA)
 
-c$$$          if (.not.spitzer) then
-c$$$            call XferBCs(eeta_0,s0,.true.)
-c$$$
-c$$$            call setBC(gv%gparams,IETA,nnx,nny,nnz,eeta,s0
-c$$$     .                ,vaux%var_list(IETA)%bconds
-c$$$     .                ,igr,igr,igr,iorder=0)
-c$$$          else
-            if (fixed_Te) then
-              eeta= res(gv%gparams,igr,tmpe_0)
-            elseif (lagged_Te) then
-              if (solve_prs) then
-                s0 = u_n%array_var(IPRS)%array
-     .              /u_n%array_var(IRHO)%array/a_p
-              else
-                s0 = u_n%array_var(ITMPE)%array/jac
-              endif
-              eeta= res(gv%gparams,igr,s0)
-            else
-              eeta= res(gv%gparams,igr,tmpe)
-            endif
-c$$$          endif
+          eeta    = res(gv%gparams,igr,tmpe)
           
         case(IDFF)
 
@@ -388,14 +368,7 @@ c$$$          endif
 
         case(IETA_0)
 
-c$$$          if (.not.spitzer) then
-c$$$            s0 = 0d0
-c$$$            call setBC(gv%gparams,IETA,nnx,nny,nnz,eeta,s0
-c$$$     .                ,vaux%var_list(IETA_0)%bconds
-c$$$     .                ,igr,igr,igr,iorder=0)
-c$$$          else
-            eeta_0  = res(gv%gparams,igr,tmpe_0)
-c$$$          endif
+          eeta_0  = res(gv%gparams,igr,tmpe_0)
           
         case(IHETA)
 
@@ -539,16 +512,9 @@ c       Allocate auxiliary variables in local domain
 #else
         case(IBCNV_0)
 
-c$$$          if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
-c$$$            call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
-c$$$     .                ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
-c$$$     .                ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
-c$$$     .                ,iorder=1)
-c$$$          else
-c$$$          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-c$$$          !Provide these in equilibrium routine!
-c$$$          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-c$$$          endif
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          !Provide these in equilibrium routine!
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         case(IBCOV_0)
 
@@ -876,11 +842,6 @@ c       Hall electric field BC
 
 c       Total electric field BC
 
-c$$$          bcnd = vaux%vec_list(IENI)%bconds
-c$$$          vdum = XformVector(gv%gparams,igr,E_ni,.true.)
-c$$$          call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vdum,E_ni,v0,bcnd
-c$$$     .              ,igr,igr,igr,iorder=order
-c$$$     .              ,is_cnv=vaux%vec_list(IENI)%cnv)
 #if defined(vec_pot)
           E_ni=E_fld_res_A(gv%gparams,igr,vcnv,acov,jcov,eeta)
 #else
@@ -1056,21 +1017,7 @@ c       Viscosity (needed for BCs; may depend on T)
 
 c       Resistivity (needed for BCs; may depend on T)
  
-          if (fixed_Te) then
-            eeta= res(gv%gparams,igr,tmpe_0)
-          elseif (lagged_Te) then
-            allocate(s0(0:nnx+1,0:nny+1,0:nnz+1))
-            if (solve_prs) then
-              s0 = u_n%array_var(IPRS)%array
-     .           /(u_n%array_var(IRHO)%array*a_p)
-            else
-              s0 = u_n%array_var(ITMPE)%array/jac
-            endif
-            eeta= res(gv%gparams,igr,s0)
-            deallocate(s0)
-          else
-            eeta= res(gv%gparams,igr,tmpe)
-          endif
+          eeta= res(gv%gparams,igr,tmpe)
 
         case(IDFF)
 
@@ -1505,16 +1452,7 @@ c Select variable
 
           tmp_0 = tmpe_0*a_p
 
-c$$$          u_0%array_var(IPRS)%array = rho_0*tmp_0*jac
-
         case(ITMPE_0)
-
-c$$$          if (solve_prs) then
-c$$$            tmpe_0 = u_0%array_var(IPRS)%array
-c$$$     .             /(u_0%array_var(IRHO)%array*a_p)
-c$$$          else
-c$$$            tmpe_0 = u_0%array_var(ITMPE)%array
-c$$$          endif
 
         case(IETA_0)
 
@@ -1527,10 +1465,6 @@ c$$$          eeta_0=res(gv%gparams,igr,tmpe_0)
           varray%array_var(IRHO)%array = rho*jac
 
         case(ITMP_AUX)  !Recover total temperature
-
-c$$$          if (.not.adiabatic_rho) then
-c$$$            varray%array_var(IPRS)%array = rho*tmp*jac
-c$$$          endif
           
           tmp = tmpe*a_p
 
@@ -1562,21 +1496,7 @@ c       Viscosity (needed for BCs; may depend on T)
 
 c       Resistivity (needed for BCs; may depend on T)
 
-c$$$          if (fixed_Te) then
-c$$$            eeta= res(gv%gparams,igr,tmpe_0)
-c$$$          elseif (lagged_Te) then
-c$$$            allocate(s0(1:nnx+1,1:nny+1,1:nnz+1))
-c$$$            if (solve_prs) then
-c$$$              s0 = u_n%array_var(IPRS)%array
-c$$$     .           /(u_n%array_var(IRHO)%array*a_p)
-c$$$            else
-c$$$              s0 = u_n%array_var(ITMPE)%array/jac
-c$$$            endif
-c$$$            eeta= res(gv%gparams,igr,s0)
-c$$$            deallocate(s0)
-c$$$          else
-c$$$            eeta= res(gv%gparams,igr,tmpe)
-c$$$          endif
+          eeta= res(gv%gparams,igr,tmpe)
           
         case(IDFF)
 
