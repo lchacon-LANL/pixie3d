@@ -305,7 +305,7 @@ c Call variables
 c Local variables
 
       integer :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz
-     .          ,ig,jg,kg,it
+     .          ,ig,jg,kg,it,itmax
 
       real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal,xi_rw,mag
 
@@ -602,6 +602,7 @@ c       Velocity BC
           if (sheath_bc) then
             v0 = v0 + sheath_flow_bc(gv%gparams,igr,bcnv,tmpe)
           endif
+
           call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vcnv,vcov,v0
      .              ,vaux%vec_list(IVCNV)%bconds,igr,igr,igr
      .              ,iorder=order)
@@ -617,11 +618,7 @@ cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
 
 c       Vector Pot. BC
 
-#if defined(plotting)
-c$$$          if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
-c$$$            call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
-c$$$          endif
-#else
+#if !defined(plotting)
           if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
             if (rw_implicit_bc) then
               !Second-order BDF2 implicit update of RW BC
@@ -636,17 +633,16 @@ c$$$          endif
                 vdum = acov_n
               endif
 
-              if (save_tn) then
-c$$$                call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
-              else
+              if (.not.save_tn) then
                 !Predict A @ BC by extrapolation and find B, E_bc
                 call find_B(gv%gparams,igr,B0,acov,bcnv,.false.
      $                     ,bcond=vaux%vec_list(IACOV)%bconds)
-                call rw_Ebc(gv%gparams,igr,bcnv,E_bc,extrp_b=.true.
-     $                     ,rw_dbg=.false.)
 
-                !Correct A @ BC and find new E_bc and iterate twice
-                do it=1,2
+                !Correct A @ BC and find new E_bc and iterate
+                itmax = 2
+                do it=1,itmax
+                  call rw_Ebc(gv%gparams,igr,bcnv,E_bc,extrp_b=.true.
+     $                       ,rw_dbg=(it==itmax.and.ilevel>0))
                   !A BCs
                   v0 = 0d0
                   call XferBCs(vdum,v0,.true.)
@@ -662,12 +658,18 @@ c$$$                call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
      $                    ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
      $                    ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
 
-                  !Correct B from A
+                  !Correct B_n from A
                   call find_B(gv%gparams,igr,B0,acov,bcnv,.false.)
 
-                  !Correct E_bc with new B
-                  call rw_Ebc(gv%gparams,igr,bcnv,E_bc,extrp_b=.true.
-     $                       ,rw_dbg=(it==2.and.ilevel>=1))
+                  !Correct B_t
+                  v0 = 0d0 ; prs1 = rho*tmp
+                  call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc
+     $                           ,v0)
+                  bcov = XformVector(gv%gparams,igr,bcnv,.false.)
+
+                  call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
+     $                ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
+     $                ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
                 enddo
               endif
             else
@@ -689,6 +691,7 @@ c$$$                call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
               endif
 
               if (save_tn) call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
+c$$$     $                                ,rw_dbg=(ilevel>0)
               
               call XferBCs(vdum,v0,.true.)
               v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
@@ -718,15 +721,7 @@ cc          call XformVector_BC(gv%gparams,igr,acov,acnv,.true.)
 
 c       Magnetic field BC
 
-#if defined(plotting)
-
-#if !defined(vec_pot)
-c$$$          if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
-c$$$            call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc) !Recompute E_bc 
-c$$$          endif
-#endif
-
-#else
+#if !defined(plotting)
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
 c$$$#if defined(plotting) && !defined(vec_pot)
 c$$$            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
