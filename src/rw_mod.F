@@ -75,7 +75,7 @@ c     End program
 
 c     rw_Ebc
 c     #################################################################
-      subroutine rw_Ebc(g_def,igr,bcnv,E_0,extrp_b,rw_dbg)
+      subroutine rw_Ebc(g_def,igr,bcnv,E_0,extrp_b,rw_newt,rw_dbg,bcnvp)
 
 c     -----------------------------------------------------------------
 c     Finds tangential cov electric field components according to
@@ -92,8 +92,9 @@ c     Call variables
       
       real(8),dimension(0:,0:,0:,:) :: bcnv
       real(8),dimension(0:,0:,0:,:) :: E_0
+      real(8),dimension(0:,0:,0:,:),optional :: bcnvp
 
-      logical,optional :: extrp_b,rw_dbg
+      logical,optional :: extrp_b,rw_dbg,rw_newt
       
 c     Local variables
 
@@ -114,7 +115,7 @@ c     Local variables
       real(8) :: dum,dh,bcov_avg(2:3),send_buf(2),rec_buf(2),nfactor
       real(8) :: mag
 
-      logical :: extrap,debug
+      logical :: extrap,debug,new_time
       
 c     Begin program
 
@@ -139,6 +140,12 @@ c     Begin program
         debug = .true.
       endif
 
+      if (PRESENT(rw_newt)) then
+        new_time = rw_newt
+      else
+        new_time = rw_fft_tupdate
+      endif
+
 #if defined(petsc)
       call MPI_Comm_rank(g_def%MPI_COMM_YZ,my_rank_yz,mpierr)
       debug_io = debug.and.my_rank_yz==0.and.(.not.test)
@@ -146,69 +153,31 @@ c     Begin program
       debug_io = debug.and.(.not.test)
 #endif
 
-c     Compute INTERNAL tangential magnetic field components, EXCLUDING m=n=0 mode (CRITICAL)
+c     Compute INTERNAL tangential B-field components
 
-      if (extrap) then
-c$$$        bcnvint (:,:,:) = bcnv(i_bc-1,:,:,:)
-        !Extrapolate to face from interior
-        call getMGmap(g_def,i_bc,1,1,igr,igr,igr,ig,jg,kg)
-        bcnvint (:,:,:) = bcnv(i_bc-2,:,:,:)
-     $                  +(bcnv(i_bc-1,:,:,:)-bcnv(i_bc-2,:,:,:))
-     $                   /(g_def%xx(ig-1)-g_def%xx(ig-2))
-     $                    *(0.5*g_def%xx(ig  )
-     $                     +0.5*g_def%xx(ig-1)
-     $                     -    g_def%xx(ig-2))
+      if (PRESENT(bcnvp)) then
+        new_time = .true.
+        bcnvint  = compute_bcnvint (bcnv,.false.)
+        bcovint  = compute_bcovint (compute_bcnvint(bcnvp,.true.))
+        gbcnvint = 0.5*compute_gbcnvint(bcnvp,.true.)
+     $            +0.5*compute_gbcnvint(bcnv ,.false.)
       else
-        !Interpolate to face
-        bcnvint (:,:,:)= 0.5*bcnv(i_bc  ,:,:,:)
-     .                  +0.5*bcnv(i_bc-1,:,:,:)
+        bcnvint  = compute_bcnvint (bcnv,extrap)
+        bcovint  = compute_bcovint (bcnvint)
+        gbcnvint = compute_gbcnvint(bcnv,extrap)
       endif
 
-      do k=0,nz+1
-        do j=0,ny+1
-          bcovint(j,k,:)
-     .       =XformToCov_ijk_face(g_def,i_bc-1,j,k,igr,bcnvint(j,k,:),1)
-        enddo
-      enddo
-
-      if (extrap) then
-        gbcnvint(:,:,:)=(bcnv(i_bc-1,:,:,:)
-     .                  -bcnv(i_bc-2,:,:,:))
-     .                 /(g_def%xg(nxg)-g_def%xg(nxg-1))
-      else
-        gbcnvint(:,:,:)=(bcnv(i_bc  ,:,:,:)
-     .                  -bcnv(i_bc-1,:,:,:))
-     .                  /(g_def%xg(nxg+1)-g_def%xg(nxg))
-      endif
-      
-      !Perform angular average
-      bcov_avg(2) = sum(bcovint(1:ny,1:nz,2))
-      bcov_avg(3) = sum(bcovint(1:ny,1:nz,3))
-
-#if defined(petsc)
-      send_buf = bcov_avg
-      call MPI_Allreduce(send_buf,rec_buf,2,MPI_DOUBLE_PRECISION
-     .                  ,MPI_SUM,g_def%MPI_COMM_YZ,mpierr)
-      bcov_avg = rec_buf
-#endif
-
-      bcov_avg = bcov_avg/(nyd*nzd)
-      
-      !Subtract average
-      bcovint(:,:,2) = bcovint(:,:,2) - bcov_avg(2)
-      bcovint(:,:,3) = bcovint(:,:,3) - bcov_avg(3)
-
-c     Compute VACUUM response
+c     Compute EXTERNAL tangential B-field components (VACUUM response)
 
       select case(coords)
       case('hel')
        call vacuum_hel(g_def,igr,bcnvint(:,:,1),gbcnvint(:,:,1),bcovext
-     $                ,debug)
+     $                ,new_time,debug)
 c$$$      case('cyl')
 c$$$      case('tor')
       case default
         call critical('rw_bc'
-     .       ,'VACUUM response not implemented for '//coords)
+     .       ,'VACUUM B-field response not implemented for '//coords)
       end select
 
 c     Find electric field components @ r=1 (store in (nx+1))
@@ -238,11 +207,106 @@ c     Debug IO
 
 c     End program
 
+      contains
+
+c     compute_bcnvint
+c     ####################################################################      
+      function compute_bcnvint(bcnv,extrap) result(bcnvint)
+
+        implicit none
+      
+        real(8),dimension(0:,0:,0:,:) :: bcnv
+        real(8) :: bcnvint (0:size(bcnv,2)-1
+     .                     ,0:size(bcnv,3)-1,3)
+
+        logical :: extrap
+        
+        if (extrap) then
+c$$$        bcnvint (:,:,:) = bcnv(i_bc-1,:,:,:)
+          !Extrapolate to face from interior
+          call getMGmap(g_def,i_bc,1,1,igr,igr,igr,ig,jg,kg)
+          bcnvint (:,:,:) = bcnv(i_bc-2,:,:,:)
+     $                  +(bcnv(i_bc-1,:,:,:)-bcnv(i_bc-2,:,:,:))
+     $                   /(g_def%xx(ig-1)-g_def%xx(ig-2))
+     $                    *(0.5*g_def%xx(ig  )
+     $                     +0.5*g_def%xx(ig-1)
+     $                     -    g_def%xx(ig-2))
+        else
+          !Interpolate to face
+          bcnvint (:,:,:)= 0.5*bcnv(i_bc  ,:,:,:)
+     .                    +0.5*bcnv(i_bc-1,:,:,:)
+        endif
+
+      end function compute_bcnvint
+
+c     compute_bcovint
+c     ####################################################################      
+      function compute_bcovint(bcnvint) result(bcovint)
+
+        implicit none
+      
+        real(8),dimension(0:,0:,:) :: bcnvint
+        real(8) :: bcovint (0:size(bcnvint,1)-1
+     .                     ,0:size(bcnvint,2)-1,3)
+
+        real(8) :: bcov_avg(2:3),send_buf(2),rec_buf(2)
+        
+        do k=0,nz+1
+          do j=0,ny+1
+            bcovint(j,k,:)
+     .       =XformToCov_ijk_face(g_def,i_bc-1,j,k,igr,bcnvint(j,k,:),1)
+          enddo
+        enddo
+
+        !Perform angular average: EXCLUDE m=n=0 mode (CRITICAL)
+        bcov_avg(2) = sum(bcovint(1:ny,1:nz,2))
+        bcov_avg(3) = sum(bcovint(1:ny,1:nz,3))
+
+#if defined(petsc)
+        send_buf = bcov_avg
+        call MPI_Allreduce(send_buf,rec_buf,2,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,g_def%MPI_COMM_YZ,mpierr)
+        bcov_avg = rec_buf
+#endif
+
+        bcov_avg = bcov_avg/(nyd*nzd)
+      
+        !Subtract average
+        bcovint(:,:,2) = bcovint(:,:,2) - bcov_avg(2)
+        bcovint(:,:,3) = bcovint(:,:,3) - bcov_avg(3)
+
+      end function compute_bcovint
+
+c     compute_gbcnvint
+c     ####################################################################      
+      function compute_gbcnvint(bcnv,extrap) result(gbcnvint)
+            
+        implicit none
+      
+        real(8),dimension(0:,0:,0:,:) :: bcnv
+        real(8) :: gbcnvint (0:size(bcnv,2)-1
+     .                      ,0:size(bcnv,3)-1,3)
+
+        logical :: extrap
+        
+        if (extrap) then
+          gbcnvint(:,:,:)=(bcnv(i_bc-1,:,:,:)
+     .                    -bcnv(i_bc-2,:,:,:))
+     .                    /(g_def%xg(nxg)-g_def%xg(nxg-1))
+        else
+          gbcnvint(:,:,:)=(bcnv(i_bc  ,:,:,:)
+     .                    -bcnv(i_bc-1,:,:,:))
+     .                    /(g_def%xg(nxg+1)-g_def%xg(nxg))
+        endif
+
+      end function compute_gbcnvint
+
       end subroutine rw_Ebc
 
 c     vacuum_hel
 c     ####################################################################
-      subroutine vacuum_hel(g_def,igr,bcnvn_int,gbcnvn_int,bcov_ext,dbg)
+      subroutine vacuum_hel(g_def,igr,bcnvn_int,gbcnvn_int,bcov_ext
+     $                     ,new_time,dbg)
       
 c     -----------------------------------------------------------------
 c     Performs RW BC. Inputs normal internal B-component, outputs
@@ -259,7 +323,7 @@ c     Call variables
       
       real(8) :: bcnvn_int(0:,0:),gbcnvn_int(0:,0:),bcov_ext(0:,0:,:)
 
-      logical :: dbg
+      logical :: dbg,new_time
       
 c     Local variables
       
@@ -321,7 +385,7 @@ c     FFT Bnormal at plasma wall (transform to cov by dividing by J=r/m*, r=1)
       
 c     Process gradient of Bnormal (new time)
 
-      if (rw_fft_tupdate) then
+      if (new_time) then
         !Compute gradient of Bn (transform to cov by dividing by J=r/m*, r=1)
         gBnl(1,:,1) = m_h*gbcnvn_int(1:ny,1)
 
@@ -349,7 +413,7 @@ c     Find VACUUM potential solution Phi outside of resistive wall
           rm = r_v**(2*mm(m))
 
           !Evolve normal B component
-          if (rw_fft_tupdate) then
+          if (new_time) then
             gamma = 1 + mm(m)*(rm+1d0)/(rm-1d0)
             efac  = exp(-MIN(gamma*dt/tau_w,175d0))
             Br_m(m) = efac*Brn_m(m)-(1d0-efac)/gamma*gBr_m(m)
@@ -358,7 +422,7 @@ c     Find VACUUM potential solution Phi outside of resistive wall
           
           !Find phi_nm
           dum = (rm+1d0)/((1d0-rm)*mm(m))
-          if (rw_fft_tupdate) then
+          if (new_time) then
             phir_m_np(m) = Br_m(m)*dum
             phii_m_np(m) = Bi_m(m)*dum
           endif
@@ -400,7 +464,7 @@ c     Find VACUUM potential solution Phi outside of resistive wall
           phir_m(m) = Brn_m(m)*dum
           phii_m(m) = Bin_m(m)*dum
 
-          if (rw_fft_tupdate) then
+          if (new_time) then
             !Evolve normal B component
             gamma =-pw*(dImv*d2Km-dKmv*d2Im)/(dImv*dKm -dKmv*dIm)
             efac  = exp(-MIN(gamma*dt/tau_w,175d0))
@@ -447,7 +511,7 @@ c diag ****
 
 c     Find new-time EXTERNAL magnetic field components outside RW
 
-      if (rw_fft_tupdate) then
+      if (new_time) then
         !New-time Bth  [multiply by -sqrt(-1)*m/m*]
         Brn_m = mm/m_h*phii_m_np
         Bin_m =-mm/m_h*phir_m_np

@@ -633,6 +633,30 @@ c       Vector Pot. BC
                 vdum = acov_n
               endif
 
+c$$$              if (.not.save_tn) then
+c$$$                call find_B(gv%gparams,igr,B0,acov,bcnv,.false.
+c$$$     $                     ,bcond=vaux%vec_list(IACOV)%bconds)
+c$$$
+c$$$                !Find RW E-field 
+c$$$                call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc,bcnvp=bcnv
+c$$$     $                       ,rw_dbg=(ilevel>0))
+c$$$
+c$$$                !A BCs
+c$$$                v0 = 0d0
+c$$$                call XferBCs(vdum,v0,.true.)
+c$$$                if (itime > inewtime + 2) then
+c$$$                  v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
+c$$$     $                             -dt/cnp*E_bc(nnx+1,:,:,:)
+c$$$                else
+c$$$                  v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
+c$$$     $                             -dt*E_bc(nnx+1,:,:,:)
+c$$$                endif
+c$$$
+c$$$                call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+c$$$     $                    ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
+c$$$     $                    ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
+c$$$              endif
+              
               if (.not.save_tn) then
                 !Predict A @ BC by extrapolation and find B, E_bc
                 call find_B(gv%gparams,igr,B0,acov,bcnv,.false.
@@ -641,8 +665,21 @@ c       Vector Pot. BC
                 !Correct A @ BC and find new E_bc and iterate
                 itmax = 2
                 do it=1,itmax
-                  call rw_Ebc(gv%gparams,igr,bcnv,E_bc,extrp_b=.true.
+                  v0 = 0d0
+c$$$                  call rw_Ebc(gv%gparams,igr,bcnv,v0,extrp_b=.true.
+                  call rw_Ebc(gv%gparams,igr,bcnv_n,v0,bcnvp=bcnv
      $                       ,rw_dbg=(it==itmax.and.ilevel>0))
+
+c$$$                  if (it == 1) then
+                    E_bc(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
+c$$$                  else
+c$$$                    E_bc(nnx+1,:,:,:) = 0.9*v0  (nnx+1,:,:,:)
+c$$$     $                                + 0.1*E_bc(nnx+1,:,:,:)
+c$$$                  endif
+                  
+c$$$                  mag = rms(E_bc(nnx+1,1:nny,1,3))
+c$$$                  if (my_rank == 0) write (*,*) "Ebc rms it=",it,mag
+                  
                   !A BCs
                   v0 = 0d0
                   call XferBCs(vdum,v0,.true.)
@@ -658,6 +695,8 @@ c       Vector Pot. BC
      $                    ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
      $                    ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
 
+                  if (itmax == 1) exit
+                  
                   !Correct B_n from A
                   call find_B(gv%gparams,igr,B0,acov,bcnv,.false.)
 
@@ -691,7 +730,7 @@ c       Vector Pot. BC
               endif
 
               if (save_tn) call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
-c$$$     $                                ,rw_dbg=(ilevel>0)
+c$$$     $                                ,rw_dbg=(ilevel>0))
               
               call XferBCs(vdum,v0,.true.)
               v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
@@ -723,7 +762,7 @@ c       Magnetic field BC
 
 #if !defined(plotting)
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
-c$$$#if defined(plotting) && !defined(vec_pot)
+c$$$#if !defined(vec_pot)
 c$$$            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
 c$$$              call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc) !Recompute E_bc 
 c$$$            endif
@@ -737,6 +776,12 @@ c$$$#endif
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
      .              ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
      .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
+
+c$$$          if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
+c$$$            if(rw_implicit_bc) then
+c$$$              call rw_Ebc(gv%gparams,igr,bcnv,E_bc,rw_dbg=.true.) !Recompute E_bc 
+c$$$            endif
+c$$$          endif
 #endif
           
         case(IBCOV) !Done when computing bcnv
