@@ -2897,7 +2897,7 @@ c ######################################################################
 
 c     find_B
 c     #################################################################
-      subroutine find_B(g_def,igr,B0,acov,bout,cov,bcond)
+      subroutine find_B(g_def,igr,B0,acov,bout,cov,bcond_a,bcond_b)
 
 c     -----------------------------------------------------------------
 c     Finds from current state of A (w/ or w/o BCs).
@@ -2916,25 +2916,30 @@ c     Call variables
 
       logical :: cov
 
-      integer,optional :: bcond(6,3)
-      
+      integer,optional :: bcond_a(6,3),bcond_b(6,3)
+
 c     Local variables
 
       integer :: i,j,k,nx,ny,nz,bcnd(6,3)
       real(8),dimension(0:size(acov,1)-1
      $                 ,0:size(acov,2)-1
-     $                 ,0:size(acov,3)-1,3) :: v0,acnv
+     $                 ,0:size(acov,3)-1,3) :: v0,acnv,bcov
 
+      logical :: do_B_bc,do_A_bc
+      
 c     Begin program
 
       nx = g_def%nxv(igr)
       ny = g_def%nyv(igr)
       nz = g_def%nzv(igr)
 
+      do_A_bc = PRESENT(bcond_a)
+      do_B_bc = PRESENT(bcond_b)
+      
       !Extrapolate vector potential to boundaries
-      if (PRESENT(bcond)) then
+      if (do_A_bc) then
         v0 = 0d0
-        bcnd = bcond
+        bcnd = bcond_a
         where (bcnd==-EQU) bcnd =-EXT
         call setBC(g_def,IAX,3,nx,ny,nz,acnv,acov,v0
      .          ,bcnd,igr,igr,igr,iorder=1,is_cnv=.false.)
@@ -2951,9 +2956,26 @@ c     Begin program
         enddo
       enddo
 
-      !Xform to cov
-      if (cov) bout = XformToCov(g_def,igr,bout)
+      if (do_B_bc) then
+        bcnd = bcond_b
+        where (bcnd==-NEU) bcnd = EXT
 
+        bcov = XformToCov(g_def,igr,bout)
+        v0   = 0d0
+        
+        call setBC(g_def,IBX,3,nx,ny,nz,bout,bcov,v0
+     .            ,bcnd,igr,igr,igr,iorder=1,is_cnv=.true.)
+      endif
+      
+      !Xform to cov
+      if (cov) then
+        if (do_B_bc) then
+          bout = bcov
+        else
+          bout = XformToCov(g_def,igr,bout)
+        endif
+      endif
+      
 c     End program
 
       end subroutine find_B
