@@ -695,10 +695,9 @@ c$$$                  if (my_rank == 0) write (*,*) "Ebc rms it=",it,mag
 
                   if (itmax == 1) exit
                   
-                  !Correct B_n from A
+                  !Correct B
                   call find_B(gv%gparams,igr,B0,acov,bcnv,.false.)
 
-                  !Correct B_t
                   v0 = 0d0 ; prs1 = rho*tmp
                   call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc
      $                           ,v0)
@@ -1248,7 +1247,9 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
             bcnv_n = bcnv_0     !Set it to initial cond.
           elseif (save_tn) then
 #if defined(vec_pot)
-            call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
+c$$$            call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
+            call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.
+     $                 ,bcond_b=vaux%vec_list(IBCNV)%bconds)
 #else
             bcnv_n(:,:,:,1) = varray%array_var(IBX)%array
             bcnv_n(:,:,:,2) = varray%array_var(IBY)%array
