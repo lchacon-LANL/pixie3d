@@ -2151,11 +2151,13 @@ c     Begin program
 
       bcsq = bbcs(:,1)
       where (bcsq(1:2) == DEF) bcsq(1:2) =  DIR !On contravariant components
+c$$$      where (bcsq(1:2) == DIR.and.(rw_bcs(1:2))) bcsq(1:2) = -EXT !On covariant components
       where (bcsq(3:6) == DEF) bcsq(3:6) = -EQU !On covariant components
       bbcs(:,1) = bcsq
 
       bcsq = bbcs(:,2)
       where (bcsq(3:4) == DEF) bcsq(3:4) =  DIR
+c$$$      where (bcsq(3:4) == DIR.and.(rw_bcs(3:4))) bcsq(3:4) = -EXT !On covariant components
       where (bcsq(1:2) == DEF) bcsq(1:2) = -EQU !On covariant components
       where (bcsq(5:6) == DEF) bcsq(5:6) = -EQU !On covariant components
       bbcs(:,2) = bcsq
@@ -2163,6 +2165,7 @@ c     Begin program
       bcsq = bbcs(:,3)
       where (bcsq(1:4) == DEF) bcsq(1:4) = -EQU !On covariant components
       where (bcsq(5:6) == DEF) bcsq(5:6) =  DIR
+c$$$      where (bcsq(5:6) == DIR.and.(rw_bcs(5:6))) bcsq(5:6) = -EXT !On covariant components
       bbcs(:,3) = bcsq
 
       call set_vec_symm_bc(bbcs,-1)
@@ -2262,6 +2265,6 @@ c$$$      endif
 c     End program
 
       end subroutine default_V_BCs
-
+      
       end module local_BCS_variables
 

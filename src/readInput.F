@@ -60,7 +60,8 @@ c Namelists
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old,xport_order
      .                   ,r_v,tau_w,zero_vpar_bc
-     .                   ,rw_fft_tupdate,rw_implicit_bc
+     .                   ,rw_fft_tupdate,rw_implicit_bc,rw_exp_ssp_bc
+     .                   ,rw_exp_pc_bc,rw_exp_fix
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                   ,pc_as_solver,fpa,fpa_it
@@ -120,6 +121,7 @@ c Namelists
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
      .                   ,r_v,tau_w,zero_vpar_bc,rw_implicit_bc
+     .                   ,rw_exp_ssp_bc,rw_exp_pc_bc,rw_exp_fix
      .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_bc
 
       !Spatial discretization
@@ -507,8 +509,13 @@ c     #####################################################################
 
       tau_w    = 1d2           ! Resistive wall thin-shell time
       r_v      = 1.5           ! Radius of outer conducting shell
-      zero_vpar_bc = .false.   ! Whether we zero out parallel flow at bdry
+      zero_vpar_bc   = .false. ! Whether we zero out parallel flow at bdry
+      sheath_bc      = .false. ! Whether we apply sheath BC in v_parallel
       rw_fft_tupdate = .false. ! Whether we integrate RW eqs in Fourier space
+      rw_implicit_bc = .false. ! Whether we use implicit RW BCs
+      rw_exp_ssp_bc  = .true.  ! Whether we use explicit SSP RW BCs
+      rw_exp_pc_bc   = .false. ! Whether we use explicit predictor-corrector BCs
+      rw_exp_fix     = .true.  ! Whether we use instability fix for small tau_w
       
       !Nonlinear function parameters
       adiabatic  = .false.     ! Whether we use adiabatic EoS or not

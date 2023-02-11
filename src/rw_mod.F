@@ -6,14 +6,21 @@ c ####################################################################
       
         !Resistive wall vars
         logical :: rw_bcs(6)      =.false.
-     $            ,rw_fft_tupdate =.false.
-     $            ,rw_implicit_bc =.false.
+     $            ,rw_fft_tupdate =.false. ! Whether we advance Fourier RW modes in time
+     $            ,rw_implicit_bc =.false. ! Whether we use implicit RW BCs                 
+     $            ,rw_exp_ssp_bc  =.true.  ! Whether we use explicit SSP RW BCs             
+     $            ,rw_exp_pc_bc   =.false. ! Whether we use explicit PC BCs
+     $            ,rw_exp_fix     =.true.  ! Whether we use instability fix for small tau_w
 
         real(8) :: tau_w=1d30,r_v=1d0  !Ideal wall by default
 
         real(8),pointer,dimension(:,:,:,:) :: E_bc
 
         logical,private :: debug_io=.false.
+
+        real(8),private :: dr_w
+
+        integer,private :: m_max = 0
 
       contains
 
@@ -75,7 +82,7 @@ c     End program
 
 c     rw_Ebc
 c     #################################################################
-      subroutine rw_Ebc(g_def,igr,bcnv,E_0,extrp_b,rw_newt,rw_dbg,bcnvp)
+      subroutine rw_Ebc(g_def,igr,bcnv,E_0,extrp_b,newtime,dbg,bcnvp)
 
 c     -----------------------------------------------------------------
 c     Finds tangential cov electric field components according to
@@ -94,12 +101,11 @@ c     Call variables
       real(8),dimension(0:,0:,0:,:) :: E_0
       real(8),dimension(0:,0:,0:,:),optional :: bcnvp
 
-      logical,optional :: extrp_b,rw_dbg,rw_newt
+      logical,optional :: extrp_b,dbg,newtime
       
 c     Local variables
 
-      integer :: i_bc,j,k,nx,ny,nz,nn,mm,my_rank_y,ig,jg,kg,nxg
-     $          ,my_rank_yz
+      integer :: i_bc,j,k,nx,ny,nz,nn,mm,my_rank_y,nxg,my_rank_yz
 
       real(8) :: phinm   (0:size(bcnv,2)-1
      .                   ,0:size(bcnv,3)-1)
@@ -107,7 +113,7 @@ c     Local variables
      .                   ,0:size(bcnv,3)-1,3)
      .          ,bcnvint (0:size(bcnv,2)-1
      .                   ,0:size(bcnv,3)-1,3)
-     .          ,gbcnvint(0:size(bcnv,2)-1
+     .          ,bcnvintm(0:size(bcnv,2)-1
      .                   ,0:size(bcnv,3)-1,3)
      .          ,bcovint (0:size(bcnv,2)-1
      .                   ,0:size(bcnv,3)-1,3)
@@ -134,14 +140,16 @@ c     Begin program
         extrap = .false.
       endif
 
-      if (PRESENT(rw_dbg)) then
-        debug = rw_dbg
+      if (PRESENT(dbg)) then
+        debug = dbg
       else
         debug = .true.
       endif
 
-      if (PRESENT(rw_newt)) then
-        new_time = rw_newt
+      if (PRESENT(bcnvp)) then
+        new_time = .true.
+      elseif (PRESENT(newtime)) then
+        new_time = newtime
       else
         new_time = rw_fft_tupdate
       endif
@@ -153,25 +161,28 @@ c     Begin program
       debug_io = debug.and.(.not.test)
 #endif
 
-c     Compute INTERNAL tangential B-field components
+c     Compute INTERNAL B-field components @ RW
 
       if (PRESENT(bcnvp)) then
-        new_time = .true.
-        bcnvint  = compute_bcnvint (bcnv,.false.)
-        bcovint  = compute_bcovint (compute_bcnvint(bcnvp,.true.))
-        gbcnvint = 0.5*compute_gbcnvint(bcnvp,.true.)
-     $            +0.5*compute_gbcnvint(bcnv ,.false.)
+        bcnvint  = bcnv_plasma_bdry   (bcnv,.false.)  !Previous time step
+        bcovint  = bcov_plasma_bdry_v1(bcnvp)         !New time step
+c$$$        bcovint  = bcov_plasma_bdry_v2(bcnv_plasma_bdry(bcnvp,.true.)) !New time step
+        bcnvintm = bcnv_plasma_int    (bcnvp)         !New time step
       else
-        bcnvint  = compute_bcnvint (bcnv,extrap)
-        bcovint  = compute_bcovint (bcnvint)
-        gbcnvint = compute_gbcnvint(bcnv,extrap)
+        bcnvint  = bcnv_plasma_bdry   (bcnv,extrap)
+        if (extrap) then
+          bcovint  = bcov_plasma_bdry_v2(bcnvint)
+        else
+          bcovint  = bcov_plasma_bdry_v1(bcnv)
+        endif
+        bcnvintm = bcnv_plasma_int    (bcnv)
       endif
 
-c     Compute EXTERNAL tangential B-field components (VACUUM response)
+c     Compute EXTERNAL tangential B-field components @ RW (VACUUM response)
 
       select case(coords)
       case('hel')
-       call vacuum_hel(g_def,igr,bcnvint(:,:,1),gbcnvint(:,:,1),bcovext
+       call vacuum_hel(g_def,igr,bcnvint(:,:,1),bcnvintm(:,:,1),bcovext
      $                ,new_time,debug)
 c$$$      case('cyl')
 c$$$      case('tor')
@@ -184,8 +195,8 @@ c     Find electric field components @ r=1 (store in (nx+1))
 
       !Cnv from curl
       E_0(i_bc,:,:,1) = 0d0
-      E_0(i_bc,:,:,2) =-(bcovext(:,:,3)-bcovint(:,:,3))/tau_w
-      E_0(i_bc,:,:,3) = (bcovext(:,:,2)-bcovint(:,:,2))/tau_w
+      E_0(i_bc,:,:,2) = -(bcovext(:,:,3)-bcovint(:,:,3))/tau_w
+      E_0(i_bc,:,:,3) =  (bcovext(:,:,2)-bcovint(:,:,2))/tau_w
       
       !Xform E_0 to Cov @ boundary
       do k=0,nz+1
@@ -199,19 +210,27 @@ c     Debug IO
       
 #if defined(petsc)
       mag = pmax(maxval(abs(E_0(i_bc,1:ny,1:nz,:)))
-     $          ,mpi_comm=g_def%MPI_COMM_YZ)
+     $                 ,mpi_comm=g_def%MPI_COMM_YZ)
 #else
       mag = maxval(abs(E_0(i_bc,1:ny,1:nz,:)))
 #endif
-      if (debug_io) write (*,*) "max RW Ebc=",mag
+      if (debug_io) then
+        write (*,*) "max RW Ebc=",mag
+      elseif (my_rank_yz==0) then
+        write (*,*) "Computing RW BCs..."
+      endif
 
 c     End program
 
       contains
 
-c     compute_bcnvint
+c     bcnv_plasma_bdry
 c     ####################################################################      
-      function compute_bcnvint(bcnv,extrap) result(bcnvint)
+      function bcnv_plasma_bdry(bcnv,extrap) result(bcnvint)
+
+c     --------------------------------------------------------------------
+c     Compute Bcnv @ wall on plasma side
+c     --------------------------------------------------------------------
 
         implicit none
       
@@ -220,28 +239,93 @@ c     ####################################################################
      .                     ,0:size(bcnv,3)-1,3)
 
         logical :: extrap
+
+        real(8) :: xh(1)
+        integer :: ig,jg,kg,i,j,k,ord
         
         if (extrap) then
-c$$$        bcnvint (:,:,:) = bcnv(i_bc-1,:,:,:)
           !Extrapolate to face from interior
-          call getMGmap(g_def,i_bc,1,1,igr,igr,igr,ig,jg,kg)
-          bcnvint (:,:,:) = bcnv(i_bc-2,:,:,:)
-     $                  +(bcnv(i_bc-1,:,:,:)-bcnv(i_bc-2,:,:,:))
-     $                   /(g_def%xx(ig-1)-g_def%xx(ig-2))
-     $                    *(0.5*g_def%xx(ig  )
-     $                     +0.5*g_def%xx(ig-1)
-     $                     -    g_def%xx(ig-2))
+          i = nx ; ord = 2
+          call getMGmap(g_def,i,1,1,igr,igr,igr,ig,jg,kg)
+          do k=0,nz+1
+            do j=0,ny+1
+              xh = 0.5*(g_def%xx(ig+2)+g_def%xx(ig+1))
+              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,1)
+     .                        ,1,xh,bcnvint (j,k,1),ord,0)
+              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,2)
+     .                        ,1,xh,bcnvint (j,k,2),ord,0)
+              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
+     .                        ,1,xh,bcnvint (j,k,3),ord,0)
+            enddo
+          enddo
         else
           !Interpolate to face
           bcnvint (:,:,:)= 0.5*bcnv(i_bc  ,:,:,:)
      .                    +0.5*bcnv(i_bc-1,:,:,:)
         endif
 
-      end function compute_bcnvint
+      end function bcnv_plasma_bdry
 
-c     compute_bcovint
+c     bcov_plasma_bdry_v1
 c     ####################################################################      
-      function compute_bcovint(bcnvint) result(bcovint)
+      function bcov_plasma_bdry_v1(bcnv) result(bcovint)
+
+c     --------------------------------------------------------------------
+c     Compute Bcov @ wall on plasma side (for E-field computation)
+c     --------------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+        
+        real(8),dimension(0:,0:,0:,:) :: bcnv
+        real(8) :: bcovint (0:size(bcnv,2)-1
+     .                     ,0:size(bcnv,3)-1,3)
+
+c     Local variables
+        
+        real(8) :: bcov_avg(2:3),send_buf(2),rec_buf(2)
+        
+
+c     Begin program
+
+c     Compute Bcov @ wall
+        
+        do k=0,nz+1
+          do j=0,ny+1
+            bcovint(j,k,:)
+     .        =0.5*XformToCov(g_def,i_bc-1,j,k,igr,bcnv(i_bc-1,j,k,:))
+     $        +0.5*XformToCov(g_def,i_bc  ,j,k,igr,bcnv(i_bc,  j,k,:))
+          enddo
+        enddo
+
+c     Perform angular average: EXCLUDE m=n=0 mode (CRITICAL)
+
+        bcov_avg(2) = sum(bcovint(1:ny,1:nz,2))
+        bcov_avg(3) = sum(bcovint(1:ny,1:nz,3))
+
+#if defined(petsc)
+        send_buf = bcov_avg
+        call MPI_Allreduce(send_buf,rec_buf,2,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,g_def%MPI_COMM_YZ,mpierr)
+        bcov_avg = rec_buf
+#endif
+
+        bcov_avg = bcov_avg/(nyd*nzd)
+      
+        !Subtract average
+        bcovint(:,:,2) = bcovint(:,:,2) - bcov_avg(2)
+        bcovint(:,:,3) = bcovint(:,:,3) - bcov_avg(3)
+
+      end function bcov_plasma_bdry_v1
+      
+c     bcov_plasma_bdry_v2
+c     ####################################################################      
+      function bcov_plasma_bdry_v2(bcnvint) result(bcovint)
+
+c     --------------------------------------------------------------------
+c     Compute Bcov @ wall on plasma side (for E-field computation)
+c     --------------------------------------------------------------------
 
         implicit none
       
@@ -275,37 +359,36 @@ c     ####################################################################
         bcovint(:,:,2) = bcovint(:,:,2) - bcov_avg(2)
         bcovint(:,:,3) = bcovint(:,:,3) - bcov_avg(3)
 
-      end function compute_bcovint
+      end function bcov_plasma_bdry_v2
 
-c     compute_gbcnvint
+c     bcnv_plasma_int
 c     ####################################################################      
-      function compute_gbcnvint(bcnv,extrap) result(gbcnvint)
-            
+      function bcnv_plasma_int(bcnv) result(bcnvintm)
+
+c     --------------------------------------------------------------------
+c     Store Bcnv inside plasma (dr from wall) for radial-B response
+c     --------------------------------------------------------------------
+
         implicit none
       
         real(8),dimension(0:,0:,0:,:) :: bcnv
-        real(8) :: gbcnvint (0:size(bcnv,2)-1
+        real(8) :: bcnvintm (0:size(bcnv,2)-1
      .                      ,0:size(bcnv,3)-1,3)
 
-        logical :: extrap
-        
-        if (extrap) then
-          gbcnvint(:,:,:)=(bcnv(i_bc-1,:,:,:)
-     .                    -bcnv(i_bc-2,:,:,:))
-     .                    /(g_def%xg(nxg)-g_def%xg(nxg-1))
-        else
-          gbcnvint(:,:,:)=(bcnv(i_bc  ,:,:,:)
-     .                    -bcnv(i_bc-1,:,:,:))
-     .                    /(g_def%xg(nxg+1)-g_def%xg(nxg))
-        endif
+        dr_w = (g_def%xg(nxg)-g_def%xg(nxg-1))
 
-      end function compute_gbcnvint
+c$$$        bcnvintm(:,:,:) = bcnv(i_bc-2,:,:,:)
+c$$$        dr_w = 1.5*dr_w
+        bcnvintm(:,:,:) = bcnv(i_bc-1,:,:,:)
+        dr_w = 0.5*dr_w
+
+      end function bcnv_plasma_int
 
       end subroutine rw_Ebc
 
 c     vacuum_hel
 c     ####################################################################
-      subroutine vacuum_hel(g_def,igr,bcnvn_int,gbcnvn_int,bcov_ext
+      subroutine vacuum_hel(g_def,igr,bcnvn_int,bcnvn_int_m,bcov_ext
      $                     ,new_time,dbg)
       
 c     -----------------------------------------------------------------
@@ -321,7 +404,7 @@ c     Call variables
 
       integer :: igr
       
-      real(8) :: bcnvn_int(0:,0:),gbcnvn_int(0:,0:),bcov_ext(0:,0:,:)
+      real(8) :: bcnvn_int(0:,0:),bcnvn_int_m(0:,0:),bcov_ext(0:,0:,:)
 
       logical :: dbg,new_time
       
@@ -334,12 +417,12 @@ c     Local variables
      .                               ,phir_m_np,phii_m_np
 
       real(8) :: dImv,dIm,Im,d2Im,dKmv,dKm,Km,d2Km,pv,pw,RR,k_h,rm
-     .          ,efac,gamma,dum,m_h
+     .          ,efac,gamma,dum,m_h,dr
      .          ,bcov_ext_np(0:size(bcov_ext,1)-1
      .                      ,0:size(bcov_ext,2)-1
      .                      ,  size(bcov_ext,3)  )
 
-      real(8),allocatable,dimension(:,:,:) :: Bn,Bnl,gBnl,gBn
+      real(8),allocatable,dimension(:,:,:) :: Bn,Bnl,Bnml,Bnm
 
 c     Begin program
 
@@ -353,7 +436,7 @@ c     Begin program
 
       nyg = g_def%nygl(igr)
 
-      allocate(gBnl(1,ny,1),gBn(1,nyg,1))
+      allocate(Bnml(1,ny,1),Bnm(1,nyg,1))
       allocate( Bnl(1,ny,1), Bn(1,nyg,1))
 
       allocate(theta(nyg),mm(nyg),phir_m(nyg),phii_m(nyg)
@@ -382,21 +465,23 @@ c     FFT Bnormal at plasma wall (transform to cov by dividing by J=r/m*, r=1)
 
       !Perform FFT
       call fft(nyg,Bn(1,:,1),theta,nyg,Brn_m,Bin_m,mm,0,0)
+
+      if (m_max > 0) call filter_br()
       
-c     Process gradient of Bnormal (new time)
+c     Process plasma B-normal
 
       if (new_time) then
-        !Compute gradient of Bn (transform to cov by dividing by J=r/m*, r=1)
-        gBnl(1,:,1) = m_h*gbcnvn_int(1:ny,1)
+        !Transform normal to cov by dividing by J=r/m*, r=1
+        Bnml(1,:,1) = m_h*bcnvn_int_m(1:ny,1)
 
-        !Gather gradient in parallel along boundary
+        !Gather inner plasma B-field in parallel along boundary
 #if defined(petsc)
-        call find_global_nobc(gBnl,gBn,mpi_comm=g_def%MPI_COMM_Y)
+        call find_global_nobc(Bnml,Bnm,mpi_comm=g_def%MPI_COMM_Y)
 #else
-        call find_global_nobc(gBnl,gBn)
+        call find_global_nobc(Bnml,Bnm)
 #endif
         !Perform FFT
-        call fft(nyg,gBn(1,:,1),theta,nyg,gBr_m,gBi_m,mm,0,0)
+        call fft(nyg,Bnm(1,:,1),theta,nyg,gBr_m,gBi_m,mm,0,0)
       endif
       
 c     Find VACUUM potential solution Phi outside of resistive wall
@@ -415,9 +500,9 @@ c     Find VACUUM potential solution Phi outside of resistive wall
           !Evolve normal B component
           if (new_time) then
             gamma = 1 + mm(m)*(rm+1d0)/(rm-1d0)
-            efac  = exp(-MIN(gamma*dt/tau_w,175d0))
-            Br_m(m) = efac*Brn_m(m)-(1d0-efac)/gamma*gBr_m(m)
-            Bi_m(m) = efac*Bin_m(m)-(1d0-efac)/gamma*gBi_m(m)
+            efac  = 1d0/(1d0 + (gamma + 1d0/dr_w)*dt/tau_w)
+            Br_m(m) = efac*(Brn_m(m)+dt/(tau_w*dr_w)*gBr_m(m))
+            Bi_m(m) = efac*(Bin_m(m)+dt/(tau_w*dr_w)*gBi_m(m))
           endif
           
           !Find phi_nm
@@ -467,12 +552,9 @@ c     Find VACUUM potential solution Phi outside of resistive wall
           if (new_time) then
             !Evolve normal B component
             gamma =-pw*(dImv*d2Km-dKmv*d2Im)/(dImv*dKm -dKmv*dIm)
-            efac  = exp(-MIN(gamma*dt/tau_w,175d0))
-            Br_m(m) = efac*Brn_m(m)-(1d0-efac)/gamma*gBr_m(m)
-            Bi_m(m) = efac*Bin_m(m)-(1d0-efac)/gamma*gBi_m(m)
-c$$$            efac  = 1d0/(1d0 + gamma*dt/tau_w)
-c$$$            Br_m(m) = efac*(Brn_m(m)-dt/tau_w*gBr_m(m))
-c$$$            Bi_m(m) = efac*(Bin_m(m)-dt/tau_w*gBi_m(m))
+            efac  = 1d0/(1d0 + (gamma + 1d0/dr_w)*dt/tau_w)
+            Br_m(m) = efac*(Brn_m(m)+dt/(tau_w*dr_w)*gBr_m(m))
+            Bi_m(m) = efac*(Bin_m(m)+dt/(tau_w*dr_w)*gBi_m(m))
 
             phir_m_np(m) = Br_m(m)*dum
             phii_m_np(m) = Bi_m(m)*dum
@@ -481,18 +563,6 @@ c$$$            Bi_m(m) = efac*(Bin_m(m)-dt/tau_w*gBi_m(m))
       endif
 
 c     Find old-time EXTERNAL magnetic field components outside RW
-
-c diag ****
-c$$$#if defined(plotting)
-c$$$        do i=-nyd/2,nyd/2
-c$$$          do j=1,nyd
-c$$$            if (nint(mm(j))-i == 0) exit
-c$$$          enddo
-c$$$          write (*,'(a,i0,a,2e14.7)')
-c$$$     $    "Br FFT m=",i," ",time,sqrt(Brn_m(j)**2+Bin_m(j)**2)
-c$$$        enddo
-c$$$#endif
-c diag ****
 
       !Bth [multiply by -sqrt(-1)*m/m*]
       Brn_m = mm/m_h*phii_m
@@ -543,7 +613,7 @@ c     Find new-time EXTERNAL magnetic field components outside RW
         bcov_ext = bcov_ext_np
       endif
        
-      deallocate(Bnl,gBnl,Bn,gBn)
+      deallocate(Bnl,Bnml,Bn,Bnm)
       
       deallocate(theta,mm,phir_m,phii_m,Br,Bth,Bz)
 
@@ -552,12 +622,27 @@ c     Find new-time EXTERNAL magnetic field components outside RW
       deallocate(gBr_m,gBi_m)
 
       deallocate(phir_m_np,phii_m_np)
+
+      contains
+
+c     filter_br
+c     ####################################################################
+      subroutine filter_br()
+
+        do m=1,nyg
+          m1   = abs(nint(mm(m)))
+          if (m1 > m_max) then
+            Brn_m(m) = 0d0 ; Bin_m(m) = 0d0
+          endif
+        enddo
+
+      end subroutine filter_br
       
       end subroutine vacuum_hel
 
 c     vacuum_cyl
 c     ####################################################################
-c$$$      subroutine vacuum_cyl(g_def,igr,bcnvn_int,gbcnvn_int,bcov_ext)
+c$$$      subroutine vacuum_cyl(g_def,igr,bcnvn_int,bcnvn_int_m,bcov_ext)
       subroutine vacuum_cyl(g_def,igr,bcnvn_int,bcov_ext)
       
 c     -----------------------------------------------------------------
@@ -573,7 +658,7 @@ c     Call variables
 
       integer :: igr
       
-      real(8) :: bcnvn_int(0:,0:),bcov_ext(0:,0:,:)!,gbcnvn_int(0:,0:)
+      real(8) :: bcnvn_int(0:,0:),bcov_ext(0:,0:,:)!,bcnvn_int_m(0:,0:)
 
 c     Local variables
       
@@ -589,7 +674,7 @@ c     Local variables
      .                      ,0:size(bcov_ext,2)-1
      .                      ,  size(bcov_ext,3)  )
 
-      real(8),allocatable,dimension(:,:,:) :: Bn,Bnl!,gBnl,gBn
+      real(8),allocatable,dimension(:,:,:) :: Bn,Bnl!,Bnml,Bnm
 
 c     Begin program
 
@@ -611,7 +696,7 @@ c     Begin program
 
       allocate(Brn_m(nyg,nzg),Bin_m(nyg,nzg))
 
-c$$$      allocate(gBnl(1,ny,nz),gBn(1,nyg,nzg))
+c$$$      allocate(Bnml(1,ny,nz),Bnm(1,nyg,nzg))
 c$$$      allocate(Br_m(nyg,nzg),Bi_m(nyg,nzg))
 c$$$      allocate(gBr_m(nyg,nzg),gBi_m(nyg,nzg))
 c$$$      allocate(phir_m_np(nyg,nzg),phii_m_np(nyg,nzg))
@@ -638,17 +723,17 @@ cc>>>TODO      call fft2d(nyg,Bn(1,:,:),theta,nyg,Brn_m,Bin_m,mm,0,0)
 c$$$c     Process gradient of Bnormal (new time)
 c$$$      
 c$$$      !Compute gradient of Bn (transform to cov by dividing by J=r, r=1)
-c$$$      gBnl(1,:,:) = gbcnvn_int(1:ny,1:nz)
+c$$$      Bnml(1,:,:) = bcnvn_int_m(1:ny,1:nz)
 c$$$
 c$$$      !Gather gradient in parallel along boundary
 c$$$#if defined(petsc)
-c$$$      call find_global_nobc(gBnl,gBn,mpi_comm=g_def%MPI_COMM_YZ)
+c$$$      call find_global_nobc(Bnml,Bnm,mpi_comm=g_def%MPI_COMM_YZ)
 c$$$#else
-c$$$      call find_global_nobc(gBnl,gBn)
+c$$$      call find_global_nobc(Bnml,Bnm)
 c$$$#endif
 c$$$
 c$$$      !Perform 2D FFT
-c$$$cc>>>TODO      call fft2d(nyg,gBn(1,:,1),theta,nyg,gBr_m,gBi_m,mm,0,0)
+c$$$cc>>>TODO      call fft2d(nyg,Bnm(1,:,1),theta,nyg,gBr_m,gBi_m,mm,0,0)
 
 c     Find VACUUM potential solution Phi outside of resistive wall
 
@@ -775,11 +860,222 @@ c$$$      endif
 
       deallocate(Brn_m,Bin_m)
 
-c$$$      deallocate(gBnl,gBn)
+c$$$      deallocate(Bnml,Bnm)
 c$$$      deallocate(Br_m,Bi_m)
 c$$$      deallocate(gBr_m,gBi_m)
 c$$$      deallocate(phir_m_np,phii_m_np)
       
       end subroutine vacuum_cyl
 
+c     rw_A_BCs
+c     ####################################################################
+      subroutine rw_A_BCs(g_def,acov_n,bcnv_n,bcnd_a,bcnd_b,acov,Erw
+     .                   ,order)
+c     --------------------------------------------------------------------
+c     Defines default BCs for vector potential
+c     --------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
+
+      real(8),dimension(0:,0:,0:,:) :: acov_n,acov,bcnv_n,Erw
+
+      integer :: bcnd_a(6,3),bcnd_b(6,3)
+
+      integer,optional :: order
+      
+c     Local variables
+
+      integer :: nnx,nny,nnz,igr,it
+      real(8) :: xi_rw,mag
+      real(8),allocatable,dimension(:,:,:,:) :: v0,vdum,bcnv
+
+c     Begin program
+
+      igr = 1
+      
+      nnx = g_def%nxv(igr) 
+      nny = g_def%nyv(igr)
+      nnz = g_def%nzv(igr)
+
+      allocate(v0  (0:nnx+1,0:nny+1,0:nnz+1,3)
+     .        ,vdum(0:nnx+1,0:nny+1,0:nnz+1,3)
+     .        ,bcnv(0:nnx+1,0:nny+1,0:nnz+1,3))
+
+      v0   = 0d0
+      vdum = 0d0
+
+      if (rw_implicit_bc) then
+        !Second-order BDF2 implicit update of RW BC
+        if (itime > inewtime + 2) then
+          vdum(:,:,:,1) =-cn /cnp*u_n %array_var(IAX)%array
+     $                   -cnm/cnp*u_nm%array_var(IAX)%array
+          vdum(:,:,:,2) =-cn /cnp*u_n %array_var(IAY)%array
+     $                   -cnm/cnp*u_nm%array_var(IAY)%array
+          vdum(:,:,:,3) =-cn /cnp*u_n %array_var(IAZ)%array
+     $                   -cnm/cnp*u_nm%array_var(IAZ)%array
+        else
+          vdum = acov_n
+        endif
+
+        if (.not.save_tn) then
+          call find_B(gv%gparams,igr,B0,acov,bcnv,.false.
+     $               ,bcond_a=bcnd_a,bcond_b=bcnd_b)
+
+          !Find RW E-field 
+          call rw_Ebc(gv%gparams,igr,bcnv_n,Erw,bcnvp=bcnv
+     $               ,dbg=(ilevel>0))
+
+          !A BCs
+          v0 = 0d0
+          call XferBCs(vdum,v0,.true.)
+          if (itime > inewtime + 2) then
+            v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt/cnp*Erw(nnx+1,:,:,:)
+          else
+            v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt    *Erw(nnx+1,:,:,:)
+          endif
+
+          call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+     $              ,bcnd_a,igr,igr,igr,iorder=order,is_cnv=.false.)
+        endif
+              
+c$$$              if (.not.save_tn) then
+c$$$                !Predict A @ BC by extrapolation and find B, Erw
+c$$$                call find_B(gv%gparams,igr,B0,acov,bcnv,.false.
+c$$$     $                ,bcond_a=bcnd_a
+c$$$     $                ,bcond_b=bcnd_b)
+c$$$
+c$$$                !Correct A @ BC and find new Erw and iterate
+c$$$                itmax = 2
+c$$$                do it=1,itmax
+c$$$                  v0 = 0d0
+c$$$c$$$                  call rw_Ebc(gv%gparams,igr,bcnv,v0,extrp_b=.true.
+c$$$                  call rw_Ebc(gv%gparams,igr,bcnv_n,v0,bcnvp=bcnv
+c$$$     $                       ,rw_dbg=(it==itmax.and.ilevel>0))
+c$$$
+c$$$c$$$                  if (it == 1) then
+c$$$                    Erw(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
+c$$$c$$$                  else
+c$$$c$$$                    Erw(nnx+1,:,:,:) = 0.9*v0  (nnx+1,:,:,:)
+c$$$c$$$     $                                + 0.1*Erw(nnx+1,:,:,:)
+c$$$c$$$                  endif
+c$$$                  
+c$$$c$$$                  mag = rms(Erw(nnx+1,1:nny,1,3))
+c$$$c$$$                  if (my_rank == 0) write (*,*) "Ebc rms it=",it,mag
+c$$$                  
+c$$$                  !A BCs
+c$$$                  v0 = 0d0
+c$$$                  call XferBCs(vdum,v0,.true.)
+c$$$                  if (itime > inewtime + 2) then
+c$$$                    v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
+c$$$     $                               -dt/cnp*Erw(nnx+1,:,:,:)
+c$$$                  else
+c$$$                    v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
+c$$$     $                               -dt*Erw(nnx+1,:,:,:)
+c$$$                  endif
+c$$$
+c$$$                  call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+c$$$     $                    ,bcnd_a,igr,igr,igr,iorder=order,is_cnv=.false.)
+c$$$
+c$$$                  if (itmax == 1) exit
+c$$$                  
+c$$$                  !Correct B
+c$$$                  call find_B(gv%gparams,igr,B0,acov,bcnv,.false.)
+c$$$
+c$$$                  v0 = 0d0 ; prs1 = rho*tmp
+c$$$                  call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,Erw
+c$$$     $                           ,v0)
+c$$$                  bcov = XformVector(gv%gparams,igr,bcnv,.false.)
+c$$$
+c$$$                  call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
+c$$$     $                ,bcnd_b,igr,igr,igr,iorder=order,is_cnv=.true.)
+c$$$                enddo
+c$$$              endif
+      else
+        if (save_tn) then
+          if (rw_exp_pc_bc) then
+            !Predictor-corrector explicit update on RW BC
+            bcnv = bcnv_n
+            do it=1,2
+              call rw_Ebc(gv%gparams,igr,bcnv,Erw
+     $                   ,dbg=(ilevel>0.and.it==2))
+        
+              call XferBCs(acov_n,v0,.true.)
+              v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt*Erw(nnx+1,:,:,:)
+
+              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov
+     .            ,v0,bcnd_a,igr,igr,igr,iorder=order,is_cnv=.false.)
+
+              if (it==1) then
+                !Correct B
+                call find_B(gv%gparams,igr,B0,acov_n,bcnv,.false.
+     $                     ,bcond_b=bcnd_b)
+
+                !WARNING: This makes RW BC unstable for arbitrary dt for small tau_w
+c$$$                call find_B(gv%gparams,igr,B0,acov,bcnv,.false.)
+c$$$                v0 = 0d0 ; prs1 = rho*tmp
+c$$$                call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,Erw
+c$$$     $                         ,v0)
+c$$$                bcov = XformVector(gv%gparams,igr,bcnv,.false.)
+c$$$
+c$$$                call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov
+c$$$     $              ,v0,bcnd_b,igr,igr,igr,iorder=order,is_cnv=.true.)
+              endif
+            enddo
+          else
+            !Second-order SSP explicit update of RW BC
+            if ((itime > inewtime + 2).and.(.not.rw_fft_tupdate)
+     $          .and.rw_exp_ssp_bc) then
+              xi_rw = dt/(dt_n+dt_nm)
+              vdum(:,:,:,1) =u_n%array_var(IAX)%array
+     $                      -xi_rw**2*(u_n  %array_var(IAX)%array
+     $                                -u_nm2%array_var(IAX)%array)
+              vdum(:,:,:,2) =u_n%array_var(IAY)%array
+     $                      -xi_rw**2*(u_n  %array_var(IAY)%array
+     $                                -u_nm2%array_var(IAY)%array)
+              vdum(:,:,:,3) = u_n%array_var(IAZ)%array
+     $                      -xi_rw**2*(u_n  %array_var(IAZ)%array
+     $                                -u_nm2%array_var(IAZ)%array)
+            else
+              xi_rw = 0d0
+              vdum = acov_n
+            endif
+
+            if (save_tn) then
+              if (rw_exp_fix) then
+                !WARNING:needed to avoid RW instability for small tau_w
+                call find_B(gv%gparams,igr,B0,acov_n,bcnv,.false.
+     $                     ,bcond_b=bcnd_b)
+                call rw_Ebc(gv%gparams,igr,bcnv,Erw)
+              else
+                call rw_Ebc(gv%gparams,igr,bcnv_n,Erw)
+              endif
+            endif
+            
+            call XferBCs(vdum,v0,.true.)
+            v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
+     $                       -dt*(1d0+xi_rw)*Erw(nnx+1,:,:,:)
+
+            if (.not.init_time_eval) then
+              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+     .              ,bcnd_a,igr,igr,igr,iorder=order,is_cnv=.false.)
+            endif
+          endif
+        else
+          call XferBCs(acov_n,v0,.true.)
+          v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:) - dt*Erw(nnx+1,:,:,:)
+
+          call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+     .              ,bcnd_a,igr,igr,igr,iorder=order,is_cnv=.false.)
+        endif
+
+      endif
+      
+      deallocate(v0,vdum,bcnv)
+      
+      end subroutine rw_A_BCs
+      
       end module rw_bc

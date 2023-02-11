@@ -2942,7 +2942,7 @@ c     Begin program
         bcnd = bcond_a
         where (bcnd==-EQU) bcnd =-EXT
         call setBC(g_def,IAX,3,nx,ny,nz,acnv,acov,v0
-     .          ,bcnd,igr,igr,igr,iorder=1,is_cnv=.false.)
+     .            ,bcnd,igr,igr,igr,iorder=1,is_cnv=.false.)
       endif
       
       !Find B_cnv
@@ -2950,7 +2950,7 @@ c     Begin program
         do j = 0,ny+1
           do i = 0,nx+1
             bout(i,j,k,:) =
-     .               XformToCurv_ijk(g_def,i,j,k,igr,B0,.true.)
+     .            XformToCurv_ijk(g_def,i,j,k,igr,B0,.true.)
      .         + curl(g_def,i,j,k,nx,ny,nz,igr,igr,igr,acov)
           enddo
         enddo
