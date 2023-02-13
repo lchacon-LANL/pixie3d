@@ -628,7 +628,7 @@ c       Vector Pot. BC
             call rw_A_BCs(gv%gparams,acov_n,bcnv_n
      .                   ,vaux%vec_list(IACOV)%bconds
      .                   ,vaux%vec_list(IBCNV)%bconds
-     .                   ,acov,E_bc,order=order)
+     .                   ,acov,acnv,E_bc,order=order)
           else
             call XferBCs(acov_0,v0,.true.)
             call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0

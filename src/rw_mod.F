@@ -869,8 +869,8 @@ c$$$      deallocate(phir_m_np,phii_m_np)
 
 c     rw_A_BCs
 c     ####################################################################
-      subroutine rw_A_BCs(g_def,acov_n,bcnv_n,bcnd_a,bcnd_b,acov,Erw
-     .                   ,order)
+      subroutine rw_A_BCs(g_def,acov_n,bcnv_n,bcnd_a,bcnd_b,acov,acnv
+     .                   ,Erw,order)
 c     --------------------------------------------------------------------
 c     Defines default BCs for vector potential
 c     --------------------------------------------------------------------
@@ -881,7 +881,7 @@ c     Call variables
 
       type(grid_mg_def),pointer :: g_def
 
-      real(8),dimension(0:,0:,0:,:) :: acov_n,acov,bcnv_n,Erw
+      real(8),dimension(0:,0:,0:,:) :: acov_n,acov,bcnv_n,Erw,acnv
 
       integer :: bcnd_a(6,3),bcnd_b(6,3)
 
