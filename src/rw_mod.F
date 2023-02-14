@@ -868,12 +868,12 @@ c$$$      deallocate(phir_m_np,phii_m_np)
       end subroutine vacuum_cyl
 
 c     rw_A_BCs
-c     ####################################################################
-      subroutine rw_A_BCs(g_def,acov_n,bcnv_n,bcnd_a,bcnd_b,acov,acnv
+c     ##################################################################
+      subroutine rw_A_BCs(g_def,acov_n,acov,acnv,bcnv_n,bcnd_a,bcnd_b
      .                   ,Erw,order)
-c     --------------------------------------------------------------------
-c     Defines default BCs for vector potential
-c     --------------------------------------------------------------------
+c     ------------------------------------------------------------------
+c     Defines RW BCs for vector potential
+c     ------------------------------------------------------------------
 
       implicit none
 
@@ -909,38 +909,63 @@ c     Begin program
       vdum = 0d0
 
       if (rw_implicit_bc) then
-        !Second-order BDF2 implicit update of RW BC
-        if (itime > inewtime + 2) then
-          vdum(:,:,:,1) =-cn /cnp*u_n %array_var(IAX)%array
-     $                   -cnm/cnp*u_nm%array_var(IAX)%array
-          vdum(:,:,:,2) =-cn /cnp*u_n %array_var(IAY)%array
-     $                   -cnm/cnp*u_nm%array_var(IAY)%array
-          vdum(:,:,:,3) =-cn /cnp*u_n %array_var(IAZ)%array
-     $                   -cnm/cnp*u_nm%array_var(IAZ)%array
-        else
-          vdum = acov_n
-        endif
-
-        if (.not.save_tn) then
-          call find_B(gv%gparams,igr,B0,acov,bcnv,.false.
-     $               ,bcond_a=bcnd_a,bcond_b=bcnd_b)
-
-          !Find RW E-field 
-          call rw_Ebc(gv%gparams,igr,bcnv_n,Erw,bcnvp=bcnv
-     $               ,dbg=(ilevel>0))
-
-          !A BCs
-          v0 = 0d0
-          call XferBCs(vdum,v0,.true.)
-          if (itime > inewtime + 2) then
-            v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt/cnp*Erw(nnx+1,:,:,:)
+        if (.not.save_tn) call rw_A_imp
+      else
+        if (save_tn) then
+          if (rw_exp_pc_bc) then
+            call rw_A_exp_pc
           else
-            v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt    *Erw(nnx+1,:,:,:)
+            call rw_A_exp_ssp
           endif
+        else
+          call XferBCs(acov_n,v0,.true.)
+          v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:) - dt*Erw(nnx+1,:,:,:)
 
           call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     $              ,bcnd_a,igr,igr,igr,iorder=order,is_cnv=.false.)
+     .              ,bcnd_a,igr,igr,igr,iorder=order,is_cnv=.false.)
         endif
+      endif
+      
+      deallocate(v0,vdum,bcnv)
+
+      contains
+
+c     rw_A_imp
+c     ##################################################################
+      subroutine rw_A_imp
+
+      implicit none
+
+      !Second-order BDF2 implicit update of RW BC
+      if (itime > inewtime + 2) then
+        vdum(:,:,:,1) =-cn /cnp*u_n %array_var(IAX)%array
+     $                 -cnm/cnp*u_nm%array_var(IAX)%array
+        vdum(:,:,:,2) =-cn /cnp*u_n %array_var(IAY)%array
+     $                 -cnm/cnp*u_nm%array_var(IAY)%array
+        vdum(:,:,:,3) =-cn /cnp*u_n %array_var(IAZ)%array
+     $                 -cnm/cnp*u_nm%array_var(IAZ)%array
+      else
+        vdum = acov_n
+      endif
+
+      call find_B(gv%gparams,igr,B0,acov,bcnv,.false.
+     $           ,bcond_a=bcnd_a,bcond_b=bcnd_b)
+
+      !Find RW E-field 
+      call rw_Ebc(gv%gparams,igr,bcnv_n,Erw,bcnvp=bcnv
+     $           ,dbg=(ilevel>0))
+
+      !A BCs
+      v0 = 0d0
+      call XferBCs(vdum,v0,.true.)
+      if (itime > inewtime + 2) then
+        v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt/cnp*Erw(nnx+1,:,:,:)
+      else
+        v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt    *Erw(nnx+1,:,:,:)
+      endif
+
+      call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+     $          ,bcnd_a,igr,igr,igr,iorder=order,is_cnv=.false.)
               
 c$$$              if (.not.save_tn) then
 c$$$                !Predict A @ BC by extrapolation and find B, Erw
@@ -993,28 +1018,78 @@ c$$$
 c$$$                  call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
 c$$$     $                ,bcnd_b,igr,igr,igr,iorder=order,is_cnv=.true.)
 c$$$                enddo
-c$$$              endif
-      else
-        if (save_tn) then
-          if (rw_exp_pc_bc) then
-            !Predictor-corrector explicit update on RW BC
-            bcnv = bcnv_n
-            do it=1,2
-              call rw_Ebc(gv%gparams,igr,bcnv,Erw
-     $                   ,dbg=(ilevel>0.and.it==2))
+c$$$  endif
         
-              call XferBCs(acov_n,v0,.true.)
-              v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt*Erw(nnx+1,:,:,:)
+      end subroutine rw_A_imp
+      
+c     rw_A_exp_ssp
+c     ##################################################################
+      subroutine rw_A_exp_ssp
 
-              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov
-     .            ,v0,bcnd_a,igr,igr,igr,iorder=order,is_cnv=.false.)
+      implicit none
+      
+      !Second-order SSP explicit update of RW BC
+      if ((itime > inewtime + 2).and.(.not.rw_fft_tupdate)
+     $    .and.rw_exp_ssp_bc) then
+        xi_rw = dt/(dt_n+dt_nm)
+        vdum(:,:,:,1) =u_n%array_var(IAX)%array
+     $                -xi_rw**2*(u_n  %array_var(IAX)%array
+     $                          -u_nm2%array_var(IAX)%array)
+        vdum(:,:,:,2) =u_n%array_var(IAY)%array
+     $                -xi_rw**2*(u_n  %array_var(IAY)%array
+     $                          -u_nm2%array_var(IAY)%array)
+        vdum(:,:,:,3) = u_n%array_var(IAZ)%array
+     $                -xi_rw**2*(u_n  %array_var(IAZ)%array
+     $                          -u_nm2%array_var(IAZ)%array)
+      else
+        xi_rw = 0d0
+        vdum = acov_n
+      endif
 
-              if (it==1) then
-                !Correct B
-                call find_B(gv%gparams,igr,B0,acov_n,bcnv,.false.
-     $                     ,bcond_b=bcnd_b)
+      if (rw_exp_fix) then
+        !WARNING:needed to avoid RW instability for small tau_w
+        call find_B(gv%gparams,igr,B0,acov_n,bcnv,.false.
+     $             ,bcond_b=bcnd_b)
+        call rw_Ebc(gv%gparams,igr,bcnv,Erw)
+      else
+        call rw_Ebc(gv%gparams,igr,bcnv_n,Erw)
+      endif
+      
+      call XferBCs(vdum,v0,.true.)
+      v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
+     $                 -dt*(1d0+xi_rw)*Erw(nnx+1,:,:,:)
 
-                !WARNING: This makes RW BC unstable for arbitrary dt for small tau_w
+      if (.not.init_time_eval) then
+        call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+     .        ,bcnd_a,igr,igr,igr,iorder=order,is_cnv=.false.)
+      endif
+          
+      end subroutine rw_A_exp_ssp
+      
+c     rw_A_exp_pc
+c     ##################################################################
+      subroutine rw_A_exp_pc
+
+      implicit none
+
+      !Predictor-corrector explicit update on RW BC
+      bcnv = bcnv_n
+      do it=1,2
+        call rw_Ebc(gv%gparams,igr,bcnv,Erw
+     $             ,dbg=(ilevel>0.and.it==2))
+      
+        call XferBCs(acov_n,v0,.true.)
+        v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt*Erw(nnx+1,:,:,:)
+
+        call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov
+     .      ,v0,bcnd_a,igr,igr,igr,iorder=order,is_cnv=.false.)
+
+        if (it==1) then
+          !Correct B
+          call find_B(gv%gparams,igr,B0,acov_n,bcnv,.false.
+     $               ,bcond_b=bcnd_b)
+
+          !WARNING: This makes RW BC unstable for arbitrary dt for small tau_w
 c$$$                call find_B(gv%gparams,igr,B0,acov,bcnv,.false.)
 c$$$                v0 = 0d0 ; prs1 = rho*tmp
 c$$$                call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,Erw
@@ -1023,59 +1098,11 @@ c$$$                bcov = XformVector(gv%gparams,igr,bcnv,.false.)
 c$$$
 c$$$                call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov
 c$$$     $              ,v0,bcnd_b,igr,igr,igr,iorder=order,is_cnv=.true.)
-              endif
-            enddo
-          else
-            !Second-order SSP explicit update of RW BC
-            if ((itime > inewtime + 2).and.(.not.rw_fft_tupdate)
-     $          .and.rw_exp_ssp_bc) then
-              xi_rw = dt/(dt_n+dt_nm)
-              vdum(:,:,:,1) =u_n%array_var(IAX)%array
-     $                      -xi_rw**2*(u_n  %array_var(IAX)%array
-     $                                -u_nm2%array_var(IAX)%array)
-              vdum(:,:,:,2) =u_n%array_var(IAY)%array
-     $                      -xi_rw**2*(u_n  %array_var(IAY)%array
-     $                                -u_nm2%array_var(IAY)%array)
-              vdum(:,:,:,3) = u_n%array_var(IAZ)%array
-     $                      -xi_rw**2*(u_n  %array_var(IAZ)%array
-     $                                -u_nm2%array_var(IAZ)%array)
-            else
-              xi_rw = 0d0
-              vdum = acov_n
-            endif
-
-            if (save_tn) then
-              if (rw_exp_fix) then
-                !WARNING:needed to avoid RW instability for small tau_w
-                call find_B(gv%gparams,igr,B0,acov_n,bcnv,.false.
-     $                     ,bcond_b=bcnd_b)
-                call rw_Ebc(gv%gparams,igr,bcnv,Erw)
-              else
-                call rw_Ebc(gv%gparams,igr,bcnv_n,Erw)
-              endif
-            endif
-            
-            call XferBCs(vdum,v0,.true.)
-            v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
-     $                       -dt*(1d0+xi_rw)*Erw(nnx+1,:,:,:)
-
-            if (.not.init_time_eval) then
-              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     .              ,bcnd_a,igr,igr,igr,iorder=order,is_cnv=.false.)
-            endif
-          endif
-        else
-          call XferBCs(acov_n,v0,.true.)
-          v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:) - dt*Erw(nnx+1,:,:,:)
-
-          call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     .              ,bcnd_a,igr,igr,igr,iorder=order,is_cnv=.false.)
         endif
-
-      endif
+      enddo
       
-      deallocate(v0,vdum,bcnv)
+      end subroutine rw_A_exp_pc
       
       end subroutine rw_A_BCs
-      
+
       end module rw_bc

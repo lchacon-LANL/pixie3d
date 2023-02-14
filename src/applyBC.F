@@ -517,7 +517,11 @@ c       Allocate auxiliary variables in local domain
      .              ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
      .              ,iorder=1)
 
-        case(IBCOV_0)   !Done with bcnv_0
+        case(IBCOV_0)
+          
+          !!!!!!!!!!!!!!!!!!
+          !Done with bcnv_0!
+          !!!!!!!!!!!!!!!!!!
 #else
         case(IBCNV_0)
 
@@ -527,7 +531,10 @@ c       Allocate auxiliary variables in local domain
 
         case(IBCOV_0)
 
-c$$$          call XformVector_BC(gv%gparams,igr,bcnv_0,bcov_0,.false.)
+          
+          !!!!!!!!!!!!!!!!!!
+          !Done with bcnv_0!
+          !!!!!!!!!!!!!!!!!!
 #endif
 
         case(IVCNV_0)
@@ -625,10 +632,10 @@ c       Vector Pot. BC
 
 #if !defined(plotting)
           if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
-            call rw_A_BCs(gv%gparams,acov_n,bcnv_n
+            call rw_A_BCs(gv%gparams,acov_n,bcnv_n,acov,acnv
      .                   ,vaux%vec_list(IACOV)%bconds
      .                   ,vaux%vec_list(IBCNV)%bconds
-     .                   ,acov,acnv,E_bc,order=order)
+     .                   ,E_bc,order=order)
           else
             call XferBCs(acov_0,v0,.true.)
             call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
@@ -651,13 +658,12 @@ c       Magnetic field BC
 
 #if defined(plotting) && defined(vec_pot)
           bcnd = vaux%vec_list(IBCNV)%bconds
-
           where (bcnd==-NEU) bcnd = EXT
 
           v0 = 0d0
 
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
-     .              ,bcnd,igr,igr,igr,iorder=order)
+     .              ,bcnd,igr,igr,igr,iorder=2)
 #else
           if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
 c$$$#if !defined(vec_pot)
@@ -684,21 +690,21 @@ c$$$#endif
 
         case(IBCNV_N)
 
-#if defined(vec_pot) && !defined(plotting)
-          if (save_tn.and.TS_chk_after_restart(1)) then
-            if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
-              v0 = 0d0 ; prs1 = rho*tmp
-              call J_pinch_bc(gv%gparams,igr,bcnv_n,prs1,eeta,E_bc,v0)
-            else
-              call XferBCs(jcnv_0,v0,.true.)
-            endif
-            bcov = XformVector(gv%gparams,igr,bcnv_n,.false.)
-
-            call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_n,bcov,v0
-     .                ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
-     .                ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
-          endif
-#endif
+c$$$#if defined(vec_pot) && !defined(plotting)
+c$$$          if (save_tn.and.TS_chk_after_restart(1)) then
+c$$$            if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
+c$$$              v0 = 0d0 ; prs1 = rho*tmp
+c$$$              call J_pinch_bc(gv%gparams,igr,bcnv_n,prs1,eeta,E_bc,v0)
+c$$$            else
+c$$$              call XferBCs(jcnv_0,v0,.true.)
+c$$$            endif
+c$$$            bcov = XformVector(gv%gparams,igr,bcnv_n,.false.)
+c$$$
+c$$$            call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_n,bcov,v0
+c$$$     .                ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
+c$$$     .                ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
+c$$$          endif
+c$$$#endif
 
         case(IJCNV)
 
@@ -726,7 +732,11 @@ c       Current BC
      .              ,iorder=order)
 #endif
 
-        case(IJCOV) !Done when computing jcnv
+        case(IJCOV)
+
+          !!!!!!!!!!!!!!!!!!!!!!!!!!
+          !Done when computing jcnv!
+          !!!!!!!!!!!!!!!!!!!!!!!!!!
 
         case(IVECNV)
 
@@ -1145,7 +1155,6 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
             bcnv_n = bcnv_0     !Set it to initial cond.
           elseif (save_tn) then
 #if defined(vec_pot)
-c$$$            call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
             call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.
      $                 ,bcond_b=vaux%vec_list(IBCNV)%bconds)
 #else
