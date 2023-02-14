@@ -712,7 +712,6 @@ c       Current BC
 
 #if defined(plotting)
           bcnd = vaux%vec_list(IJCNV)%bconds
-
           where (bcnd==EQU) bcnd = EXT
 
           v0 = 0d0

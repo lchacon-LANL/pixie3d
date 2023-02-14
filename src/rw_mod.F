@@ -245,11 +245,11 @@ c     --------------------------------------------------------------------
         
         if (extrap) then
           !Extrapolate to face from interior
-          i = nx ; ord = 2
+          i = i_bc-1 ; ord = 2
           call getMGmap(g_def,i,1,1,igr,igr,igr,ig,jg,kg)
           do k=0,nz+1
             do j=0,ny+1
-              xh = 0.5*(g_def%xx(ig+2)+g_def%xx(ig+1))
+              xh = 0.5*(g_def%xx(ig)+g_def%xx(ig+1))
               call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,1)
      .                        ,1,xh,bcnvint (j,k,1),ord,0)
               call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,2)
@@ -285,7 +285,6 @@ c     Call variables
 c     Local variables
         
         real(8) :: bcov_avg(2:3),send_buf(2),rec_buf(2)
-        
 
 c     Begin program
 
@@ -328,13 +327,20 @@ c     Compute Bcov @ wall on plasma side (for E-field computation)
 c     --------------------------------------------------------------------
 
         implicit none
-      
+
+c     Call variables
+
         real(8),dimension(0:,0:,:) :: bcnvint
         real(8) :: bcovint (0:size(bcnvint,1)-1
      .                     ,0:size(bcnvint,2)-1,3)
 
-        real(8) :: bcov_avg(2:3),send_buf(2),rec_buf(2)
+c     Local variables
         
+        real(8) :: bcov_avg(2:3),send_buf(2),rec_buf(2)
+
+c     Begin program
+
+        !Compute Bcov @ wall        
         do k=0,nz+1
           do j=0,ny+1
             bcovint(j,k,:)
@@ -466,7 +472,7 @@ c     FFT Bnormal at plasma wall (transform to cov by dividing by J=r/m*, r=1)
       !Perform FFT
       call fft(nyg,Bn(1,:,1),theta,nyg,Brn_m,Bin_m,mm,0,0)
 
-      if (m_max > 0) call filter_br()
+c$$$      if (m_max > 0) call filter_br()
       
 c     Process plasma B-normal
 
@@ -623,20 +629,20 @@ c     Find new-time EXTERNAL magnetic field components outside RW
 
       deallocate(phir_m_np,phii_m_np)
 
-      contains
-
-c     filter_br
-c     ####################################################################
-      subroutine filter_br()
-
-        do m=1,nyg
-          m1   = abs(nint(mm(m)))
-          if (m1 > m_max) then
-            Brn_m(m) = 0d0 ; Bin_m(m) = 0d0
-          endif
-        enddo
-
-      end subroutine filter_br
+c$$$      contains
+c$$$
+c$$$c     filter_br
+c$$$c     ####################################################################
+c$$$      subroutine filter_br()
+c$$$
+c$$$        do m=1,nyg
+c$$$          m1   = abs(nint(mm(m)))
+c$$$          if (m1 > m_max) then
+c$$$            Brn_m(m) = 0d0 ; Bin_m(m) = 0d0
+c$$$          endif
+c$$$        enddo
+c$$$
+c$$$      end subroutine filter_br
       
       end subroutine vacuum_hel
 
@@ -869,7 +875,7 @@ c$$$      deallocate(phir_m_np,phii_m_np)
 
 c     rw_A_BCs
 c     ##################################################################
-      subroutine rw_A_BCs(g_def,acov_n,acov,acnv,bcnv_n,bcnd_a,bcnd_b
+      subroutine rw_A_BCs(g_def,acov_n,bcnv_n,acov,acnv,bcnd_a,bcnd_b
      .                   ,Erw,order)
 c     ------------------------------------------------------------------
 c     Defines RW BCs for vector potential
@@ -1047,11 +1053,11 @@ c     ##################################################################
       endif
 
       if (rw_exp_fix) then
-        !WARNING:needed to avoid RW instability for small tau_w
         call find_B(gv%gparams,igr,B0,acov_n,bcnv,.false.
      $             ,bcond_b=bcnd_b)
-        call rw_Ebc(gv%gparams,igr,bcnv,Erw)
+        call rw_Ebc(gv%gparams,igr,bcnv  ,Erw)
       else
+        !WARNING:seeds RW instability for small tau_w for arbitrary dt
         call rw_Ebc(gv%gparams,igr,bcnv_n,Erw)
       endif
       
