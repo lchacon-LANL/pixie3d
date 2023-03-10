@@ -534,14 +534,6 @@ c Define graphics group #4: Diagnostics
         graph(4)%array_graph(13)%array => p_tot
         graph(4)%array_graph(13)%descr = 'pi+pe'
       endif
-c$$$      graph(4)%array_graph(13)%array => vpar
-c$$$      graph(4)%array_graph(13)%descr = 'V||'
-c$$$
-c$$$      graph(4)%array_graph(14)%array => vpsi
-c$$$      graph(4)%array_graph(14)%descr = 'V.grad(psi)'
-c$$$
-c$$$      graph(4)%array_graph(15)%array => vperp
-c$$$      graph(4)%array_graph(15)%descr = 'V.(b x grad(psi))'
 
       if (di > 0d0) then
         graph(4)%array_graph(14)%array => E1
@@ -578,7 +570,25 @@ c$$$      graph(4)%array_graph(15)%descr = 'V.(b x grad(psi))'
       graph(4)%array_graph(21)%array => jmag
       graph(4)%array_graph(21)%descr = '|J|'
 
-      graph(4)%array_graph(22:ngraph)%descr = ''
+      graph(4)%array_graph(22)%array => vpar
+      graph(4)%array_graph(22)%descr = 'V||'
+
+      graph(4)%array_graph(23)%array => vpsi
+      graph(4)%array_graph(23)%descr = 'V.grad(psi)'
+
+      graph(4)%array_graph(24)%array => vperp
+      graph(4)%array_graph(24)%descr = 'V.(b x grad(psi))'
+      
+      graph(4)%array_graph(25)%array => gppar
+      graph(4)%array_graph(25)%descr = 'grad(P)||'
+
+      graph(4)%array_graph(26)%array => gppsi
+      graph(4)%array_graph(26)%descr = 'grad(P).grad(psi)'
+
+      graph(4)%array_graph(27)%array => gpperp
+      graph(4)%array_graph(27)%descr = 'grad(P).(b x grad(psi))'
+
+      graph(4)%array_graph(28:ngraph)%descr = ''
 
 cc      sel_gr(4,:) = (/ (i,i=6,14) /)
 cc      sel_gr(4,:) = (/ (i,i=1,9) /)

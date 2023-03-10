@@ -119,6 +119,7 @@ c Namelists
      .                   ,equil,gstor_I_drive,refine_eq
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
+     .                   ,aa_dff,bb_dff,cc_dff
      .                   ,r_v,tau_w,zero_vpar_bc
      .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_bc
 
@@ -489,6 +490,9 @@ c     #####################################################################
 ! Daniele, 02/17/2014
       cc_chi   = 1d0           ! Coefficient for chi profile
       dd_chi   = 0d0           ! Coefficient for chi profile
+      aa_dff   = 0d0           ! Coefficient for diffusivity profile
+      bb_dff   = 0d0           ! Coefficient for diffusivity profile
+      cc_dff   = 1d0           ! Coefficient for diffusivity profile
 
       heta     = 0d0           ! Coefficient for hyper-resistivity (if negative, it is determined by mesh)
 

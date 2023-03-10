@@ -181,6 +181,7 @@ c ######################################################################
 
         real(8) :: aa_eta,bb_eta,cc_eta
      .            ,aa_nu ,bb_nu ,cc_nu
+     .            ,aa_dff,bb_dff,cc_dff
      .            ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .            ,cc_chi,dd_chi ! Daniele, 02/17/2014
 
@@ -228,6 +229,34 @@ c$$$      res = min(res,3d2)
 c     End program
 
       end function res_rfx
+
+c     diff_rfx
+c     #############################################################
+      function diff_rfx(rr) result(dff)
+c-------------------------------------------------------------
+c     This function computes the diffusivity profile at a radius rr.
+c     dff = (1 + aa*x^bb)^cc
+c-------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: dff,rr
+
+c     Local variables
+
+      real(8) :: rf
+
+c     Begin program
+
+      rf = 1. + aa_dff*rr**bb_dff
+
+      dff = abs(rf)**cc_dff
+
+c     End program
+
+      end function diff_rfx
 
 c     vis_rfx
 c     #############################################################
@@ -831,6 +860,7 @@ c ######################################################################
      .         ,divrgB,divrgJ,divrgV,Pflux
      .         ,qfactor,lambda,p_tot
      .         ,vpar,vpsi,vperp,jmag
+     .         ,gppar,gppsi,gpperp
      .         ,f1,f2,f3,E1,E2,E3
 
         real(8),pointer,dimension(:,:,:) ::
@@ -895,6 +925,9 @@ c     ##################################################################
      .         ,vpar  (ilom:ihip,jlom:jhip,klom:khip)
      .         ,vpsi  (ilom:ihip,jlom:jhip,klom:khip)
      .         ,vperp (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,gppar (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,gppsi (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,gpperp(ilom:ihip,jlom:jhip,klom:khip)
      .         ,E1    (ilom:ihip,jlom:jhip,klom:khip)
      .         ,E2    (ilom:ihip,jlom:jhip,klom:khip)
      .         ,E3    (ilom:ihip,jlom:jhip,klom:khip)
@@ -932,7 +965,8 @@ c     ##################################################################
       deallocate (vx,vy,vz,vx_cov,vy_cov,vz_cov,vex,vey,vez)
 
       deallocate (bx_car,by_car,bz_car,jx_car,jy_car,jz_car
-     .           ,vx_car,vy_car,vz_car,vpar,vpsi,vperp 
+     .           ,vx_car,vy_car,vz_car,vpar,vpsi,vperp
+     .           ,gppar,gppsi,gpperp 
      .           ,divrgB,divrgJ,divrgV,Pflux,p_tot
      .           ,E1,E2,E3,F1,F2,F3,heat_src,jmag)
 
@@ -7043,16 +7077,27 @@ c     Call variables
 
 c     Local variables
 
-      real(8) :: b2
+      integer :: ig,jg,kg
+      real(8) :: b2,rr,th,zz,x1,x2,x3
 
 c     Begin program
 
-      if (chi_bgnskii) then
-        b2 = vectorNorm(g_def,i,j,k,igrid,bcnv,.false.)
-        dfvty = dd*diff_def(te,rho,b2,te0_ref)
-      else
-        dfvty = dd
-      endif
+cc      if (chi_bgnskii) then
+cc        b2 = vectorNorm(g_def,i,j,k,igrid,bcnv,.false.)
+cc        dfvty = dd*diff_def(te,rho,b2,te0_ref)
+cc      else
+cc        dfvty = dd
+cc      endif
+
+      select case (equil)
+      case('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
+          call find_polar_coords(g_def,igrid,i,j,k,rr,th,zz,coords)
+          dfvty = dd*diff_rfx(rr)
+      case default
+          call getCurvilinearCoordinates(g_def,i,j,k,igrid,igrid,igrid
+     .                                  ,ig,jg,kg,x1,x2,x3)
+          dfvty = dd*diff_rfx(x1)
+      end select
 
 c     End program
 
