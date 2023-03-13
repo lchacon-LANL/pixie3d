@@ -90,6 +90,7 @@ c Namelists
      .                   ,subtract_E0,e_cons_vstar,post_smooth_B
      .                   ,regularize_A,use_p_classic_eq,post_filter_hel
      .                   ,binom_alph,v00_ExB_bc,sheath_bc
+     .                ,B_angle_threshold
      .                ,prt_file,equ_file,map_file,dcon
      .                !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -122,6 +123,7 @@ c Namelists
      .                   ,aa_dff,bb_dff,cc_dff
      .                   ,r_v,tau_w,zero_vpar_bc
      .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_bc
+     .                   ,B_angle_threshold
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
@@ -495,6 +497,8 @@ c     #####################################################################
       cc_dff   = 1d0           ! Coefficient for diffusivity profile
 
       heta     = 0d0           ! Coefficient for hyper-resistivity (if negative, it is determined by mesh)
+
+      B_angle_threshold = 5d-2 ! Ratio of |B^1|/|B| at the wall that allows the full Bohm flow to escape (sheath_bc)
 
       spitzer  = .false.       ! Whether we are using Spitzer resistivity
       fixed_Te = .false.       ! Whether we are fixing the T to T_0

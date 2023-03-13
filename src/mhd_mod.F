@@ -191,6 +191,8 @@ c ######################################################################
      .            ,lagged_Te =.false.     !Whether we are lagging T to T_n
      .            ,chi_bgnskii =.false.   !Whether we are using Braginskii conductivities
 
+        real(8) :: B_angle_threshold
+
       contains
 
 c     res_rfx

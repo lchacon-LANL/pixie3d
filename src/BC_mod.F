@@ -20,6 +20,7 @@ c####################################################################
      .                             ,nc_eom_v,nc_eom_jxb,find_B
      .                             ,pinch_flow,sym_st,subtract_E0
      .                             ,form_ve,solenoidal,binom_alph
+     .                             ,B_angle_threshold
 
         use xdraw_io
 
@@ -35,7 +36,7 @@ c####################################################################
      $            ,sheath_bc    = .false.  !Whether we are applying sheath BCs (in v_||)
 
         logical :: no_eq_bc,save_tn,no_tn_bc
-        
+
       contains
 
 c     defineDepVariables
@@ -1952,7 +1953,7 @@ c     #################################################################
       function sheath_flow_bc(g_def,igrid,bcnv,tmpe) result(v0)
 
 c     -----------------------------------------------------------------
-c     Finds parallel Bohm flowboundary condition
+c     Finds parallel Bohm flow boundary condition
 c     (returns contravariant components).
 c     -----------------------------------------------------------------
 
@@ -1974,7 +1975,8 @@ c     Local variables
       integer :: i,j,k,ig,jg,kg,ord,nx,ny,nz,ibc
 
       real(8) :: bmag,bbcnv(3),bbcov(3),jac,bhat(3)
-      real(8) :: u_bohm,te_up,ti_up,Z_i,sign_check,mag,B_angle_threshold
+      real(8) :: u_bohm,te_up,ti_up,Z_i
+      real(8) :: wallratio,transitionFn,taper,mag
 
 c     Begin program
 
@@ -1995,10 +1997,6 @@ c     Begin program
 
       Z_i = 1d0
 
-      ! Set the threshold for the minimum angle (% of |B|) of B to the
-      ! wall to enable the flow to escape at the Bohm speed
-      B_angle_threshold  = 0.02
-      
       !Compute value at face
       do k=0,nz+1
         do j=0,ny+1
@@ -2007,29 +2005,48 @@ c     Begin program
 
           bbcnv = 0.5*(bcnv(i,j,k,:)+bcnv(i+1,j,k,:))
           bbcov = XformToCov_ijk_face(g_def,i,j,k,igrid,bbcnv,1)
-      ! Compute magnitude |grad B_n| to normalize contravariant field at
-      ! the wall   
-          mag = sqrt(sum((0.5*(g_def%gmetric%grid(igrid)%cov(i,j,k,2,:)
-     .                +g_def%gmetric%grid(igrid)%cov(i+1,j,k,2,:)))**2))
-
+          
           bmag = sqrt(sum(bbcnv*bbcov)/jac)
-         
+
           if (bmag > 0d0) then
-      ! Check if B field is sufficiently perpendicular to the wall
-            sign_check = 0. ! By default, assume field is parallel
-            if (abs(bbcnv(1)/jac/mag) > B_angle_threshold*bmag) then
-                sign_check = sign(1d0,bbcnv(1)) ! Sign of B field
-            end if 
+
+      ! Compute magnitude of the covariant basis vector
+           mag = sqrt(sum((0.5*(g_def%gmetric%grid(igrid)%cov(i,j,k,2,:)
+     .                +g_def%gmetric%grid(igrid)%cov(i+1,j,k,2,:)))**2))
+     
+      ! Ratio of the perpendicular field to the total field, at the wall
+            if (mag > 0d0 .and. jac > 0d0) then
+              wallratio = abs(bbcnv(1)/jac/mag/bmag)
+            else
+              wallratio = 0d0
+            end if
+
+      ! Check if this ratio passes the threshold for the minimum angle
+      ! (% of |B|) of B to the wall to enable the flow to escape
+            if (wallratio >= max(1d-5,B_angle_threshold)) then
+              transitionFn = 1d0
+            else
+              taper = wallratio/max(1d-5,B_angle_threshold)
+
+      ! This is a smooth transition function between 0 and 1, that will
+      ! taper the Bohm flow where the field is too parallel to the wall
+              if (taper <= 0d0) then
+                transitionFn = 0d0
+              else
+                transitionFn = 0.5 + 0.5*tanh(5d0*(2d0*taper - 1d0)
+     .                                       /sqrt(taper*(1d0 - taper)))
+              end if
+            end if
 
             !Compute B unit vector, pointing outwards
-            bhat = bbcnv/bmag*sign_check
+            bhat = bbcnv/bmag*sign(1d0,bbcnv(1))
 
             !Compute Bohm velocity (in Alfenic units) from upstream Te
             te_up = tmpe(i,j,k)
             ti_up = te_up*temp_ratio
             u_bohm = sqrt(Z_i*te_up + 3d0*ti_up)
 
-            v0(i+1,j,k,:) = u_bohm*bhat
+            v0(i+1,j,k,:) = u_bohm*bhat*transitionFn
           endif
         enddo
       enddo
