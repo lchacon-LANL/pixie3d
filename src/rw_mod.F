@@ -458,7 +458,7 @@ c     Global angular mesh
 
       theta = g_def%yg(1:nyg)
 
-c     FFT Bnormal at plasma wall (transform to cov by dividing by J=r/m*, r=1)
+c     FFT Bnormal at plasma wall (divided by J|n|=1/m* @ r=1)
 
       Bnl(1,:,1) = m_h*bcnvn_int(1:ny,1)  
 
