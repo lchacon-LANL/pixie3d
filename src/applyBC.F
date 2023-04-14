@@ -1669,7 +1669,7 @@ c        * loc -> boundary location (0 -> left, 1->right)
 c        * order -> order of extrapolation (when used)
 c ---------------------------------------------------------------------
         
-      use rw_bc
+      use local_BCS_variables
 
       implicit none
 
