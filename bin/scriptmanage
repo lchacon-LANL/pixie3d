@@ -30,6 +30,7 @@ do
   fi
 done
 if [ "x$ERROR" != "x" ]; then
+  echo $ERROR
   echo "Error in job $1. Exiting."
   exit 1
 fi
