@@ -1976,7 +1976,7 @@ c     Local variables
 
       real(8) :: bmag,bbcnv(3),bbcov(3),jac,bhat(3)
       real(8) :: u_bohm,te_up,ti_up,Z_i
-      real(8) :: wallratio,transitionFn,taper,mag
+      real(8) :: wallratio,transitionFn,taper,mag,sheathcoefficient
 
 c     Begin program
 
@@ -1994,6 +1994,11 @@ c     Begin program
       endif
 
       v0 = 0d0
+
+      ! q_sheath = alpha*P_wall*U_wall
+      ! Temperature advection is given by: (gamma - 1)*T_wall*U_bohm
+      ! Therefore our sheath coefficient is given by alpha/(gamma - 1)
+      sheathcoefficient = 5d0*(3./2.)
 
       Z_i = 1d0
 
@@ -2046,7 +2051,7 @@ c     Begin program
             ti_up = te_up*temp_ratio
             u_bohm = sqrt(Z_i*te_up + 3d0*ti_up)
 
-            v0(i+1,j,k,:) = u_bohm*bhat*transitionFn
+            v0(i+1,j,k,:) = u_bohm*bhat*transitionFn*sheathcoefficient
           endif
         enddo
       enddo
