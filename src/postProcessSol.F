@@ -610,7 +610,7 @@ c       Find vector potential RW boundary condition at face
           b_cnv(:,:,:,2) = vnp%array_var(IBY)%array
           b_cnv(:,:,:,3) = vnp%array_var(IBZ)%array
 
-          !Reimpose EXT B-tangential BCs to avoid instability
+          !Reimpose EXTRAP B-tangential BCs to avoid instability
           bcnd = gv%aux%vec_list(IBCNV)%bconds
           where (bcnd==-NEU) bcnd = EXT
 
@@ -624,11 +624,11 @@ c       Find vector potential RW boundary condition at face
           call rw_Ebc(gv%gparams,igx,b_cnv,E_bc)
 
           !Second-order SSP explicit update of RW BC
-          if (itime > inewtime + 2) then
-            xi_rw = dt/(dt_n+dt_nm)
-          else
+c$$$          if (itime > inewtime + 2) then
+c$$$            xi_rw = dt/(dt_n+dt_nm)
+c$$$          else
             xi_rw = 0d0
-          endif
+c$$$          endif
 
           db_cnv(:,:,:,1) = db_cnv(:,:,:,1)
      $                     -xi_rw**2*(vnp%array_var(IBX)%array
