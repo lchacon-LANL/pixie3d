@@ -1033,25 +1033,8 @@ c     ##################################################################
       subroutine rw_A_exp_ssp
 
       implicit none
-      
-      !Second-order SSP explicit update of RW BC
-      if ((itime > inewtime + 2).and.(.not.rw_fft_tupdate)
-     $    .and.rw_exp_ssp_bc) then
-        xi_rw = dt/(dt_n+dt_nm)
-        vdum(:,:,:,1) =u_n%array_var(IAX)%array
-     $                -xi_rw**2*(u_n  %array_var(IAX)%array
-     $                          -u_nm2%array_var(IAX)%array)
-        vdum(:,:,:,2) =u_n%array_var(IAY)%array
-     $                -xi_rw**2*(u_n  %array_var(IAY)%array
-     $                          -u_nm2%array_var(IAY)%array)
-        vdum(:,:,:,3) = u_n%array_var(IAZ)%array
-     $                -xi_rw**2*(u_n  %array_var(IAZ)%array
-     $                          -u_nm2%array_var(IAZ)%array)
-      else
-        xi_rw = 0d0
-        vdum = acov_n
-      endif
 
+      !Compute RW E-field using time-n B
       if (rw_exp_fix) then
         call find_B(gv%gparams,igr,B0,acov_n,bcnv,.false.
      $             ,bcond_b=bcnd_b)
@@ -1060,11 +1043,30 @@ c     ##################################################################
         !WARNING:seeds RW instability for small tau_w for arbitrary dt
         call rw_Ebc(gv%gparams,igr,bcnv_n,Erw)
       endif
-      
+
+      !Second-order SSP explicit update of RW BC
+      if ((itime > inewtime + 2).and.(.not.rw_fft_tupdate)
+     $    .and.rw_exp_ssp_bc) then
+        xi_rw = dt/(dt_n+dt_nm)
+        vdum(:,:,:,1) = u_n%array_var(IAX)%array
+     $                 -xi_rw**2*(u_n  %array_var(IAX)%array
+     $                           -u_nm2%array_var(IAX)%array)
+        vdum(:,:,:,2) = u_n%array_var(IAY)%array
+     $                 -xi_rw**2*(u_n  %array_var(IAY)%array
+     $                           -u_nm2%array_var(IAY)%array)
+        vdum(:,:,:,3) = u_n%array_var(IAZ)%array
+     $                 -xi_rw**2*(u_n  %array_var(IAZ)%array
+     $                           -u_nm2%array_var(IAZ)%array)
+      else
+        xi_rw = 0d0
+        vdum = acov_n
+      endif
+
       call XferBCs(vdum,v0,.true.)
       v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
      $                 -dt*(1d0+xi_rw)*Erw(nnx+1,:,:,:)
 
+      !Impose BC
       if (.not.init_time_eval) then
         call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .        ,bcnd_a,igr,igr,igr,iorder=order,is_cnv=.false.)
