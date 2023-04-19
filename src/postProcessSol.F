@@ -645,12 +645,15 @@ c$$$          else
 c$$$            xi_rw = 0d0
 c$$$          endif
 
+          !E-field at face: nx+1/2
           da_cov(nx+1,:,:,:) = -dt*(1d0+xi_rw)*E_bc(nx+1,:,:,:)
         endif
         
 c       Clean db (and impose RW BC, if applicable)
 
         tol_divcl = rtol
+        if (res_wall_bc) tol_divcl = 0.1*tol_divcl
+
         call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
      .                     ,igx,igy,igz,db_cnv,da0cov=da_cov
      .                     ,gm_it=it_divcl,rtol=tol_divcl
