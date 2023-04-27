@@ -652,7 +652,7 @@ c$$$          endif
 c       Clean db (and impose RW BC, if applicable)
 
         tol_divcl = rtol
-        if (res_wall_bc) tol_divcl = 0.1*tol_divcl
+        if (res_wall_bc) tol_divcl = min(0.1*tol_divcl,1d-4)
 
         call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
      .                     ,igx,igy,igz,db_cnv,da0cov=da_cov
