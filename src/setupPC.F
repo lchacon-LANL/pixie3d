@@ -59,10 +59,6 @@ c Find coefficients for linearized systems
 
       if (nwt_iter == 1) call findPCcoeffs(igrid,varray,gv%aux)
 
-c Setup PC BCs
-
-      call setup_PC_BC
-
 c Find required diagonals in all grids
 
       if (nwt_iter == 1) call form_diagonals
@@ -74,36 +70,6 @@ c Initialize PC Jacobi it. counter
 c End program
 
       contains
-
-c     setup_PC_BC
-c     ##############################################################
-      subroutine setup_PC_BC
-
-c     --------------------------------------------------------------
-c     Setup preconditioner BCs
-c     --------------------------------------------------------------
-
-        integer :: ieq
-
-c     Set boundary conditions
-
-        do ieq=1,neqd
-          bcs(:,ieq) = varray%array_var(ieq)%bconds(:)
-        enddo
-
-c     Set BCs for auxiliary variables
-
-#if defined(vec_pot)
-        bcs(:,IBX:IBZ) = gv%aux%vec_list(IBCNV)%bconds
-#endif
-
-        bcs(:,IJX:IJZ) = gv%aux%vec_list(IJCNV)%bconds
-
-c     Set parallel BCs
-
-        call setASM_PC_BC(gv%gparams,igx,igy,igz,bcs,pc_asm)
-
-      end subroutine setup_PC_BC
 
 c     form_diagonals
 c     ##############################################################

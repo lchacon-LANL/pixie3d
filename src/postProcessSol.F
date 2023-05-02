@@ -25,6 +25,8 @@ c--------------------------------------------------------------------
 
       use rw_bc, ONLY: res_wall_bc,E_bc,rw_Ebc,rw_fft_tupdate,rw_exp_fix
      $                ,rw_exp_ssp_bc
+
+      use re, ONLY: re_updt,re_pkg
       
       implicit none
 
@@ -128,10 +130,14 @@ c Divergence-clean magnetic field when PC is on
       if (post_divclean.or.res_wall_bc) call post__divclean
 #endif
 
-c Perform Lagrangian temperature step
+c Perform Lagrangian temperature transport step
 
-      if (lagrangian) call post__lagrangian
+      if (lagrangian) call post__lag_xport
 
+c Perform runaway electron update
+
+      if (re_pkg) call re_updt(vnm,vn,vnp,ilevel)
+      
 c Add rotating magnetic perturbation
 
 #if !defined(vec_pot)
@@ -690,24 +696,20 @@ c       Update magnetic field
 
       end subroutine post__divclean
 
-c     post__lagrangian
+c     post__lag_xport
 c     ###############################################################
-      subroutine post__lagrangian
+      subroutine post__lag_xport
 
         implicit none
 
-        !Lagrangian
+        !Transport
         real(8),allocatable,dimension(:,:,:)   :: tmp_nm,tmp_n,tmp_np
      $                                           ,chipar,array
         logical :: B_weight,do_3d
         real(8) :: G_tol
         integer :: sp_order
 
-        !Parareal
-        integer :: upit=4321
-        character(1024) :: pit_file
-        real(8) :: Et,Ek,Em
-
+        !Begin program
         allocate(tmp_nm(0:nx+1,0:ny+1,0:nz+1)
      $          ,tmp_n (0:nx+1,0:ny+1,0:nz+1)
      $          ,tmp_np(0:nx+1,0:ny+1,0:nz+1)
@@ -723,7 +725,7 @@ c     ###############################################################
 
         if (ilevel > 0 .and. my_rank == 0) then
           write (*,*)
-          write (*,*) 'Performing divergence cleaning in postproc...'
+          write (*,*) 'Performing lag XPORT step in postproc...'
         endif
 
         call lag_init(gv%gparams,igrid,bcnv,2d0,ilevel
@@ -751,11 +753,16 @@ c$$$     .                  ,chi_par,chi,lag_init,E_diag,ilevel-3)
         call lag_destroy
 
         !Return pressure (with jacobian)
+c$$$        call setBC(gv%gparams,IPRS,nx,ny,nz
+c$$$     .            ,tmp_np,s0
+c$$$     .            ,varray%array_var(IPRS)%bconds
+c$$$     .            ,igrid,igrid,igrid,iorder=order_bc)
+
         vnp%array_var(IPRS)%array = tmp_np*vnp%array_var(IRHO)%array
 
         deallocate(tmp_nm,tmp_n,tmp_np,chipar)
         
-      end subroutine post__lagrangian
+      end subroutine post__lag_xport
 
       end subroutine postProcessSol
 
