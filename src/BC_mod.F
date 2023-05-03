@@ -1996,9 +1996,7 @@ c     Begin program
       v0 = 0d0
 
       ! q_sheath = alpha*P_wall*U_wall
-      ! Temperature advection is given by: (gamma - 1)*T_wall*U_bohm
-      ! Therefore our sheath coefficient is given by alpha/(gamma - 1)
-      sheathcoefficient = 5d0*(3./2.)
+      sheathcoefficient = 5d0
 
       Z_i = 1d0
 
