@@ -1995,7 +1995,7 @@ c     Begin program
 
       v0 = 0d0
 
-      ! q_sheath = alpha*P_wall*U_wall
+      ! q_sheath = P_wall*U_wall, U_wall = alpha*U_bohm
       sheathcoefficient = 5d0
 
       Z_i = 1d0
