@@ -519,8 +519,7 @@ c Heat source diagnostics
 
 #if defined(RFX)
 c RFX dump
-! Daniele, 24/10/2013
-      if (np == 1) then
+      if (np == 1.and.TS_chk_plot_dump(.false.)) then
         call rfx_dump_fields
       elseif (np > 1 .and. my_rank == 0) then
         write (*,*) 'RFX fields dump not available in parallel'

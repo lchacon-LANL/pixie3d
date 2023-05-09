@@ -16,7 +16,7 @@ where:
 	-h:            gives this message
 	-d:            turn on debugging
 	-qos queue:    indicates quality of service queue (default standard)
-        -A:            selects account (default w21_magfusion)
+        -A:            selects account (default w23_magfusion)
         -env:          specifies environment [intel, gcc (default)] 
 	-wc time:      indicates wall-clock time (in minutes; default 16 hours)
         -omp_tasks:    number of OMP tasks per MPI task (default 1)

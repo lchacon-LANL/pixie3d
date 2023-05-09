@@ -42,7 +42,7 @@ c Local variables
      .                ,pc_debug_it,pc_max_iter
       logical       :: zebra_relax,hall_new,lag_pinch_bc,debug
      .                ,mg_zebra_relax,restart,timecorr,fake_ve
-     $                ,rw_implicit_bc,zero_ExB_tang
+     $                ,zero_ExB_tang,regularize_A
       real(8)       :: mgtol
 
 c Namelists
@@ -56,11 +56,12 @@ c Namelists
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
      .                   ,aa_nu,bb_nu,cc_nu,heta,irrot_br_pert,eig_is_T
-     .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
+     .                   ,spitzer,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old,xport_order
      .                   ,r_v,tau_w,zero_vpar_bc
-     .                   ,rw_fft_tupdate
+     .                   ,rw_fft_tupdate,rw_implicit_bc,rw_exp_ssp_bc
+     .                   ,rw_exp_pc_bc,rw_exp_fix
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                   ,pc_as_solver,fpa,fpa_it
@@ -88,7 +89,7 @@ c Namelists
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
      .                   ,subtract_E0,e_cons_vstar,post_smooth_B
-     .                   ,regularize_A,use_p_classic_eq,post_filter_hel
+     .                   ,use_p_classic_eq,post_filter_hel
      .                   ,binom_alph,v00_ExB_bc,sheath_bc
      .                ,B_angle_threshold
      .                ,prt_file,equ_file,map_file,dcon
@@ -99,7 +100,7 @@ c Namelists
      .                   ,mg_zebra_relax,pc_max_iter,timecorr,restart
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
-     .                   ,rw_implicit_bc,zero_ExB_tang
+     .                   ,zero_ExB_tang,regularize_A!,fixed_Te,lagged_Te
       
       !Problem setup
       namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
@@ -112,7 +113,7 @@ c Namelists
      .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic,adiabatic_rho
      .                   ,dlambda,rshear,vparflow,vperflow,xport_order
      .                   ,eq_params,lagrangian,irrot_br_pert,eig_is_T
-     .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
+     .                   ,spitzer,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
@@ -121,7 +122,8 @@ c Namelists
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
      .                   ,aa_dff,bb_dff,cc_dff
-     .                   ,r_v,tau_w,zero_vpar_bc
+     .                   ,r_v,tau_w,zero_vpar_bc,rw_implicit_bc
+     .                   ,rw_exp_ssp_bc,rw_exp_pc_bc,rw_exp_fix
      .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_bc
      .                   ,B_angle_threshold
 
@@ -131,7 +133,7 @@ c Namelists
      .                   ,ion_hall,slava,noise,noise_lev,post_smooth_B
      .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
      .                   ,heta_is_rhoheta,subtract_E0,e_cons_vstar
-     .                   ,regularize_A,use_p_classic_eq,post_filter_hel
+     .                   ,use_p_classic_eq,post_filter_hel
      .                   ,solve_prs,binom_alph
 
       !Temporal discretization
@@ -501,8 +503,6 @@ c     #####################################################################
       B_angle_threshold = 5d-2 ! Ratio of |B^1|/|B| at the wall that allows the full Bohm flow to escape (sheath_bc)
 
       spitzer  = .false.       ! Whether we are using Spitzer resistivity
-      fixed_Te = .false.       ! Whether we are fixing the T to T_0
-      lagged_Te= .false.       ! Whether we are lagging T to T_n
       chi_bgnskii = .false.    ! Whether to use Braginskii conductivities
       
       gamma    = 5./3.         ! Polytropic constant of plasma
@@ -517,8 +517,13 @@ c     #####################################################################
 
       tau_w    = 1d2           ! Resistive wall thin-shell time
       r_v      = 1.5           ! Radius of outer conducting shell
-      zero_vpar_bc = .false.   ! Whether we zero out parallel flow at bdry
+      zero_vpar_bc   = .false. ! Whether we zero out parallel flow at bdry
+      sheath_bc      = .false. ! Whether we apply sheath BC in v_parallel
       rw_fft_tupdate = .false. ! Whether we integrate RW eqs in Fourier space
+      rw_implicit_bc = .false. ! Whether we use implicit RW BCs
+      rw_exp_ssp_bc  = .true.  ! Whether we use explicit SSP RW BCs
+      rw_exp_pc_bc   = .false. ! Whether we use explicit predictor-corrector BCs
+      rw_exp_fix     = .true.  ! Whether we use instability fix for small tau_w
       
       !Nonlinear function parameters
       adiabatic  = .false.     ! Whether we use adiabatic EoS or not
@@ -562,8 +567,6 @@ c     #####################################################################
       noise_lev  = 0d0         ! Noise level
 
       post_smooth_B = .false.  ! Whether to smooth B at postprocessing stage
-
-      regularize_A  = .false.  ! Whether we regularize A at SP geometries or not
 
       post_filter_hel = .false.! Whether to Fourier filter helical geometry sim
 
@@ -776,13 +779,14 @@ c     #####################################################################
       enddo
 
       if (res_wall_bc) then
-        if (dt > tau_w/nxd) then
-          dt = min(0.5*tau_w/nxd,dt)
-          write (messg,*) " Adjusted dt for RW BC stability"
-          call warning(messg)
-c$$$          write (messg,*) "dt must be <",tau_w/nxd,"for RW BC stability"
-c$$$          call critical('readInput',messg)
-        endif
+c$$$        if (rw_implicit_bc) then
+c$$$          dt = min(tau_w/nxd,dt)
+c$$$        else
+c$$$          dt = min(0.5*tau_w/nxd,dt)
+c$$$        endif
+        dt = min(0.5*tau_w/nxd,dt)
+        write (messg,*) " Adjusted dt for RW BC stability"
+        call warning(messg)
       endif
 
       if (sheath_bc) zero_vpar_bc = .true. !Consider full ExB flow

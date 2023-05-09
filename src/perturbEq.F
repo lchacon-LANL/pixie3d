@@ -1117,7 +1117,7 @@ c     Reconstruct input mesh
 
       call get_grid_pack_config(g_pack)
 
-      call findGlobalGrid(xmin,xmax,bcond(1),bcond(2),rin,g_pack(1),1)
+      call findGlobalGrid(xmin,xmax,bcond(1),bcond(2),g_pack(1),rin)
 
 c     Reconstruct field on target mesh
 

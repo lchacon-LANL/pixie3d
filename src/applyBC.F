@@ -67,7 +67,7 @@ c applyDepVarBC
 c####################################################################
       subroutine applyDepVarBC(igr,bc_inf,varray,order)
 c--------------------------------------------------------------------
-c     Sets adequate boundary conditions on array structure varray.
+c     Sets adequate boundary conditions on dependent variables.
 c--------------------------------------------------------------------
 
       use local_BCS_variables
@@ -284,7 +284,7 @@ c applyAuxVarBC
 c####################################################################
       subroutine applyAuxVarBC(igr,bc_inf,varray,vaux,order)
 c--------------------------------------------------------------------
-c     Sets adequate boundary conditions on array structure varray.
+c     Sets adequate boundary conditions on auxiliary variables.
 c--------------------------------------------------------------------
 
       use rw_bc
@@ -305,9 +305,9 @@ c Call variables
 c Local variables
 
       integer :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz
-     .          ,ig,jg,kg
+     .          ,ig,jg,kg,it,itmax
 
-      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal,xi_rw
+      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal,mag
 
       real(8),allocatable,dimension(:,:,:,:) :: v0,vdum,acnv_n
 
@@ -348,27 +348,7 @@ c Select variable
         select case(abs(bc_inf(1)))
         case(IETA)
 
-c$$$          if (.not.spitzer) then
-c$$$            call XferBCs(eeta_0,s0,.true.)
-c$$$
-c$$$            call setBC(gv%gparams,IETA,nnx,nny,nnz,eeta,s0
-c$$$     .                ,vaux%var_list(IETA)%bconds
-c$$$     .                ,igr,igr,igr,iorder=0)
-c$$$          else
-            if (fixed_Te) then
-              eeta= res(gv%gparams,igr,tmpe_0)
-            elseif (lagged_Te) then
-              if (solve_prs) then
-                s0 = u_n%array_var(IPRS)%array
-     .              /u_n%array_var(IRHO)%array/a_p
-              else
-                s0 = u_n%array_var(ITMPE)%array/jac
-              endif
-              eeta= res(gv%gparams,igr,s0)
-            else
-              eeta= res(gv%gparams,igr,tmpe)
-            endif
-c$$$          endif
+          eeta    = res(gv%gparams,igr,tmpe)
           
         case(IDFF)
 
@@ -388,14 +368,7 @@ c$$$          endif
 
         case(IETA_0)
 
-c$$$          if (.not.spitzer) then
-c$$$            s0 = 0d0
-c$$$            call setBC(gv%gparams,IETA,nnx,nny,nnz,eeta,s0
-c$$$     .                ,vaux%var_list(IETA_0)%bconds
-c$$$     .                ,igr,igr,igr,iorder=0)
-c$$$          else
-            eeta_0  = res(gv%gparams,igr,tmpe_0)
-c$$$          endif
+          eeta_0  = res(gv%gparams,igr,tmpe_0)
           
         case(IHETA)
 
@@ -443,8 +416,13 @@ c$$$          endif
 
         case(ITMP_AUX)
 
-c$$$c       Temperature BCs
-c$$$
+c       Temperature BCs
+
+          !!!!!!!!!!!!!!!!!!!!!!!
+          !Derived from pressure!
+          !!!!!!!!!!!!!!!!!!!!!!!
+
+c$$$  
 c$$$          if (adiabatic.and.(.not.adiabatic_rho)) then
 c$$$          !Impose BCs on perturbation only
 c$$$            s0 = 0d0
@@ -466,6 +444,10 @@ c$$$          tmp = tmpe*a_p
         case(ITMPE_AUX)
 
 c       Temperature BCs
+
+          !!!!!!!!!!!!!!!!!!!!!!!
+          !Derived from pressure!
+          !!!!!!!!!!!!!!!!!!!!!!!
 
 c$$$          if (adiabatic.and.(.not.adiabatic_rho)) then
 c$$$          !Impose BCs on perturbation only
@@ -535,24 +517,24 @@ c       Allocate auxiliary variables in local domain
      .              ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
      .              ,iorder=1)
 
-        case(IBCOV_0)   !Done with bcnv_0
+        case(IBCOV_0)
+          
+          !!!!!!!!!!!!!!!!!!
+          !Done with bcnv_0!
+          !!!!!!!!!!!!!!!!!!
 #else
         case(IBCNV_0)
 
-c$$$          if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
-c$$$            call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
-c$$$     .                ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
-c$$$     .                ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
-c$$$     .                ,iorder=1)
-c$$$          else
-c$$$          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-c$$$          !Provide these in equilibrium routine!
-c$$$          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-c$$$          endif
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          !Provide these in equilibrium routine!
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         case(IBCOV_0)
 
-          call XformVector_BC(gv%gparams,igr,bcnv_0,bcov_0,.false.)
+          
+          !!!!!!!!!!!!!!!!!!
+          !Done with bcnv_0!
+          !!!!!!!!!!!!!!!!!!
 #endif
 
         case(IVCNV_0)
@@ -598,8 +580,6 @@ c       Current BC
           
         case(IJCOV_0)  !Done when computing jcov_0
 
-cc          call XformVector_BC(gv%gparams,igr,jcnv_0,jcov_0,.false.)
-
         case(IENI_0)
 
 c       Electric field (time=0, initial EOM equ => only ideal+resistive contributions)
@@ -623,6 +603,7 @@ c$$$#endif
 
 c       Velocity BC
 
+#if !defined(plotting)
           !Perpendicular flow
           if (pinch_bc) then
             prs1 = rho*tmp
@@ -635,13 +616,13 @@ c       Velocity BC
           if (sheath_bc) then
             v0 = v0 + sheath_flow_bc(gv%gparams,igr,bcnv,tmpe)
           endif
+
           call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vcnv,vcov,v0
      .              ,vaux%vec_list(IVCNV)%bconds,igr,igr,igr
      .              ,iorder=order)
- 
-        case(IVCOV)   !Done when computing vcnv
+#endif
 
-cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
+        case(IVCOV)   !Done when computing vcnv
 
 #if defined(vec_pot)
 
@@ -649,86 +630,25 @@ cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
 
 c       Vector Pot. BC
 
-          if (regularize_A) then
-            allocate(acnv_n(0:nnx+1,0:nny+1,0:nnz+1,3))
-
-            !Subtract previous time step (to regularize delta only)
-c$$$            acov_n(:,:,:,1) = u_n%array_var(IAX)%array
-c$$$            acov_n(:,:,:,2) = u_n%array_var(IAY)%array
-c$$$            acov_n(:,:,:,3) = u_n%array_var(IAZ)%array
-            acnv_n = XformVector(gv%gparams,igr,acov_n,.true.)
-
-            acov = acov-acov_n
-            acnv = acnv-acnv_n
-
-c$$$            acnv_n = XformVector(gv%gparams,igr,acov_0,.true.)
-c$$$
-c$$$            acov = acov-acov_0
-c$$$            acnv = acnv-acnv_n
-
-            !Impose BC
-            v0 = 0d0
-
+#if !defined(plotting)
+          if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
+            call rw_A_BCs(gv%gparams,acov_n,bcnv_n,acov,acnv
+     .                   ,vaux%vec_list(IACOV)%bconds
+     .                   ,vaux%vec_list(IBCNV)%bconds
+     .                   ,E_bc,order=order)
+          else
+            call XferBCs(acov_0,v0,.true.)
             call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
-     .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv
-     .                ,sp_reg=.true.)
-
-            !Add previous time step
-            acov = acov + acov_n
-cc            acov = acov + acov_0
-            acnv = acnv + acnv_n
-
-            deallocate(acnv_n)
-          else
-            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
-              !Recompute E_bc
-              if (save_tn) call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc)
-
-#if defined(plotting)
-              call XferBCs(acov,v0,.true.)  !Reuse existing BC for plotting
-              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     .                  ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
-     .                  ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
-#else
-              !Second-order SSP explicit update of RW BC
-              if (itime > inewtime + 2) then
-                xi_rw = dt/(dt_n+dt_nm)
-              else
-                xi_rw = 0d0
-              endif
-
-              vdum(:,:,:,1) = u_n%array_var(IAX)%array
-     $                       -xi_rw**2*(u_n  %array_var(IAX)%array
-     $                                 -u_nm2%array_var(IAX)%array)
-              vdum(:,:,:,2) = u_n%array_var(IAY)%array
-     $                       -xi_rw**2*(u_n  %array_var(IAY)%array
-     $                                 -u_nm2%array_var(IAY)%array)
-              vdum(:,:,:,3) = u_n%array_var(IAZ)%array
-     $                       -xi_rw**2*(u_n  %array_var(IAZ)%array
-     $                                 -u_nm2%array_var(IAZ)%array)
-
-              call XferBCs(vdum,v0,.true.)
-              v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
-     $                         -dt*(1d0+xi_rw)*E_bc(nnx+1,:,:,:)
-
-              if (.not.init_time_eval) then
-                call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     .                    ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
-     .                    ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
-              endif
-#endif
-            else
-              call XferBCs(acov_0,v0,.true.)
-              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     .                  ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
-     .                  ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
-            endif
+     .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
           endif
+#endif
 
-        case(IACNV)  !Done when computing acov
+        case(IACNV) 
 
-cc          call XformVector_BC(gv%gparams,igr,acov,acnv,.true.)
+          !!!!!!!!!!!!!!!!!!!!!!!!!!
+          !Done when computing acov!
+          !!!!!!!!!!!!!!!!!!!!!!!!!!
 
         case(IACOV_N)
 #endif
@@ -736,12 +656,21 @@ cc          call XformVector_BC(gv%gparams,igr,acov,acnv,.true.)
 
 c       Magnetic field BC
 
-          if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
-#if !defined(vec_pot) && defined(plotting)
-            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
-              call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc) !Recompute E_bc 
-            endif
-#endif
+#if defined(plotting) && defined(vec_pot)
+          bcnd = vaux%vec_list(IBCNV)%bconds
+          where (bcnd==-NEU) bcnd = EXT
+
+          v0 = 0d0
+
+          call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
+     .              ,bcnd,igr,igr,igr,iorder=2)
+#else
+          if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
+c$$$#if !defined(vec_pot)
+c$$$            if (res_wall_bc.and.(.not.source_eval).and.(time/=0d0)) then
+c$$$              call rw_Ebc(gv%gparams,igr,bcnv_n,E_bc) !Recompute E_bc 
+c$$$            endif
+c$$$#endif
             v0 = 0d0 ; prs1 = rho*tmp
             call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
           else
@@ -751,32 +680,45 @@ c       Magnetic field BC
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
      .              ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
      .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
+#endif
+          
+        case(IBCOV)
 
-        case(IBCOV) !Done when computing bcnv
-
-cc          call XformVector_BC(gv%gparams,igr,bcnv,bcov,.false.)
+          !!!!!!!!!!!!!!!!!!!!!!!!!!
+          !Done when computing bcnv!
+          !!!!!!!!!!!!!!!!!!!!!!!!!!
 
         case(IBCNV_N)
 
-#if defined(vec_pot) && !defined(plotting)
-          if (save_tn.and.ts_after_restart) then
-            if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
-              v0 = 0d0 ; prs1 = rho*tmp
-              call J_pinch_bc(gv%gparams,igr,bcnv_n,prs1,eeta,E_bc,v0)
-            else
-              call XferBCs(jcnv_0,v0,.true.)
-            endif
-
-            call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_n,bcov,v0
-     .                ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
-     .                ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
-          endif
-#endif
+c$$$#if defined(vec_pot) && !defined(plotting)
+c$$$          if (save_tn.and.TS_chk_after_restart(1)) then
+c$$$            if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
+c$$$              v0 = 0d0 ; prs1 = rho*tmp
+c$$$              call J_pinch_bc(gv%gparams,igr,bcnv_n,prs1,eeta,E_bc,v0)
+c$$$            else
+c$$$              call XferBCs(jcnv_0,v0,.true.)
+c$$$            endif
+c$$$            bcov = XformVector(gv%gparams,igr,bcnv_n,.false.)
+c$$$
+c$$$            call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_n,bcov,v0
+c$$$     .                ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
+c$$$     .                ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
+c$$$          endif
+c$$$#endif
 
         case(IJCNV)
 
 c       Current BC
 
+#if defined(plotting)
+          bcnd = vaux%vec_list(IJCNV)%bconds
+          where (bcnd==EQU) bcnd = EXT
+
+          v0 = 0d0
+
+          call setBC(gv%gparams,IJX,3,nnx,nny,nnz,jcnv,jcov,v0
+     .              ,bcnd,igr,igr,igr,iorder=order)
+#else
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
             v0 = 0d0 ; prs1 = rho*tmp
             call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
@@ -787,20 +729,17 @@ c       Current BC
           call setBC(gv%gparams,IJX,3,nnx,nny,nnz,jcnv,jcov,v0
      .              ,vaux%vec_list(IJCNV)%bconds,igr,igr,igr
      .              ,iorder=order)
+#endif
 
-        case(IJCOV) !Done when computing jcnv
+        case(IJCOV)
 
-cc          call XformVector_BC(gv%gparams,igr,jcnv,jcov,.false.)
+          !!!!!!!!!!!!!!!!!!!!!!!!!!
+          !Done when computing jcnv!
+          !!!!!!!!!!!!!!!!!!!!!!!!!!
 
         case(IVECNV)
 
-c       Electron velocity BC: ve=v-di*j/rho with j=curl(B)
-
-c$$$          vecnv = form_ve(vcnv,jcnv,rho)
-
         case(IVECOV)
-
-cc          call XformVector_BC(gv%gparams,igr,vecnv,vecov,.false.)
 
         case(IDIVPI)
 
@@ -847,11 +786,6 @@ c       Hall electric field BC
 
 c       Total electric field BC
 
-c$$$          bcnd = vaux%vec_list(IENI)%bconds
-c$$$          vdum = XformVector(gv%gparams,igr,E_ni,.true.)
-c$$$          call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vdum,E_ni,v0,bcnd
-c$$$     .              ,igr,igr,igr,iorder=order
-c$$$     .              ,is_cnv=vaux%vec_list(IENI)%cnv)
 #if defined(vec_pot)
           E_ni=E_fld_res_A(gv%gparams,igr,vcnv,acov,jcov,eeta)
 #else
@@ -1027,21 +961,7 @@ c       Viscosity (needed for BCs; may depend on T)
 
 c       Resistivity (needed for BCs; may depend on T)
  
-          if (fixed_Te) then
-            eeta= res(gv%gparams,igr,tmpe_0)
-          elseif (lagged_Te) then
-            allocate(s0(0:nnx+1,0:nny+1,0:nnz+1))
-            if (solve_prs) then
-              s0 = u_n%array_var(IPRS)%array
-     .           /(u_n%array_var(IRHO)%array*a_p)
-            else
-              s0 = u_n%array_var(ITMPE)%array/jac
-            endif
-            eeta= res(gv%gparams,igr,s0)
-            deallocate(s0)
-          else
-            eeta= res(gv%gparams,igr,tmpe)
-          endif
+          eeta= res(gv%gparams,igr,tmpe)
 
         case(IDFF)
 
@@ -1234,7 +1154,8 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
             bcnv_n = bcnv_0     !Set it to initial cond.
           elseif (save_tn) then
 #if defined(vec_pot)
-            bcnv_n = bcnv
+            call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.
+     $                 ,bcond_b=vaux%vec_list(IBCNV)%bconds)
 #else
             bcnv_n(:,:,:,1) = varray%array_var(IBX)%array
             bcnv_n(:,:,:,2) = varray%array_var(IBY)%array
@@ -1246,9 +1167,9 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
             bcnv_n = bcnv_0     !Set it to initial cond.
           elseif (save_tn) then
 #if defined(vec_pot)
-            if (ts_after_restart) then
-              call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.)
-              bcov = XformVector(gv%gparams,igr,bcnv_n,.false.)
+            if (TS_chk_after_restart(1)) then
+              call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.
+     $                   ,bcond_b=vaux%vec_list(IBCNV)%bconds)
             else
               bcnv_n = bcnv
             endif
@@ -1258,7 +1179,8 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
             bcnv_n(:,:,:,3) = varray%array_var(IBZ)%array
 #endif
           endif
-#endif          
+#endif
+
         case(IVCOV)
 
           vcov = XformVector(gv%gparams,igr,vcnv,.false.)
@@ -1305,8 +1227,6 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
           acnv = XformVector(gv%gparams,igr,acov,.true.)
 
         case(IBCNV)
-
-c       Magnetic field BC (with fixed current at boundary)
 
           call find_B(gv%gparams,igr,B0,acov,bcnv,.false.)
 #else
@@ -1478,16 +1398,7 @@ c Select variable
 
           tmp_0 = tmpe_0*a_p
 
-c$$$          u_0%array_var(IPRS)%array = rho_0*tmp_0*jac
-
         case(ITMPE_0)
-
-c$$$          if (solve_prs) then
-c$$$            tmpe_0 = u_0%array_var(IPRS)%array
-c$$$     .             /(u_0%array_var(IRHO)%array*a_p)
-c$$$          else
-c$$$            tmpe_0 = u_0%array_var(ITMPE)%array
-c$$$          endif
 
         case(IETA_0)
 
@@ -1500,10 +1411,6 @@ c$$$          eeta_0=res(gv%gparams,igr,tmpe_0)
           varray%array_var(IRHO)%array = rho*jac
 
         case(ITMP_AUX)  !Recover total temperature
-
-c$$$          if (.not.adiabatic_rho) then
-c$$$            varray%array_var(IPRS)%array = rho*tmp*jac
-c$$$          endif
           
           tmp = tmpe*a_p
 
@@ -1535,21 +1442,7 @@ c       Viscosity (needed for BCs; may depend on T)
 
 c       Resistivity (needed for BCs; may depend on T)
 
-c$$$          if (fixed_Te) then
-c$$$            eeta= res(gv%gparams,igr,tmpe_0)
-c$$$          elseif (lagged_Te) then
-c$$$            allocate(s0(1:nnx+1,1:nny+1,1:nnz+1))
-c$$$            if (solve_prs) then
-c$$$              s0 = u_n%array_var(IPRS)%array
-c$$$     .           /(u_n%array_var(IRHO)%array*a_p)
-c$$$            else
-c$$$              s0 = u_n%array_var(ITMPE)%array/jac
-c$$$            endif
-c$$$            eeta= res(gv%gparams,igr,s0)
-c$$$            deallocate(s0)
-c$$$          else
-c$$$            eeta= res(gv%gparams,igr,tmpe)
-c$$$          endif
+          eeta= res(gv%gparams,igr,tmpe)
           
         case(IDFF)
 
@@ -1624,11 +1517,7 @@ c       Allocate auxiliary variables in local domain
 #endif
         case(IBCOV_0)
 
-cc          call XformVector_BC(gv%gparams,igr,bcnv_0,bcov_0,.false.)
-
         case(IJCOV_0)
-
-cc          call XformVector_BC(gv%gparams,igr,jcnv_0,jcov_0,.false.)
 
         case(IJCNV_0)
 
@@ -1644,15 +1533,9 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
         case(IVCNV_N)
 
-cc          vcnv_n  = vcnv  !Initializes for BDF2 as well
-
         case(IVECOV_N)
 
-cc          if (electron_hall) vecov_n= vecov  !Does NOT work for BDF2
-
         case(IVCOV)
-
-cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
 
         case(IVCNV)
 
@@ -1680,8 +1563,6 @@ cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
 
         case(IACNV)
 
-cc          acnv = XformVector(gv%gparams,igr,acov,.true.)
-
         case(IBCNV)
 
 #else
@@ -1694,8 +1575,6 @@ cc          acnv = XformVector(gv%gparams,igr,acov,.true.)
 #endif
 
         case(IBCOV)
-
-cc          call XformVector_BC(gv%gparams,igr,bcnv,bcov,.false.)
 
         case(IJCOV)
 
@@ -1790,7 +1669,7 @@ c        * loc -> boundary location (0 -> left, 1->right)
 c        * order -> order of extrapolation (when used)
 c ---------------------------------------------------------------------
         
-      use rw_bc
+      use local_BCS_variables
 
       implicit none
 

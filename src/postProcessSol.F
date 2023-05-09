@@ -23,7 +23,8 @@ c--------------------------------------------------------------------
 
       use local_BCS_variables, ONLY: order_bc
 
-      use rw_bc, ONLY: res_wall_bc,E_bc,rw_Ebc
+      use rw_bc, ONLY: res_wall_bc,E_bc,rw_Ebc,rw_fft_tupdate,rw_exp_fix
+     $                ,rw_exp_ssp_bc
       
       implicit none
 
@@ -573,7 +574,10 @@ c     ###############################################################
 
         real(8) :: tol_divcl,xi_rw
         real(8),allocatable,dimension(:,:,:,:) :: db_cnv,da_cov,b_cnv
+     $                                           ,b_cov,v0
 
+        integer :: bcnd(6,3)
+        
         if (ilevel > 0 .and. my_rank == 0) then
           write (*,*)
           if (res_wall_bc) then
@@ -586,8 +590,10 @@ c     ###############################################################
 c       Find db=B^(n+1)-B^n
 
         allocate(b_cnv (0:nx+1,0:ny+1,0:nz+1,3)
+     $          ,b_cov (0:nx+1,0:ny+1,0:nz+1,3)
      $          ,db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
-     $          ,da_cov(0:nx+1,0:ny+1,0:nz+1,3))
+     $          ,da_cov(0:nx+1,0:ny+1,0:nz+1,3)
+     $          ,v0    (0:nx+1,0:ny+1,0:nz+1,3))
 
         da_cov = 0d0
 
@@ -600,36 +606,54 @@ c       Find db=B^(n+1)-B^n
 
 c       Find vector potential RW boundary condition at face
 
+        xi_rw = 0d0
+        
         if (res_wall_bc) then
-          b_cnv(:,:,:,1) = vnp%array_var(IBX)%array
-          b_cnv(:,:,:,2) = vnp%array_var(IBY)%array
-          b_cnv(:,:,:,3) = vnp%array_var(IBZ)%array
+          b_cnv(:,:,:,1) = vn%array_var(IBX)%array
+          b_cnv(:,:,:,2) = vn%array_var(IBY)%array
+          b_cnv(:,:,:,3) = vn%array_var(IBZ)%array
+
+          !Reimpose EXTRAP B-tangential BCs to avoid instability
+          if (rw_exp_fix) then
+            bcnd = gv%aux%vec_list(IBCNV)%bconds
+            where (bcnd==-NEU) bcnd = EXT
+
+            b_cov = XformToCov(gv%gparams,igx,b_cnv)
+            v0    = 0d0
+        
+            call setBC(gv%gparams,IBX,3,nx,ny,nz,b_cnv,b_cov,v0
+     .                ,bcnd,igx,igx,igx,iorder=1,is_cnv=.true.)
+          endif
           
+          !Compute RW E_bc
           call rw_Ebc(gv%gparams,igx,b_cnv,E_bc)
 
-          !Second-order SSP explicit update of RW BC
-c$$$          if (itime > inewtime + 2) then
+          !Second-order SSP explicit update of RW BC (unstable for b/a ~ 1.)
+c$$$          if ((itime > inewtime + 2).and.(.not.rw_fft_tupdate)
+c$$$     $        .and.rw_exp_ssp_bc) then
 c$$$            xi_rw = dt/(dt_n+dt_nm)
+c$$$            db_cnv(:,:,:,1) = db_cnv(:,:,:,1)
+c$$$     $                       +xi_rw**2*(vn  %array_var(IBX)%array
+c$$$     $                                 -vnm2%array_var(IBX)%array)
+c$$$            db_cnv(:,:,:,2) = db_cnv(:,:,:,2)
+c$$$     $                       +xi_rw**2*(vn  %array_var(IBY)%array
+c$$$     $                                 -vnm2%array_var(IBY)%array)
+c$$$            db_cnv(:,:,:,3) = db_cnv(:,:,:,3)
+c$$$     $                       +xi_rw**2*(vn  %array_var(IBZ)%array
+c$$$     $                                 -vnm2%array_var(IBZ)%array)
 c$$$          else
-            xi_rw = 0d0
+c$$$            xi_rw = 0d0
 c$$$          endif
 
-          db_cnv(:,:,:,1) = db_cnv(:,:,:,1)
-     $                     -xi_rw**2*(vnp%array_var(IBX)%array
-     $                               -vnm%array_var(IBX)%array)
-          db_cnv(:,:,:,2) = db_cnv(:,:,:,2)
-     $                     -xi_rw**2*(vnp%array_var(IBY)%array
-     $                               -vnm%array_var(IBY)%array)
-          db_cnv(:,:,:,3) = db_cnv(:,:,:,3)
-     $                     -xi_rw**2*(vnp%array_var(IBZ)%array
-     $                               -vnm%array_var(IBZ)%array)
-
+          !E-field at face: nx+1/2
           da_cov(nx+1,:,:,:) = -dt*(1d0+xi_rw)*E_bc(nx+1,:,:,:)
         endif
         
 c       Clean db (and impose RW BC, if applicable)
 
         tol_divcl = rtol
+        if (res_wall_bc) tol_divcl = min(0.1*tol_divcl,1d-4)
+
         call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
      .                     ,igx,igy,igz,db_cnv,da0cov=da_cov
      .                     ,gm_it=it_divcl,rtol=tol_divcl
@@ -644,25 +668,25 @@ c       Find new B^(n+1)
         vnp%array_var(IBZ)%array = db_cnv(:,:,:,3)
      .                            +vn%array_var(IBZ)%array
 
-        if (res_wall_bc) then
-          vnp%array_var(IBX)%array =  vnp%array_var(IBX)%array
-     $                     +xi_rw**2*(vnp%array_var(IBX)%array
-     $                               -vnm%array_var(IBX)%array)
-          vnp%array_var(IBY)%array =  vnp%array_var(IBY)%array
-     $                     +xi_rw**2*(vnp%array_var(IBY)%array
-     $                               -vnm%array_var(IBY)%array)
-          vnp%array_var(IBZ)%array =  vnp%array_var(IBZ)%array
-     $                     +xi_rw**2*(vnp%array_var(IBZ)%array
-     $                               -vnm%array_var(IBZ)%array)
+        if (xi_rw > 0d0) then
+          vnp%array_var(IBX)%array =  vnp %array_var(IBX)%array
+     $                     -xi_rw**2*(vn  %array_var(IBX)%array
+     $                               -vnm2%array_var(IBX)%array)
+          vnp%array_var(IBY)%array =  vnp %array_var(IBY)%array
+     $                     -xi_rw**2*(vn  %array_var(IBY)%array
+     $                               -vnm2%array_var(IBY)%array)
+          vnp%array_var(IBZ)%array =  vnp %array_var(IBZ)%array
+     $                     -xi_rw**2*(vn  %array_var(IBZ)%array
+     $                               -vnm2%array_var(IBZ)%array)
         endif
       
-c       Update helical flux and magnetic field
+c       Update magnetic field
 
         bcnv(:,:,:,1) = vnp%array_var(IBX)%array
         bcnv(:,:,:,2) = vnp%array_var(IBY)%array
         bcnv(:,:,:,3) = vnp%array_var(IBZ)%array
 
-        deallocate(db_cnv,da_cov,b_cnv)
+        deallocate(db_cnv,da_cov,b_cnv,b_cov,v0)
 
       end subroutine post__divclean
 
