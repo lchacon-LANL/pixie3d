@@ -76,6 +76,11 @@ c     ###############################################################
         type(var_array),pointer :: vnm,vn,vnp
         integer :: iout
 
+        if (iout > 0 .and. my_rank == 0) then
+          write (*,*)
+          write (*,*) 'Performing RE integration in postproc...'
+        endif
+
         !Save old timestep solutions
         nre_nm = nre_n
         nre_n  = nre_np
@@ -101,11 +106,14 @@ c       Call variables
 
 c       Local variables
 
+        real(8) :: dvol
+        
         integer :: nn,nx,ny,nz,igrid,bcs(6,3),bc_nre(6),guess,order
+     $            ,i,j,k,ii
 
         real(8),allocatable,dimension(:,:) :: x,y
         real(8),allocatable,dimension(:,:,:) :: s0
-        real(8),allocatable,dimension(:,:,:,:) :: E
+        real(8),allocatable,dimension(:,:,:,:) :: b_cnv,b_cov
 
 c       Begin program
         
@@ -119,23 +127,29 @@ c       Begin program
 
         call allocateMGArray(gv%gparams,3,gv_exb)
 
-        allocate(E(0:nx+1,0:ny+1,0:nz+1,3))
         allocate(s0(0:nx+1,0:ny+1,0:nz+1))
-
+        allocate(b_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     $          ,b_cov(0:nx+1,0:ny+1,0:nz+1,3))
+        
 c       Prepare solver coefficients
 
-        E = XformToCnv(gv%gparams,igrid,E_ni)
+        b_cnv(:,:,:,1) = v_np%array_var(IBX)%array
+        b_cnv(:,:,:,2) = v_np%array_var(IBY)%array
+        b_cnv(:,:,:,3) = v_np%array_var(IBZ)%array
+
+        b_cov = XformToCov(gv%gparams,igrid,b_cnv)
+        
         gv_exb%grid(igrid)%array =
-     $       crossproduct(gv%gparams,igrid,E,bcnv,.true.)
+     $       crossproduct(gv%gparams,igrid,E_ni,b_cov,.false.)
         gv_exb%grid(igrid)%array(:,:,:,1) =
      $       gv_exb%grid(igrid)%array(:,:,:,1)
-     $      /vectornorm  (gv%gparams,igrid,bcnv,.false.)
+     $      /vectornorm  (gv%gparams,igrid,b_cnv,.false.)
         gv_exb%grid(igrid)%array(:,:,:,2) =
      $       gv_exb%grid(igrid)%array(:,:,:,2)
-     $      /vectornorm  (gv%gparams,igrid,bcnv,.false.)
+     $      /vectornorm  (gv%gparams,igrid,b_cnv,.false.)
         gv_exb%grid(igrid)%array(:,:,:,3) =
      $       gv_exb%grid(igrid)%array(:,:,:,3)
-     $      /vectornorm  (gv%gparams,igrid,bcnv,.false.)
+     $      /vectornorm  (gv%gparams,igrid,b_cnv,.false.)
 
         bcs(:,1) = v_np%array_var(IVX)%bconds
         bcs(:,2) = v_np%array_var(IVY)%bconds
@@ -145,21 +159,35 @@ c       Prepare solver coefficients
         call restrictMGArray(IVX,3,gv_exb,bcs,igrid,order
      .                      ,order_bc=order_bc)
 
-c       Store time-n status and solve for time-(n+1)
-
-        nre_np = -(cn*nre_n + cnm*nre_nm)/cnp
-        
-c       Form RE rhs
-c$$$        call formRErhs(nn,x,y,rhssi,igrid)
-
-c       Solve n_re system
+c       Solve n_re system for new-time n_re
 
         allocate(x(nn,1),y(nn,1))
-        
-        x(:,1) = reshape(nre_np(1:nx,1:ny,1:nz),shape(x(:,1)))
+
+        bc_nre = v_np%array_var(IRHO)%bconds
+
+        do k = 1,nz
+          do j = 1,ny
+            do i = 1,nx
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+              y(ii,1) = -(cn*nre_n(i,j,k) + cnm*nre_nm(i,j,k))/dt
+     $         - cnfactor*flx_advec(gv%gparams,i,j,k,nx,ny,nz
+     $                       ,igrid,igrid,igrid,gv_exb%grid(igrid)%array
+     $                       ,nre_n,UPWD)
+
+              dvol = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
+              if (vol_wgt) then
+                dvol = dvol*gv%gparams%gmetric%grid(igrid)%dlvol(i,j,k)
+              endif
+              
+              y(ii,1) = y(ii,1)*dvol
+
+              x(ii,1) = nre_n(i,j,k)
+            enddo
+          enddo
+        enddo
 
         guess = 1
-        bc_nre = v_np%array_var(IRHO)%bconds
         call cSolver(gv%gparams,1,nn,y,x,bc_nre
      .              ,igrid,iout,guess,nre_mtvc,vol_wgt
      .              ,tol           = rtol !pc_tol
@@ -181,7 +209,15 @@ c       Solve n_re system
 
 c       Return new-time RE density (with BCs)
 
-        nre_np = reshape(x(:,1),shape(nre_n(1:nx,1:ny,1:nz)))
+        do k = 1,nz
+          do j = 1,ny
+            do i = 1,nx
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+              nre_np(i,j,k) = x(ii,1)
+            enddo
+          enddo
+        enddo
 
         s0 = 0d0
         call setBC(gv%gparams,IRHO,nx,ny,nz,nre_np,s0
@@ -190,7 +226,7 @@ c       Return new-time RE density (with BCs)
 
 c       Garbage collection
         
-        deallocate(x,y,E,s0)
+        deallocate(x,y,s0,b_cnv,b_cov)
         call deallocateMGArray(gv_exb)
 
       end subroutine re_Eul
@@ -294,7 +330,7 @@ c     Calculate matrix-vector product
 
             !Conservative advection
             upwind = flx_advec(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                       ,v0_cnv,drho(:,:,:,1),UPWD)
+     .                        ,v0_cnv,drho(:,:,:,1),UPWD)
 
 c$$$            ! Diffusion
 c$$$            if (dd > 0d0) then
@@ -332,47 +368,38 @@ c     ###############################################################
         !Local variables
         integer :: igrid,nx,ny,nz
 
-        real(8) :: rkernel
+        real(8) :: rkernel,renum_before,renum_after
         
-        real(8),allocatable,dimension(:,:,:) :: tmp_nm,tmp_n,tmp_np,arr
+        real(8),allocatable,dimension(:,:,:) :: tmp_nm,tmp_n,tmp_np,ieps
      $                                         ,bmag_nm,bmag_n,bmag_np
-        real(8),allocatable,dimension(:,:,:,:) :: bb,bcnv_nm,bcnv_n
-     $                                           ,bcnv_np
+        real(8),allocatable,dimension(:,:,:,:) :: bcnv_nm,bcnv_n,bcnv_np
 
         !Begin program
         
-        if (iout > 0 .and. my_rank == 0) then
-          write (*,*)
-          write (*,*) 'Performing RE integration in postproc...'
-        endif
-
         igrid = 1
 
         nx = gv%gparams%nxv(igrid)
         ny = gv%gparams%nyv(igrid)
         nz = gv%gparams%nzv(igrid)
 
-        allocate(arr    (0:nx+1,0:ny+1,0:nz+1)
+        allocate(ieps   (0:nx+1,0:ny+1,0:nz+1)
      $          ,tmp_nm (0:nx+1,0:ny+1,0:nz+1)
      $          ,tmp_n  (0:nx+1,0:ny+1,0:nz+1)
      $          ,tmp_np (0:nx+1,0:ny+1,0:nz+1)
      $          ,bmag_n (0:nx+1,0:ny+1,0:nz+1)
      $          ,bmag_nm(0:nx+1,0:ny+1,0:nz+1)
      $          ,bmag_np(0:nx+1,0:ny+1,0:nz+1)
-     $          ,bb     (0:nx+1,0:ny+1,0:nz+1,3)
      $          ,bcnv_n (0:nx+1,0:ny+1,0:nz+1,3)
      $          ,bcnv_nm(0:nx+1,0:ny+1,0:nz+1,3)
      $          ,bcnv_np(0:nx+1,0:ny+1,0:nz+1,3))
 
-        arr = 0d0
-        
         !Setup lagrangian integration
-        G_tol = 1d-8       !Green's function tol
-        sp_order = 2       !Spline order of interpolation
+        G_tol    = 1d-8       !Green's function tol
+        sp_order = 2          !Spline order of interpolation
         B_weight = .false.
         do_3d    = .true.
-        Dstar = 0.15d0     !For stability
-        c_va  = 1d2        !c/v_A parameter
+        Dstar    = 0.15d0     !For stability
+        c_va     = 1d2        !c/v_A parameter
         
         !Set orbit tols to Green's function tol
         call set_orbit_tols(G_tol,G_tol)
@@ -396,13 +423,9 @@ c     ###############################################################
         bmag_n  = sqrt(bmag_n )
         bmag_np = sqrt(bmag_np)
         
-        bb(:,:,:,1) = c_va*bb(:,:,:,1)/bmag_np
-        bb(:,:,:,2) = c_va*bb(:,:,:,2)/bmag_np
-        bb(:,:,:,3) = c_va*bb(:,:,:,3)/bmag_np
-
         !Initialize Lagrangian step (!advection-diff mode with diff coeff Dstar)
         rkernel = -1d0/sqrt(Dstar) 
-        call lag_init(gv%gparams,igrid,bb,rkernel,iout
+        call lag_init(gv%gparams,igrid,bcnv_np,rkernel,iout
      .               ,G_tol,sp_order,B_weight,do_3d)
 
         !Find temp from pressure (automatically takes care of jacobian factor)
@@ -410,235 +433,240 @@ c     ###############################################################
         tmp_n  = nre_n /bmag_n
         tmp_np = nre_np/bmag_np
 
+        ieps = c_va
+        
         call lag_update_bdf2(gv%gparams,igrid,IRHO
      .                      ,vnp%array_var(IRHO)%bconds
-     $                      ,tmp_nm,tmp_n,tmp_np,arr,iout
-c$$$     .                      ,lsode_ext=lsode_3d_ext
+     $                      ,tmp_nm,tmp_n,tmp_np,ieps,iout
      .                      ,no_global_splines=.true.)
 
         !Destroy Lagrangian step
         call lag_destroy
 
         !Return RE density
-        nre_np = nre_np*bmag_np
-
+        nre_np = tmp_np*bmag_np
         
-        !Check and correct for particle conservation
-
+        !Check and correct for particle conservation?
+c$$$        renum_before = integral(gv%gparams,igrid,nre_n )
+c$$$        renum_after  = integral(gv%gparams,igrid,nre_np)
+c$$$        nre_np = nre_np*renum_before/renum_after
+        
         !Impose BCs
+        ieps = 0d0
         call setBC(gv%gparams,IRHO,nx,ny,nz
-     .            ,nre_np,arr
+     .            ,nre_np,ieps
      .            ,vnp%array_var(IRHO)%bconds
      .            ,igrid,igrid,igrid,iorder=order_bc)
 
         !Garbage collection
-        deallocate(tmp_nm,tmp_n,tmp_np,bb,bmag_nm,bmag_n,bmag_np
-     $            ,bcnv_n,bcnv_nm,bcnv_np,arr)
+        deallocate(tmp_nm,tmp_n,tmp_np,bmag_nm,bmag_n,bmag_np
+     $            ,bcnv_n,bcnv_nm,bcnv_np,ieps)
         
       end subroutine re_lag
 
-c$$$c lsode_3d_ext
-c$$$c #########################################################################
-c$$$      subroutine lsode_3d_ext(neq,t,y,ydot)
-c$$$
-c$$$c -------------------------------------------------------------------------
-c$$$c     Driver routine for LSODE integration: ydot = ff(y,t)
-c$$$c -------------------------------------------------------------------------
-c$$$
-c$$$      use par_int
-c$$$      use kernels       
-c$$$      use grid_splines
-c$$$     
-c$$$      implicit none
-c$$$
-c$$$c Call variables
-c$$$
-c$$$      integer :: neq
-c$$$      real(8) :: t,y(neq),ydot(neq)
-c$$$
-c$$$c Local variables
-c$$$
-c$$$      integer :: ierror
-c$$$      real(8) :: x1,y1,z1,flds(size(sp_coef,4)),B2,iB2
-c$$$      logical :: exl1,exl2,exl3,exl4
-c$$$      logical :: exl1a,exl2a
-c$$$      
-c$$$      real(8) :: gammaRi,muR
-c$$$      real(8) :: Bstar, Brem, rratio, tmp, epsinvbyq,dt_e,dt2_e
-c$$$      real(8) :: x2,y2,z2
-c$$$      real(8) :: Ersource,ALDrsink,ALDpsink,smlr_ratio
-c$$$
-c$$$c Begin program
-c$$$
-c$$$      if (neq /= 9) then
-c$$$        call pstop('lsode_3d_bdf2','Wrong number of equations')
-c$$$      endif
-c$$$
-c$$$c Call LSODE orbit evaluation function (extracting logical coords x1,y1,z1)
-c$$$c      call lsode_orbit_f(5,t,y(1:5),ydot(1:5),xx1=x1,yy1=y1,zz1=z1
-c$$$c     .                  ,B2=B2)
-c$$$c
-c$$$c       ydot(1:5)= 0d0       
-c$$$      !Prepare variables for Lagrangian integral
-c$$$      dt_e = dt*iepsilon_r
-c$$$      dt2_e = (dt+dtold)*iepsilon_r
-c$$$
-c$$$      ! ratio of minor and major radii 
-c$$$      rratio = flux_r*imajor_r
-c$$$      smlr_ratio = flux_r*iminor_r
-c$$$
-c$$$      ! qsafe 
-c$$$      qsafe = 2.1d0+2d0*(smlr_ratio)*(smlr_ratio)
-c$$$
-c$$$      !  1/epsilon, epsilon is small << 1
-c$$$      epsinvbyq =1d0/qsafe      !v=1/epsilon used in kernels  
-c$$$
-c$$$      ! magnetic compnent remaining in dtheta/dt
-c$$$      Brem  = 1d0/sqrt(1d0+(rratio*epsinvbyq)*(rratio*epsinvbyq))
-c$$$      if( toroidB) Brem  = 1d0  ! Bmag = Btoroidal 
-c$$$
-c$$$      tmp   = 1d0/(1d0+rratio*cos(y(1)))
-c$$$      Bstar = tmp/Brem
-c$$$      
-c$$$      ! Lorentz factor inverse
-c$$$      gammaRi = 1d0/sqrt(1d0+y(2)*y(2)+y(3)*y(3))
-c$$$
-c$$$      ! Relativisitic magnetic moment
-c$$$      muR = 0.5*y(3)*y(3)/Bstar             ! pp^2/2B* 
-c$$$
-c$$$      if (iEorbit) then 
-c$$$      ! contains electric field and radiation damping  
-c$$$      ! compute electric field
-c$$$        Ersource=  Evecr*tmp*epsilon_r
-c$$$      ! compute radiation sink
-c$$$        ALDrsink=-sigma_r*gammaRi*abs(y(2))*y(3)*y(3)*epsilon_r 
-c$$$        ALDpsink=-sigma_r*gammaRi*y(3)*(1+y(3)*y(3))*epsilon_r
-c$$$
-c$$$       ! d(Theta)/dt  
-c$$$        ydot(1) = epsinvbyq*y(2)*gammaRi*Brem      
-c$$$
-c$$$       ! d(pr)/dt    
-c$$$        ydot(2) =-epsinvbyq*rratio*sin(y(1))*muR*gammaRi*tmp*tmp  
-c$$$     .           +Ersource + ALDrsink 
-c$$$               
-c$$$       ! d(pp)/dt
-c$$$        ydot(3) = 0.5d0*y(3)*rratio*sin(y(1))*tmp*ydot(1)
-c$$$     .           + ALDpsink
-c$$$
-c$$$      else   ! iEorbit false 
-c$$$      ! electric field and radiation lumped
-c$$$      ! with collisional sources
-c$$$
-c$$$        if (linBfield.eqv..false.) then
-c$$$     
-c$$$       ! d(Theta)/dt  
-c$$$        ydot(1) = epsinvbyq*y(2)*gammaRi*Brem      
-c$$$
-c$$$       ! d(pr)/dt    
-c$$$        ydot(2) =-epsinvbyq*rratio*sin(y(1))*muR*gammaRi*tmp*tmp
-c$$$
-c$$$       ! d(pp)/dt
-c$$$        ydot(3) = 0.5d0*y(3)*rratio*sin(y(1))*tmp*ydot(1)
-c$$$      
-c$$$        else  
-c$$$
-c$$$        ydot(1) = epsinvbyq*y(2)*gammaRi     
-c$$$
-c$$$       ! d(pr)/dt    
-c$$$        ydot(2) = -epsinvbyq*rratio
-c$$$     .              *sin(y(1))*0.5d0*y(3)**2*gammaRi
-c$$$
-c$$$       ! d(pp)/dt
-c$$$        ydot(3) = epsinvbyq*rratio
-c$$$     .            *sin(y(1))*0.5d0*y(3)*y(2)*gammaRi 
-c$$$      
-c$$$        endif
-c$$$      endif
-c$$$  
-c$$$      ydot(4) = 1d0     !tkernel_local(-y(5),dt_e,exl1)
-c$$$
-c$$$      ydot(5) = 1d0     !skernel_local(-y(5),dt_e,exl1)
-c$$$
-c$$$c Call additional integrators
-c$$$
-c$$$      x2=y(1)
-c$$$      y2=y(2) 
-c$$$      z2=y(3)
-c$$$
-c$$$      call chk_pos(x2,y2,z2,ierr=ierror,warning=.false.) 
-c$$$      
-c$$$      if (ierror /= ORB_OK) then
-c$$$         flds(1:3)=0d0
-c$$$c         print *,"outside domain",x2,y2,z2
-c$$$      else
-c$$$         if (use_local_splines) then
-c$$$           !flds=0d0
-c$$$           if (sp_order.eq.1) then
-c$$$             call evalFldsLocalLinear(x2,y2,z2,sp_coef,flds)
-c$$$c            print *,my_rank,'exact',x2*y2*z2          !exp(-0.5d0*(y2*y2+z2*z2)/1d-2)
-c$$$c            print *,my_rank,'interpolated-2',flds(1) 
-c$$$c            print *,x2,y2,z2
-c$$$                
-c$$$           else  
-c$$$            call evalFldsLocalQuadratic(x2,y2,z2,sp_coef,flds)
-c$$$            if (flds(1).lt.0d0 .or. flds(2).lt.0d0) then 
-c$$$             call evalFldsLocalLinear(x2,y2,z2,sp_coef,flds)
-c$$$            endif
-c$$$
-c$$$c            print *,my_rank,'exact',y2**2*x2**2*z2**2   
-c$$$c            print *,my_rank,'interpolated-2',flds(1) 
-c$$$c            print *,x2,y2,z2
-c$$$                  
-c$$$
-c$$$           endif 
-c$$$         else
-c$$$           call evalFlds(x2,y2,z2,sp_coef,flds)
-c$$$c           print *,my_rank,'exact',x2**2*y2*z2 +y2**2*x2**2*z2**2   
-c$$$c           print *,my_rank,'exact',exp(-0.5d0*(y2*y2+z2*z2)/1d-2)
-c$$$c           print *,my_rank,'interpolated-2',flds(1) 
-c$$$  
-c$$$         endif
-c$$$      endif
-c$$$
-c$$$      !Enforce positive semi-definiteness of interpolation
-c$$$c$$$      flds(3) = max(flds(3)-cn*flds(1)-cnm*flds(2),0d0) !Limit cnp*Tnp (from source)
-c$$$      if (.not.use_local_splines) then 
-c$$$        flds(1) = max(flds(1),0d0)                        !Limit Tn
-c$$$        flds(2) = max(flds(2),0d0)                        !Limit Tnm
-c$$$      endif
-c$$$ 
-c$$$      !Tn
-c$$$      ydot(6) = flds(1)*tkernel_3d(y(5),dt_e,exl1)
-c$$$
-c$$$      !Tnm
-c$$$      if (sm_flag.eq.0) then 
-c$$$        ydot(7) =0d0
-c$$$        exl2=.true.
-c$$$      else
-c$$$        ydot(7) = flds(2)*tkernel_3d(y(5),dt2_e,exl2)
-c$$$      endif
-c$$$
-c$$$      !Src @ dt
-c$$$c$$$      flds(3) = flds(3)+cn*flds(1)+cnm*flds(2)        !Recover source
-c$$$      ydot(8) = flds(3)*skernel_3d(y(5),dt_e,exl3)
-c$$$
-c$$$      !Src @ dt+dtold
-c$$$      if (sm_flag.eq.0) then 
-c$$$         ydot(9)=0d0
-c$$$         exl4=.true.
-c$$$      else
-c$$$         ydot(9) = flds(3)*skernel_3d(y(5),dt2_e,exl4)
-c$$$      endif
-c$$$
-c$$$      !Transform back to arc-length integral
-c$$$c      ydot(6:neq) = ydot(6:neq)*ydot(5)
-c$$$
-c$$$c Are we done?
-c$$$
-c$$$      call set_orbit_exit(exl1.and.exl2.and.exl3.and.exl4)
-c$$$
-c$$$c End program
-c$$$
-c$$$      end subroutine lsode_3d_ext
+c     re_lag_liu
+c     ###############################################################
+      subroutine re_lag_liu(vnm,vn,vnp,iout)
+
+        implicit none
+
+        !Call variables
+        type(var_array),pointer :: vnm,vn,vnp
+        integer :: iout
+
+        !Local variables
+        integer :: igrid,nx,ny,nz
+
+        real(8) :: rkernel,renum_before,renum_after
+        
+        real(8),allocatable,dimension(:,:,:) :: tmp_nm,tmp_n,tmp_np,ieps
+     $                                        ,ibmag_nm,ibmag_n,ibmag_np
+        real(8),allocatable,dimension(:,:,:,:) :: bb,bcnv_nm,bcnv_n
+     $                                           ,bcnv_np,v_exb,j_cnv
+     $                                           ,bcov_np
+
+        !Begin program
+        
+        if (iout > 0 .and. my_rank == 0) then
+          write (*,*)
+          write (*,*) 'Performing RE integration in postproc...'
+        endif
+
+        igrid = 1
+
+        nx = gv%gparams%nxv(igrid)
+        ny = gv%gparams%nyv(igrid)
+        nz = gv%gparams%nzv(igrid)
+
+        allocate(ieps    (0:nx+1,0:ny+1,0:nz+1)
+     $          ,tmp_nm  (0:nx+1,0:ny+1,0:nz+1)
+     $          ,tmp_n   (0:nx+1,0:ny+1,0:nz+1)
+     $          ,tmp_np  (0:nx+1,0:ny+1,0:nz+1)
+     $          ,ibmag_n (0:nx+1,0:ny+1,0:nz+1)
+     $          ,ibmag_nm(0:nx+1,0:ny+1,0:nz+1)
+     $          ,ibmag_np(0:nx+1,0:ny+1,0:nz+1)
+     $          ,j_cnv   (0:nx+1,0:ny+1,0:nz+1,3)
+     $          ,bb      (0:nx+1,0:ny+1,0:nz+1,3)
+     $          ,bcnv_n  (0:nx+1,0:ny+1,0:nz+1,3)
+     $          ,bcnv_nm (0:nx+1,0:ny+1,0:nz+1,3)
+     $          ,bcnv_np (0:nx+1,0:ny+1,0:nz+1,3)
+     $          ,bcov_np (0:nx+1,0:ny+1,0:nz+1,3))
+
+        !Setup lagrangian integration
+        G_tol    = 1d-8       !Green's function tol
+        sp_order = 2          !Spline order of interpolation
+        B_weight = .false.
+        do_3d    = .true.
+        Dstar    = 0.15d0     !For stability
+        c_va     = 1d2        !c/v_A parameter
+        
+        !Set orbit tols to Green's function tol
+        call set_orbit_tols(G_tol,G_tol)
+
+        !Find required vectors
+        bcnv_nm(:,:,:,1) = vnm%array_var(IBX)%array
+        bcnv_nm(:,:,:,2) = vnm%array_var(IBY)%array
+        bcnv_nm(:,:,:,3) = vnm%array_var(IBZ)%array
+        bcnv_n (:,:,:,1) = vn %array_var(IBX)%array
+        bcnv_n (:,:,:,2) = vn %array_var(IBY)%array
+        bcnv_n (:,:,:,3) = vn %array_var(IBZ)%array
+        bcnv_np(:,:,:,1) = vnp%array_var(IBX)%array
+        bcnv_np(:,:,:,2) = vnp%array_var(IBY)%array
+        bcnv_np(:,:,:,3) = vnp%array_var(IBZ)%array
+        
+        ibmag_nm = vectorNorm(gv%gparams,igrid,bcnv_nm,.false.)
+        ibmag_n  = vectorNorm(gv%gparams,igrid,bcnv_n ,.false.)
+        ibmag_np = vectorNorm(gv%gparams,igrid,bcnv_np,.false.)
+
+        ibmag_nm = 1d0/sqrt(ibmag_nm)
+        ibmag_n  = 1d0/sqrt(ibmag_n )
+        ibmag_np = 1d0/sqrt(ibmag_np)
+        
+        bb(:,:,:,1) = bcnv_np(:,:,:,1)*ibmag_np
+        bb(:,:,:,2) = bcnv_np(:,:,:,2)*ibmag_np
+        bb(:,:,:,3) = bcnv_np(:,:,:,3)*ibmag_np
+
+        j_cnv = curl(gv%gparams,igrid,XformToCov(gv%gparams,igrid,bb))
+
+        !Find source
+        nre_np =(E_ni(:,:,:,1)*j_cnv(:,:,:,1)
+     $          +E_ni(:,:,:,2)*j_cnv(:,:,:,2)
+     $          +E_ni(:,:,:,3)*j_cnv(:,:,:,3))
+     $          /gv%gparams%gmetric%grid(igrid)%jac
+
+        nre_np = nre_np*ibmag_np
+        
+        !Find ExB flow
+        bcov_np = XformToCov(gv%gparams,igrid,bcnv_np)
+        v_exb = crossproduct(gv%gparams,igrid,E_ni,bcov_np,.false.)
+        v_exb(:,:,:,1) = v_exb(:,:,:,1)*ibmag_np*ibmag_np
+        v_exb(:,:,:,2) = v_exb(:,:,:,2)*ibmag_np*ibmag_np
+        v_exb(:,:,:,3) = v_exb(:,:,:,3)*ibmag_np*ibmag_np
+
+        !Find orbit flow
+        bb = bb + v_exb/c_va
+
+        !Initialize Lagrangian step (!advection-diff mode with diff coeff Dstar)
+        rkernel = -1d0/sqrt(Dstar) 
+        call lag_init(gv%gparams,igrid,bb,rkernel,iout
+     .               ,G_tol,sp_order,B_weight,do_3d)
+
+        !Find temp from pressure (automatically takes care of jacobian factor)
+        tmp_nm = log(nre_nm*ibmag_nm)
+        tmp_n  = log(nre_n *ibmag_n )
+c$$$        tmp_np = nre_np/bmag_np
+        tmp_np = (dt*nre_np - cn*tmp_n - cnm*tmp_nm)/cnp !Integrate source
+
+        ieps = 0d0  !Computed in lsode_3d_ext
+        
+        call lag_update_bdf2(gv%gparams,igrid,IRHO
+     .                      ,vnp%array_var(IRHO)%bconds
+     .                      ,tmp_nm,tmp_n,tmp_np,ieps,iout
+     .                      ,lsode_ext=lsode_3d_ext
+     .                      ,no_global_splines=.true.)
+
+        !Destroy Lagrangian step
+        call lag_destroy
+
+        !Return RE density
+        nre_np = exp(tmp_np)/ibmag_np
+        
+        !Check and correct for particle conservation?
+c$$$        renum_before = integral(gv%gparams,igrid,nre_n )
+c$$$        renum_after  = integral(gv%gparams,igrid,nre_np)
+c$$$        nre_np = nre_np*renum_before/renum_after
+        
+        !Impose BCs
+        call setBC(gv%gparams,IRHO,nx,ny,nz,nre_np,ieps
+     .            ,vnp%array_var(IRHO)%bconds
+     .            ,igrid,igrid,igrid,iorder=order_bc)
+
+        !Garbage collection
+        deallocate(tmp_nm,tmp_n,tmp_np,bb,ibmag_nm,ibmag_n,ibmag_np
+     $            ,bcnv_n,bcnv_nm,bcnv_np,ieps,j_cnv,bcov_np)
+        
+      end subroutine re_lag_liu
       
+c     lsode_3d_ext
+c     ##################################################################
+      subroutine lsode_3d_ext(neq,t,y,ydot)
+
+c     ------------------------------------------------------------------
+c     Driver routine for LSODE integration: ydot = ff(y,t)
+c     ------------------------------------------------------------------
+
+      use par_int
+
+      implicit none
+
+c     Call variables
+
+      integer :: neq
+      real(8) :: t,y(neq),ydot(neq)
+
+c     Local variables
+
+      integer :: ierror
+      real(8) :: x1,y1,z1,flds(size(sp_coef,4)),B2,iB2,i_eps
+      logical :: exl1,exl2,exl3,exl4
+
+c     Begin program
+
+      if (neq /= 9) then
+        call pstop('lsode_3d_bdf2','Wrong number of equations')
+      endif
+
+c     Call LSODE orbit evaluation function (extracting logical coords x1,y1,z1)
+
+      call lsode_orbit_f(5,t,y(1:5),ydot(1:5),xx1=x1,yy1=y1,zz1=z1)
+
+c     Call additional integrators
+
+      i_eps = c_va
+      
+      call evalFlds(x1,y1,z1,sp_coef,flds)
+
+      !Tn
+      ydot(6) = flds(1)*tkernel_3d(y(5),i_eps*dt,exl1)
+
+      !Tnm
+      ydot(7) = flds(2)*tkernel_3d(y(5),i_eps*(dt+dtold),exl2)
+
+      !Src @ dt
+      ydot(8) = flds(3)*skernel_3d(y(5),i_eps*dt,exl3)
+
+      !Src @ dt+dtold
+      ydot(9) = flds(3)*skernel_3d(y(5),i_eps*(dt+dtold),exl4)
+
+      !Transform back to arc-length integral (only accounting for Jacobian, not |B|)
+      ydot(6:neq) = ydot(6:neq)*ydot(4)
+
+c     Are we done?
+
+      call set_orbit_exit(exl1.and.exl2.and.exl3.and.exl4)
+
+c     End program
+
+      end subroutine lsode_3d_ext
+
       end module re

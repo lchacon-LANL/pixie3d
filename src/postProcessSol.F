@@ -172,18 +172,18 @@ c Dump parareal convergence info
 
       !Magnetic energy
       array = scalarProduct(igrid,bcnv,bcov)
-      Em = 0.5*integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
+      Em = 0.5*integral(gv%gparams,igrid,array,average=.false.)
 
       !Kinetic energy
       array = scalarProduct(igrid,vcnv,vcov)
-      Ek = 0.5*integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
+      Ek = 0.5*integral(gv%gparams,igrid,array,average=.false.)
 
       !Thermal energy
       array = rho*tmp
 
       if (gamma /= 1d0) then
         Et = 1d0/(gamma-1)
-     .      *integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
+     .      *integral(gv%gparams,igrid,array,average=.false.)
       else
         Et = 0d0
       endif
