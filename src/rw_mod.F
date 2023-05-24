@@ -402,6 +402,8 @@ c     Performs RW BC. Inputs normal internal B-component, outputs
 c     tangential external B-components
 c     -----------------------------------------------------------------
 
+      use special
+      
       implicit none
 
 c     Call variables
@@ -536,19 +538,30 @@ c     Find VACUUM potential solution Phi outside of resistive wall
           pv = pw*r_v
 
           !Bessel function evals
-          Km   = BESSK(m1 ,pw)                   
-          dKm  =-BESSK(mm1,pw) - m1/pw*BESSK(m1,pw)
-          d2Km =                   BESSK(mm2,pw)
-     .         +  (2*m1-1)/ pw    *BESSK(mm1,pw)
-     .         + m1*(m1+1)/(pw*pw)*BESSK(m1 ,pw)
-          dKmv =-BESSK(mm1,pv) - m1/pv*BESSK(m1,pv)
-          Im   = BESSI(m1 ,pw)
-          dIm  = BESSI(mm1,pw) - m1/pw*BESSI(m1,pw)
-          d2Im =                   BESSI(mm2,pw)
-     .         -  (2*m1-1)/ pw    *BESSI(mm1,pw)
-     .         + m1*(m1+1)/(pw*pw)*BESSI(m1 ,pw)
-          dImv = BESSI(mm1,pv) - m1/pv*BESSI(m1,pv)
-
+c$$$          Km   = BESSK(m1 ,pw)                   
+c$$$          dKm  =-BESSK(mm1,pw) - m1/pw*BESSK(m1,pw)
+c$$$          d2Km =                   BESSK(mm2,pw)
+c$$$     .         +  (2*m1-1)/ pw    *BESSK(mm1,pw)
+c$$$     .         + m1*(m1+1)/(pw*pw)*BESSK(m1 ,pw)
+c$$$          dKmv =-BESSK(mm1,pv) - m1/pv*BESSK(m1,pv)
+c$$$          Im   = BESSI(m1 ,pw)
+c$$$          dIm  = BESSI(mm1,pw) - m1/pw*BESSI(m1,pw)
+c$$$          d2Im =                   BESSI(mm2,pw)
+c$$$     .         -  (2*m1-1)/ pw    *BESSI(mm1,pw)
+c$$$     .         + m1*(m1+1)/(pw*pw)*BESSI(m1 ,pw)
+c$$$          dImv = BESSI(mm1,pv) - m1/pv*BESSI(m1,pv)
+          Km   = BESSELK(1d0*m1 ,pw)                   
+          dKm  =-BESSELK(1d0*mm1,pw) - m1/pw*BESSELK(1d0*m1,pw)
+          d2Km =                   BESSELK(1d0*mm2,pw)
+     .         +  (2*m1-1)/ pw    *BESSELK(1d0*mm1,pw)
+     .         + m1*(m1+1)/(pw*pw)*BESSELK(1d0*m1 ,pw)
+          dKmv =-BESSELK(1d0*mm1,pv) - m1/pv*BESSELK(1d0*m1,pv)
+          Im   = BESSELI(1d0*m1 ,pw)
+          dIm  = BESSELI(1d0*mm1,pw) - m1/pw*BESSELI(1d0*m1,pw)
+          d2Im =                   BESSELI(1d0*mm2,pw)
+     .         -  (2*m1-1)/ pw    *BESSELI(1d0*mm1,pw)
+     .         + m1*(m1+1)/(pw*pw)*BESSELI(1d0*m1 ,pw)
+          dImv = BESSELI(1d0*mm1,pv) - m1/pv*BESSELI(1d0*m1,pv)
           dum = (dImv*Km-dKmv*Im)/((dImv*dKm-dKmv*dIm)*pw)
 
           !Find phi_nm
@@ -566,6 +579,47 @@ c     Find VACUUM potential solution Phi outside of resistive wall
             phii_m_np(m) = Bi_m(m)*dum
           endif
         enddo
+
+c$$$        k_h = -2d0 ; m_h = 1d0 ; r_v = 1.5d0
+c$$$        
+c$$$        do m1=1,4
+c$$$          mm1  = abs(m1-1)
+c$$$          mm2  = abs(m1-2)
+c$$$
+c$$$          pw = m1*abs(k_h)/m_h  !Forces helical pitch, k_n = m x (k_n*/m*)
+c$$$          pv = pw*r_v
+c$$$
+c$$$          !Bessel function evals
+c$$$          Km   = BESSK(m1 ,pw)                   
+c$$$          dKm  =-BESSK(mm1,pw) - 1d0*m1/pw*BESSK(m1,pw)
+c$$$          d2Km =                   BESSK(mm2,pw)
+c$$$     .         +  (2d0*m1-1d0)/ pw    *BESSK(mm1,pw)
+c$$$     .         + 1d0*m1*(1d0*m1+1d0)/(pw*pw)*BESSK(m1 ,pw)
+c$$$          dKmv =-BESSK(mm1,pv) - 1d0*m1/pv*BESSK(m1,pv)
+c$$$          Im   = BESSI(m1 ,pw)
+c$$$          dIm  = BESSI(mm1,pw) - m1/pw*BESSI(m1,pw)
+c$$$          d2Im =                   BESSI(mm2,pw)
+c$$$     .         -  (2d0*m1-1d0)/ pw    *BESSI(mm1,pw)
+c$$$     .         + 1d0*m1*(1d0*m1+1d0)/(pw*pw)*BESSI(m1 ,pw)
+c$$$          dImv = BESSI(mm1,pv) - 1d0*m1/pv*BESSI(m1,pv)
+c$$$          Km   = BESSELK(1d0*m1 ,pw)                   
+c$$$          dKm  =-BESSELK(1d0*mm1,pw) - m1/pw*BESSELK(1d0*m1,pw)
+c$$$          d2Km =                   BESSELK(1d0*mm2,pw)
+c$$$     .         +  (2*m1-1)/ pw    *BESSELK(1d0*mm1,pw)
+c$$$     .         + m1*(m1+1)/(pw*pw)*BESSELK(1d0*m1 ,pw)
+c$$$          dKmv =-BESSELK(1d0*mm1,pv) - m1/pv*BESSELK(1d0*m1,pv)
+c$$$          Im   = BESSELI(1d0*m1 ,pw)
+c$$$          dIm  = BESSELI(1d0*mm1,pw) - m1/pw*BESSELI(1d0*m1,pw)
+c$$$          d2Im =                   BESSELI(1d0*mm2,pw)
+c$$$     .         -  (2*m1-1)/ pw    *BESSELI(1d0*mm1,pw)
+c$$$     .         + m1*(m1+1)/(pw*pw)*BESSELI(1d0*m1 ,pw)
+c$$$          dImv = BESSELI(1d0*mm1,pv) - m1/pv*BESSELI(1d0*m1,pv)
+c$$$          dum = (dImv*Km-dKmv*Im)/((dImv*dKm-dKmv*dIm)*pw)
+c$$$          dum = -1d0*m1/m_h*(dImv*Km-dKmv*Im)/((dImv*dKm-dKmv*dIm)*pw)
+c$$$
+c$$$          write (*,*) m1,dum
+c$$$        enddo
+c$$$        stop
       endif
 
 c     Find old-time EXTERNAL magnetic field components outside RW
