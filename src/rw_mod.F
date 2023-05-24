@@ -402,7 +402,7 @@ c     Performs RW BC. Inputs normal internal B-component, outputs
 c     tangential external B-components
 c     -----------------------------------------------------------------
 
-      use special
+      use special_funcs
       
       implicit none
 
