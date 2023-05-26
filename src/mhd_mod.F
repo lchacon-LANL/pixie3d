@@ -6,6 +6,10 @@ c ######################################################################
 
         use pixie3d_io
 
+        use xdraw_io
+
+cc        use ts_io
+
         integer :: it_divcl=0
 
         logical :: dcon=.false.
@@ -251,7 +255,6 @@ c     End program
 
       end function vis_rfx
 
- ! Daniele, 02/07/2014
 c     chi_rfx
 c     #############################################################
       function chi_rfx(rr) result(dfvty)
@@ -6731,7 +6734,7 @@ c     ---------------------------------------------------------------
 c     Finds hyper-resistivity coefficient (global on the grid)
 c     ---------------------------------------------------------------
 
-      use app_iosetup
+cc      use app_iosetup
 
       implicit none
 
@@ -6860,13 +6863,7 @@ c$$$        endif
         enddo
 
         if (itime == 0) then
-          maxv = maxval(h_res)
-#if defined(petsc)
-          call MPI_Reduce(maxv,maxvg,1,MPI_DOUBLE_PRECISION
-     .                   ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
-#else
-          maxvg = maxv
-#endif
+          maxvg = pmax(maxval(h_res))
           if (my_rank == 0) write (*,*) 'Hyperresistivity=',maxvg
         endif
 
@@ -6894,10 +6891,7 @@ c     Call variables
 
 c     Local variables
 
-      real(8) :: b2
-! Daniele, 02/07/2014
-      integer :: ig,jg,kg
-      real(8) :: rr,th,zz
+      real(8) :: b2,rr,th,zz
 
 c     Begin program
 

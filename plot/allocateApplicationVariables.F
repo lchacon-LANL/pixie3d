@@ -8,6 +8,10 @@ c----------------------------------------------------------------------
 
       use auxPlotVariables
 
+      use equilibrium, ONLY: efit_coords
+
+      use app_iosetup, ONLY: equ_file
+      
       use rw_bc
 
       implicit none

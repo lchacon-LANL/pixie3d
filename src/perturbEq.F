@@ -30,7 +30,7 @@ c     Local variables
       integer :: i,j,k,ig,jg,kg,igx,igy,igz,ieq,nx,ny,nz
       real(8) :: x1,y1,z1,jac,kx,ky,kk,eps
      .          ,vplus,vminus,vshear,cs2,kdotB,cth
-     .          ,vxx,vyy,vzz,ivxx,ivyy,ivzz,xi,ixi,yy,iyy
+     .          ,vxx,vyy,vzz,ivxx,ivyy,ivzz,xxi,ixi,yy,iyy
      .          ,bxx,byy,bzz,ibxx,ibyy,ibzz,axx,ayy,azz
      .          ,w_fast,w_slow,w_shr,freq,roots(3),X,iX
       real(8) :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
@@ -372,8 +372,8 @@ cc          enddo
      .               /(cs2*kdotB*kx/freq**2-B0(1))
               endif
 
-              xi = kx*vxx + ky*vyy
-              X  = cs2*kdotB*xi/freq**2
+              xxi = kx*vxx + ky*vyy
+              X  = cs2*kdotB*xxi/freq**2
 
               if ((cs2*kdotB*ky/freq**2-B0(2)) /= 0d0) then
                 ivxx = eps*sin(kx*(x1-xmin)+ky*(y1-ymin))
@@ -394,9 +394,9 @@ cc          enddo
               vzz =( yy + B0(3)*(ky* vxx - kx* vyy))/(ky*B0(1)-kx*B0(2))
               ivzz=(iyy + B0(3)*(ky*ivxx - kx*ivyy))/(ky*B0(1)-kx*B0(2))
 
-              bxx = (kdotB*vxx-xi*B0(1))/freq +di*ky*ivzz
-              byy = (kdotB*vyy-xi*B0(2))/freq -di*kx*ivzz
-              bzz = (kdotB*vzz-xi*B0(3))/freq +di*(kx*ivyy-ky*ivxx)
+              bxx = (kdotB*vxx-xxi*B0(1))/freq +di*ky*ivzz
+              byy = (kdotB*vyy-xxi*B0(2))/freq -di*kx*ivzz
+              bzz = (kdotB*vzz-xxi*B0(3))/freq +di*(kx*ivyy-ky*ivxx)
 
 #if defined(vec_pot)
               ibxx = (kdotB*ivxx-ixi*B0(1))/freq -di*ky*vzz
@@ -415,11 +415,11 @@ cc          enddo
 #endif
 
               varr%array_var(IRHO)%array(i,j,k) =
-     .               varr%array_var(IRHO)%array(i,j,k) - xi/freq
+     .               varr%array_var(IRHO)%array(i,j,k) - xxi/freq
 
               varr%array_var(IPRS)%array(i,j,k) =
      .               varr%array_var(IPRS)%array(i,j,k)
-     .             - cs2*xi/freq !For total pressure
+     .             - cs2*xxi/freq !For total pressure
 
 #if !defined(vec_pot)
               varr%array_var(IBX)%array(i,j,k)

@@ -3311,7 +3311,6 @@ c     ---------------------------------------------------------------
 
         use nlfunction_setup, ONLY: res_rfx,eta,chi,gamma,chi_rfx
      .                             ,res_spitzer,spitzer,a_p
-! Daniele, 12 Nov. 2014
      .                             ,ext_heat_src_prof
 
         use grid
@@ -3330,7 +3329,6 @@ c     Local variables
 
         integer :: i,j,k,ig,jg,kg,it,lap_info
         real(8) :: bz_avg,x1,bzh,bth,err,rh,dh,p00,rhm,rhp
-! Daniele, 02/07/2014
         real(8) :: chirh,chirhm,chirhp
 
         real(8) :: bz0,dummy(0:nxdp),bth0_old(0:nxdp)
@@ -3342,11 +3340,9 @@ c     Local variables
         real(8) :: pprof
         external   pprof
 
-! Daniele, 11/10/2013
         real(8) :: alpha,etah0
         real(8) :: chih(0:nxd)
 
-! Daniele, 1/8/2014
         real(8) :: pa
 
 c     Begin program
@@ -3359,14 +3355,9 @@ c     Begin program
           write (*,*)
         endif
 
-! Daniele, 11/10/2013
-!        alpha = 0d0 !No underrelaxation
-!        alpha = 0.5d0 !underrelaxation constant
-! Daniele, 02/07/2014
         alpha = 0.8d0 !underrelaxation constant
-        etah0 = 1d0 ! needed if not spitzer
+        etah0 = 1d0   !needed if not spitzer
 
-! Daniele, 1/8/2014; Luis 1/23/2014
         pa = pw
 
 c       Initialize iteration
@@ -3375,12 +3366,8 @@ c       Initialize iteration
 
         !Find half-mesh positions
         do i=0,nxd
-          dr(i) =      gv%gparams%xg(i+1)-gv%gparams%xg(i)
-          xh(i) = 0.5*(gv%gparams%xg(i+1)+gv%gparams%xg(i))
-! Daniele, 02/07/2014
-c$$$!          chih(i)=chi*(1.-(1.-1d-2)*sin(pi*xh(i)/1.75))
-c$$$          chih(i)=chi*chi_rfx(xh(i))
-! Luis 04/15/2014, to mimic what is done in PIXIE3D
+          dr(i)  =      gv%gparams%xg(i+1)-gv%gparams%xg(i)
+          xh(i)  = 0.5*(gv%gparams%xg(i+1)+gv%gparams%xg(i))
           chih(i)=0.5*chi*(chi_rfx(gv%gparams%xg(i+1))
      $                    +chi_rfx(gv%gparams%xg(i  )))
         enddo
@@ -3391,18 +3378,16 @@ c$$$          chih(i)=chi*chi_rfx(xh(i))
           bth0(i) = 0.5*xh(i)*Eoeta
         enddo
 
-! Daniele, 11/10/2013
         p0_old = p0
 
 c       Iteration
 
         do it=1,100
 
-          !Daniele, 11/10/2013
           !underrelaxation of p
           p0 = (1d0-alpha)*p0 + alpha*p0_old
 
-          !Luis, 11/15/2013, find resistivity profile
+          !Find resistivity profile
           if (spitzer) then
             do i=1,nxdp
               etah(i) = res_spitzer(p0(i),p0(1))
@@ -3468,9 +3453,7 @@ c$$$            etah  = etah/etah0
      $                 //' Both Bz0 and theta are zero')
           endif
 
-! Daniele, 12/7/2011
-! f stands for full mesh
-          !Transfer to integer mesh
+          !Transfer to integer mesh (f stands for full mesh)
           call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd)
      .                    ,nxdp,gv%gparams%xg(1:nxdp),dummy(1:nxdp)
      .                    ,2,0)
@@ -3518,12 +3501,11 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
           do i=1,nxd
             rh = gv%gparams%xg(i)
             p0(i)=rh*etah(i)*(jtf(i)*jtf(i)+jzf(i)*jzf(i))
-! Daniele, 12 Nov. 2014
      .           +rh*ext_heat_src_prof(rh)/eta
           enddo
           p0 = etah0*p0
 
-! Daniele, 1/8/2014. BCs with finite p(a)
+          !BCs with finite p(a)
           rh = gv%gparams%xg(nxd)
           p0(nxd) = p0(nxd) + pa/dr(nxd)*
      .         (-gamma/(gamma-1.)*xh(nxd)*vr0(nxd)
@@ -3536,22 +3518,15 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
 
             dl(i)= -gamma/(gamma-1.)*xh(i-1)*vr0(i)/(2.*dr(i))
      .            +vr0(i)*rh/(2.*dr(i))
-!     .            -chi/eta*xh(i-1)/dr(i)**2.
-! Daniele, 11/10/2013
      .            -chih(i-1)/eta*xh(i-1)/dr(i)**2.
 
             d(i)=  gamma/(gamma-1.)
      .            *(xh(i)*vr0(i+1)-xh(i-1)*vr0(i-1))/(2.*dr(i))
-     .            +0.
-!     .            +chi/eta*(xh(i)+xh(i-1))/dr(i)**2.
-! Daniele, 11/10/2013
      .            +1./eta*(chih(i)*xh(i)+chih(i-1)*xh(i-1))/dr(i)**2.
 
             du(i)= gamma/(gamma-1.)
      .            *(xh(i)*vr0(i))/(2.*dr(i))
      .            -vr0(i)*rh/(2.*dr(i))
-!     .            -chi/eta*xh(i)/dr(i)**2.
-! Daniele, 11/10/2013
      .            -chih(i)/eta*xh(i)/dr(i)**2.
           enddo
 
@@ -3564,9 +3539,7 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
           d(nxd)=d(nxd)
      .          -gamma/(gamma-1.)*xh(nxd)*vr0(nxd)/(2.*dr(nxd))
      .          +vr0(nxd)*rh/(2.*dr(nxd))
-!     .         +chi/eta*xh(nxd)/dr(nxd)**2.
-! Daniele, 11/10/2013
-     .         +chih(nxd)/eta*xh(nxd)/dr(nxd)**2.
+     .          +chih(nxd)/eta*xh(nxd)/dr(nxd)**2.
 
           !Invert tridiagonal matrix
           call DGTSV(nxd,1,dl(2:nxd),d,du(1:nxd-1),p0(1:nxd),nxd
@@ -3574,8 +3547,7 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
 
           !BCs
           p0(0   ) =  p0(1)
-!          p0(nxdp) = -p0(nxd)
-! Daniele, 1/8/2014. BCs with finite p(a)
+          !BCs with finite p(a)
           p0(nxdp) = -p0(nxd) + 2.*pa
 
           !Check convergence
@@ -3653,12 +3625,10 @@ c$$$          etah  = etah/etah0
           rhm = gv%gparams%xg(i-1)
           rhp = gv%gparams%xg(i+1)
 
-! Daniele, 02/07/2014
           chirh =chi*chi_rfx(rh)
           chirhm=chi*chi_rfx(rhm)
           chirhp=chi*chi_rfx(rhp)
 
-! Daniele, 11/10/2013
           dummy(i) =
      .          gamma/(gamma-1.)
      .           *(rhp*p0(i+1)*vr0(i+1)-rhm*p0(i-1)*vr0(i-1))/(2.*dr(i))
@@ -3674,7 +3644,6 @@ c$$$          etah  = etah/etah0
      .          /dr(i)
      .          -rh*etah(i)*(jtf(i)*jtf(i)+jzf(i)*jzf(i))
         enddo
-! Daniele, 02/07/2014
         dummy = dummy*eta
 
         if (my_rank == 0) then
@@ -7672,6 +7641,8 @@ c--------------------------------------------------------------------
       use app_iosetup
       
       use local_BCS_variables
+
+      use equilibrium
 
       implicit none
 

@@ -16,9 +16,13 @@ c----------------------------------------------------------------------
 
       use PC_setup
 
-      use rw_bc
+      use local_BCS_variables, ONLY: normal_flow_bc,sheath_flow_bc
+     $                              ,v00_ExB_bc,res_wall_bc
 
-      use pixie3d_io
+      use rw_bc, ONLY: rw_fft_tupdate,rw_implicit_bc,rw_exp_ssp_bc
+     $                ,rw_exp_pc_bc,rw_exp_fix,tau_w,r_v,rw_bcs
+
+      use app_iosetup
 
       implicit none
 
@@ -42,7 +46,8 @@ c Local variables
      .                ,pc_debug_it,pc_max_iter
       logical       :: zebra_relax,hall_new,lag_pinch_bc,debug
      .                ,mg_zebra_relax,restart,timecorr,fake_ve
-     $                ,zero_ExB_tang,regularize_A
+     $                ,zero_ExB_tang,regularize_A,zero_vpar_bc
+     $                ,sheath_bc
       real(8)       :: mgtol
 
 c Namelists
@@ -59,7 +64,7 @@ c Namelists
      .                   ,spitzer,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old,xport_order
-     .                   ,r_v,tau_w,zero_vpar_bc
+     .                   ,r_v,tau_w,normal_flow_bc
      .                   ,rw_fft_tupdate,rw_implicit_bc,rw_exp_ssp_bc
      .                   ,rw_exp_pc_bc,rw_exp_fix
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
@@ -90,7 +95,7 @@ c Namelists
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
      .                   ,subtract_E0,e_cons_vstar,post_smooth_B
      .                   ,use_p_classic_eq,post_filter_hel
-     .                   ,binom_alph,v00_ExB_bc,sheath_bc
+     .                   ,binom_alph,v00_ExB_bc,sheath_flow_bc
      .                ,prt_file,equ_file,map_file,dcon
      .                !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -99,7 +104,8 @@ c Namelists
      .                   ,mg_zebra_relax,pc_max_iter,timecorr,restart
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
-     .                   ,zero_ExB_tang,regularize_A!,fixed_Te,lagged_Te
+     .                   ,zero_ExB_tang,regularize_A,zero_vpar_bc
+     .                   ,sheath_bc
       
       !Problem setup
       namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
@@ -120,9 +126,9 @@ c Namelists
      .                   ,equil,gstor_I_drive,refine_eq
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
-     .                   ,r_v,tau_w,zero_vpar_bc,rw_implicit_bc
+     .                   ,r_v,tau_w,normal_flow_bc,rw_implicit_bc
      .                   ,rw_exp_ssp_bc,rw_exp_pc_bc,rw_exp_fix
-     .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_bc
+     .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_flow_bc
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
@@ -509,8 +515,8 @@ c     #####################################################################
 
       tau_w    = 1d2           ! Resistive wall thin-shell time
       r_v      = 1.5           ! Radius of outer conducting shell
-      zero_vpar_bc   = .false. ! Whether we zero out parallel flow at bdry
-      sheath_bc      = .false. ! Whether we apply sheath BC in v_parallel
+      normal_flow_bc = .true.  ! Whether we zero out parallel flow at bdry
+      sheath_flow_bc = .false. ! Whether we apply sheath BC in v_parallel
       rw_fft_tupdate = .false. ! Whether we integrate RW eqs in Fourier space
       rw_implicit_bc = .false. ! Whether we use implicit RW BCs
       rw_exp_ssp_bc  = .true.  ! Whether we use explicit SSP RW BCs
@@ -699,6 +705,8 @@ c     #####################################################################
       timecorr = .true.
       restart  = .false.
       zero_ExB_tang = .true.
+      zero_vpar_bc = .false.
+      sheath_bc = .false.
 
       end subroutine set_defaults
 
@@ -731,7 +739,10 @@ c     #####################################################################
 
       if (restart) ts_restart = restart
 
-      if (.not.zero_ExB_tang) zero_vpar_bc = .true.
+      if (.not.zero_ExB_tang) normal_flow_bc = .false.
+      if (zero_vpar_bc) normal_flow_bc = .false.
+
+      if (sheath_bc) sheath_flow_bc = .true.
       
       !Time stepping
       if (sm_flag == 2) cnfactor = 0d0  !Force BDF2
@@ -748,7 +759,7 @@ c     #####################################################################
         source = .false.  !To let equilibrium float
         pert = 0d0        !Zero out perturbations
         chk_src  = .true.
-        sheath_bc= .false.!Do not sheath BCs
+        sheath_flow_bc = .false.!Do not impose sheath flow BCs
       endif
 
       !Face symmetric if "sym"
@@ -776,7 +787,7 @@ c     #####################################################################
         call warning(messg)
       endif
 
-      if (sheath_bc) zero_vpar_bc = .true. !Consider full ExB flow
+      if (sheath_flow_bc) normal_flow_bc = .false. !Consider full ExB flow
       
       !Adequate size for collapsed dimension
       if (coords /= 'car') then
@@ -790,11 +801,6 @@ c     #####################################################################
           zmax = LMIN_NEQ_ONE ; zmin = 0d0
         endif
       endif
-
-      !Do NOT regularize A @ SP when plotting
-#if defined(plotting)
-      regularize_A = .false.
-#endif
 
       !Non-conservative EOM
       if (nc_eom_f) then

@@ -12,28 +12,20 @@ c####################################################################
 
         use ts_setup
 
-        use ts_io, ONLY: TS_chk_after_restart
-
-        use equilibrium
-
         use nlfunction_setup, ONLY: res,chi_perp,chi_para,vis,ion_hall
      .                             ,E_fld_res_A,E_fld_res_B,E_fld_ihall
      .                             ,E_fld_ehall,EOM_divPi,hres,diff_mesh
      .                             ,nc_eom_v,nc_eom_jxb,find_B
      .                             ,pinch_flow,sym_st,subtract_E0
-     .                             ,form_ve,solenoidal,binom_alph
-
-        use xdraw_io
-
-        use app_iosetup
+     .                             ,form_ve,solenoidal,binom_alph,E0,B0
 
         integer :: order_bc=1
 
-        logical :: fill_A0_bc   = .false.
-     $            ,res_wall_bc  = .false.  !Whether we are applying RW BCs
-     $            ,zero_vpar_bc = .false.  !Whether we zero out parallel flow at bdry
-     $            ,v00_ExB_bc   = .false.  !Whether we average tangential ExB flow
-     $            ,sheath_bc    = .false.  !Whether we are applying sheath BCs (in v_||)
+        logical :: fill_A0_bc     = .false.
+     $            ,res_wall_bc    = .false.  !Whether we are applying RW BCs
+     $            ,normal_flow_bc = .true.   !Whether we impose strictly normal flow at bdry
+     $            ,v00_ExB_bc     = .false.  !Whether we average tangential ExB flow
+     $            ,sheath_flow_bc = .false.  !Whether we are applying sheath BCs (in v_||)
 
         logical :: no_eq_bc,save_tn,no_tn_bc
         
@@ -225,7 +217,7 @@ c     Exceptions for specific equilibria
         where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = EQU
         where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = EQU
         
-        if (sheath_bc) then !Needed when restarting from "clean" equ.
+        if (sheath_flow_bc) then !Needed when restarting from "clean" equ.
           where (abs(bbcs(:,IPRS)) == EQU) bbcs(:,IPRS) = NEU
         else
           where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
@@ -1134,7 +1126,7 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IVCNV)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IVCNV)%bc_dep_list(1,3) = 0 !trivial
 
-      if (pinch_bc.or.sheath_bc) then
+      if (pinch_bc.or.sheath_flow_bc) then
         vaux%vec_list(IVCNV)%bc_dep_list(2,1) = IRHO_AUX*AUX
         vaux%vec_list(IVCNV)%bc_dep_list(2,2) = SCALAR
         vaux%vec_list(IVCNV)%bc_dep_list(2,3) = 1 !non-trivial
@@ -1804,7 +1796,7 @@ c     Begin program
      .              +g_def%gmetric%grid(igrid)%jac(i+1,j,k))
 
           bbcnv = 0.5*(bcnv(i,j,k,:)+bcnv(i+1,j,k,:))
-          if (.not.zero_vpar_bc) bbcnv(1) = 0d0 !Zero-out normal B-field
+          if (normal_flow_bc) bbcnv(1) = 0d0 !Zero-out normal B-field
           bbcov = XformToCov_ijk_face(g_def,i,j,k,igrid,bbcnv,1)
           
           b2 = sum(bbcnv*bbcov)/jac
@@ -1835,7 +1827,7 @@ c     Begin program
             v0(i+1,j,k,3)=(E00(1)*bbcov(2)-E00(2)*bbcov(1)
      .                   -etah*grad_p(3))/b2
             
-            if (.not.zero_vpar_bc) v0(i+1,j,k,2:3) = 0d0 !Zero-out tangential flow
+            if (normal_flow_bc) v0(i+1,j,k,2:3) = 0d0 !Zero-out tangential flow
           endif
         enddo
       enddo
@@ -1915,7 +1907,7 @@ c$$$     $                                -    g_def%xx(ig-1))
           call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
      .                    ,1,xh,bbcnv(3),ord,0)
 
-          if (.not.zero_vpar_bc) bbcnv(1) = 0d0 !Zero-out normal B-field
+          if (normal_flow_bc) bbcnv(1) = 0d0 !Zero-out normal B-field
           bbcov = XformToCov_ijk_face(g_def,i,j,k,igrid,bbcnv,1)
 c$$$          gsub = 0.5*(g_def%gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
 c$$$     .               +g_def%gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
@@ -1948,9 +1940,9 @@ c     End program
 
       end subroutine J_pinch_bc
 
-c     sheath_flow_bc
+c     sheath_bc
 c     #################################################################
-      function sheath_flow_bc(g_def,igrid,bcnv,tmpe) result(v0)
+      function sheath_bc(g_def,igrid,bcnv,tmpe) result(v0)
 
 c     -----------------------------------------------------------------
 c     Finds parallel Bohm flowboundary condition
@@ -1988,7 +1980,7 @@ c     Begin program
       if (.not.isBdry(g_def,i,igrid,ibc)) return
 
       if (igrid /= 1) then
-        write (*,*) 'sheath_flow_bc not ready for MG treatment'
+        write (*,*) 'sheath_bc not ready for MG treatment'
         stop
       endif
 
@@ -2025,7 +2017,7 @@ c$$$      write (*,*) "u_bohm=",u_bohm,u_bohm*bhat
 
 c     End program
 
-      end function sheath_flow_bc
+      end function sheath_bc
       
 c     init_BCs
 c     ####################################################################

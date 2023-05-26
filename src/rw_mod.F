@@ -3,7 +3,11 @@ c ####################################################################
       module rw_bc
 
         use local_BCS_variables
-      
+
+        use var_io, ONLY: ilevel
+
+        use app_iosetup, ONLY: test,critical
+        
         !Resistive wall vars
         logical :: rw_bcs(6)      =.false.
      $            ,rw_fft_tupdate =.false. ! Whether we advance Fourier RW modes in time
