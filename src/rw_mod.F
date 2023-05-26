@@ -974,12 +974,10 @@ c     Begin program
 
       if (rw_implicit_bc) then
         call rw_A_imp
-      else
-        if (rw_exp_pc_bc) then
-          call rw_A_exp_pc
-        else
-          call rw_A_exp_ssp
-        endif
+      elseif (rw_exp_pc_bc) then
+        call rw_A_exp_pc
+      else !default
+        call rw_A_exp_ssp
       endif
       
       deallocate(v0,vdum,bcnv)
