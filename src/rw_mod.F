@@ -115,10 +115,10 @@ c     Local variables
      .                   ,0:size(bcnv,3)-1)
      .          ,bcovext (0:size(bcnv,2)-1
      .                   ,0:size(bcnv,3)-1,3)
-     .          ,bcnvint (0:size(bcnv,2)-1
-     .                   ,0:size(bcnv,3)-1,3)
-     .          ,bcnvintm(0:size(bcnv,2)-1
-     .                   ,0:size(bcnv,3)-1,3)
+     .          ,bcnv1int(0:size(bcnv,2)-1
+     .                   ,0:size(bcnv,3)-1)
+     .          ,bcnv1intm(0:size(bcnv,2)-1
+     .                    ,0:size(bcnv,3)-1)
      .          ,bcovint (0:size(bcnv,2)-1
      .                   ,0:size(bcnv,3)-1,3)
 
@@ -168,25 +168,20 @@ c     Begin program
 c     Compute INTERNAL B-field components @ RW
 
       if (PRESENT(bcnvp)) then
-        bcnvint  = bcnv_plasma_bdry   (bcnv,.false.)  !Previous time step
-        bcovint  = bcov_plasma_bdry_v1(bcnvp)         !New time step
-c$$$        bcovint  = bcov_plasma_bdry_v2(bcnv_plasma_bdry(bcnvp,.true.)) !New time step
-        bcnvintm = bcnv_plasma_int    (bcnvp)         !New time step
+        bcnv1int  = bcnv1_plasma_bdry(bcnv)                  !Previous time step
+        bcovint   = bcov_plasma_bdry (bcnvp,.false.,.false.) !New time step
+        bcnv1intm = bcnv1_plasma_int (bcnvp)                 !New time step
       else
-        bcnvint  = bcnv_plasma_bdry   (bcnv,extrap)
-        if (extrap) then
-          bcovint  = bcov_plasma_bdry_v2(bcnvint)
-        else
-          bcovint  = bcov_plasma_bdry_v1(bcnv)
-        endif
-        bcnvintm = bcnv_plasma_int    (bcnv)
+        bcnv1int  = bcnv1_plasma_bdry(bcnv)
+        bcovint   = bcov_plasma_bdry (bcnv,extrap,rw_exp_fix)
+        bcnv1intm = bcnv1_plasma_int (bcnv)
       endif
 
 c     Compute EXTERNAL tangential B-field components @ RW (VACUUM response)
 
       select case(coords)
       case('hel')
-       call vacuum_hel(g_def,igr,bcnvint(:,:,1),bcnvintm(:,:,1),bcovext
+       call vacuum_hel(g_def,igr,bcnv1int,bcnv1intm,bcovext
      $                ,new_time,debug)
 c$$$      case('cyl')
 c$$$      case('tor')
@@ -228,9 +223,9 @@ c     End program
 
       contains
 
-c     bcnv_plasma_bdry
+c     bcnv1_plasma_bdry
 c     ####################################################################      
-      function bcnv_plasma_bdry(bcnv,extrap) result(bcnvint)
+      function bcnv1_plasma_bdry(bcnv) result(bcnv1int)
 
 c     --------------------------------------------------------------------
 c     Compute Bcnv @ wall on plasma side
@@ -239,10 +234,8 @@ c     --------------------------------------------------------------------
         implicit none
       
         real(8),dimension(0:,0:,0:,:) :: bcnv
-        real(8) :: bcnvint (0:size(bcnv,2)-1
-     .                     ,0:size(bcnv,3)-1,3)
-
-        logical :: extrap
+        real(8) :: bcnv1int(0:size(bcnv,2)-1
+     .                     ,0:size(bcnv,3)-1)
 
         real(8) :: xh(1)
         integer :: ig,jg,kg,i,j,k,ord
@@ -255,24 +248,120 @@ c     --------------------------------------------------------------------
             do j=0,ny+1
               xh = 0.5*(g_def%xx(ig)+g_def%xx(ig+1))
               call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,1)
-     .                        ,1,xh,bcnvint (j,k,1),ord,0)
-              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,2)
-     .                        ,1,xh,bcnvint (j,k,2),ord,0)
-              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
-     .                        ,1,xh,bcnvint (j,k,3),ord,0)
+     .                        ,1,xh,bcnv1int (j,k),ord,0)
             enddo
           enddo
         else
-          !Interpolate to face
-          bcnvint (:,:,:)= 0.5*bcnv(i_bc  ,:,:,:)
-     .                    +0.5*bcnv(i_bc-1,:,:,:)
+          bcnv1int (:,:)= 0.5*bcnv(i_bc  ,:,:,1)
+     .                   +0.5*bcnv(i_bc-1,:,:,1)
         endif
 
-      end function bcnv_plasma_bdry
+      end function bcnv1_plasma_bdry
 
-c     bcov_plasma_bdry_v1
+c$$$c     bcov_plasma_bdry_v1
+c$$$c     ####################################################################      
+c$$$      function bcov_plasma_bdry_v1(bcnv) result(bcovint)
+c$$$
+c$$$c     --------------------------------------------------------------------
+c$$$c     Compute Bcov @ wall on plasma side (for E-field computation)
+c$$$c     --------------------------------------------------------------------
+c$$$
+c$$$        implicit none
+c$$$
+c$$$c     Call variables
+c$$$        
+c$$$        real(8),dimension(0:,0:,0:,:) :: bcnv
+c$$$        real(8) :: bcovint (0:size(bcnv,2)-1
+c$$$     .                     ,0:size(bcnv,3)-1,3)
+c$$$
+c$$$c     Local variables
+c$$$        
+c$$$        real(8) :: bcov_avg(2:3),send_buf(2),rec_buf(2)
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$c     Compute Bcov @ wall
+c$$$        
+c$$$        do k=0,nz+1
+c$$$          do j=0,ny+1
+c$$$            bcovint(j,k,:)
+c$$$     .        =0.5*XformToCov(g_def,i_bc-1,j,k,igr,bcnv(i_bc-1,j,k,:))
+c$$$     $        +0.5*XformToCov(g_def,i_bc  ,j,k,igr,bcnv(i_bc,  j,k,:))
+c$$$          enddo
+c$$$        enddo
+c$$$
+c$$$c     Perform angular average: EXCLUDE m=n=0 mode (CRITICAL)
+c$$$
+c$$$        bcov_avg(2) = sum(bcovint(1:ny,1:nz,2))
+c$$$        bcov_avg(3) = sum(bcovint(1:ny,1:nz,3))
+c$$$
+c$$$#if defined(petsc)
+c$$$        send_buf = bcov_avg
+c$$$        call MPI_Allreduce(send_buf,rec_buf,2,MPI_DOUBLE_PRECISION
+c$$$     .                    ,MPI_SUM,g_def%MPI_COMM_YZ,mpierr)
+c$$$        bcov_avg = rec_buf
+c$$$#endif
+c$$$
+c$$$        bcov_avg = bcov_avg/(nyd*nzd)
+c$$$      
+c$$$        !Subtract average
+c$$$        bcovint(:,:,2) = bcovint(:,:,2) - bcov_avg(2)
+c$$$        bcovint(:,:,3) = bcovint(:,:,3) - bcov_avg(3)
+c$$$
+c$$$      end function bcov_plasma_bdry_v1
+c$$$      
+c$$$c     bcov_plasma_bdry_v2
+c$$$c     ####################################################################      
+c$$$      function bcov_plasma_bdry_v2(bcnvint) result(bcovint)
+c$$$
+c$$$c     --------------------------------------------------------------------
+c$$$c     Compute Bcov @ wall on plasma side (for E-field computation)
+c$$$c     --------------------------------------------------------------------
+c$$$
+c$$$        implicit none
+c$$$
+c$$$c     Call variables
+c$$$
+c$$$        real(8),dimension(0:,0:,:) :: bcnvint
+c$$$        real(8) :: bcovint (0:size(bcnvint,1)-1
+c$$$     .                     ,0:size(bcnvint,2)-1,3)
+c$$$
+c$$$c     Local variables
+c$$$        
+c$$$        real(8) :: bcov_avg(2:3),send_buf(2),rec_buf(2)
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$        !Compute Bcov @ wall        
+c$$$        do k=0,nz+1
+c$$$          do j=0,ny+1
+c$$$            bcovint(j,k,:)
+c$$$     .       =XformToCov_ijk_face(g_def,i_bc-1,j,k,igr,bcnvint(j,k,:),1)
+c$$$          enddo
+c$$$        enddo
+c$$$
+c$$$        !Perform angular average: EXCLUDE m=n=0 mode (CRITICAL)
+c$$$        bcov_avg(2) = sum(bcovint(1:ny,1:nz,2))
+c$$$        bcov_avg(3) = sum(bcovint(1:ny,1:nz,3))
+c$$$
+c$$$#if defined(petsc)
+c$$$        send_buf = bcov_avg
+c$$$        call MPI_Allreduce(send_buf,rec_buf,2,MPI_DOUBLE_PRECISION
+c$$$     .                    ,MPI_SUM,g_def%MPI_COMM_YZ,mpierr)
+c$$$        bcov_avg = rec_buf
+c$$$#endif
+c$$$
+c$$$        bcov_avg = bcov_avg/(nyd*nzd)
+c$$$      
+c$$$        !Subtract average
+c$$$        bcovint(:,:,2) = bcovint(:,:,2) - bcov_avg(2)
+c$$$        bcovint(:,:,3) = bcovint(:,:,3) - bcov_avg(3)
+c$$$
+c$$$      end function bcov_plasma_bdry_v2
+
+c     bcov_plasma_bdry
 c     ####################################################################      
-      function bcov_plasma_bdry_v1(bcnv) result(bcovint)
+      function bcov_plasma_bdry(bcnv,extrap,fix) result(bcovint)
 
 c     --------------------------------------------------------------------
 c     Compute Bcov @ wall on plasma side (for E-field computation)
@@ -286,22 +375,68 @@ c     Call variables
         real(8) :: bcovint (0:size(bcnv,2)-1
      .                     ,0:size(bcnv,3)-1,3)
 
+        logical :: extrap,fix
+        
 c     Local variables
         
         real(8) :: bcov_avg(2:3),send_buf(2),rec_buf(2)
+        real(8) :: xh(1)
+        integer :: ig,jg,kg,i,j,k,ord
+        real(8) :: bcnvint (0:size(bcnv,2)-1
+     .                     ,0:size(bcnv,3)-1,3)
 
 c     Begin program
 
 c     Compute Bcov @ wall
-        
-        do k=0,nz+1
-          do j=0,ny+1
-            bcovint(j,k,:)
-     .        =0.5*XformToCov(g_def,i_bc-1,j,k,igr,bcnv(i_bc-1,j,k,:))
-     $        +0.5*XformToCov(g_def,i_bc  ,j,k,igr,bcnv(i_bc,  j,k,:))
-          enddo
-        enddo
 
+        if (fix.and.(.not.extrap)) then
+          !Interpolate normal component (trustworthy, needed for div(B)=0)
+          bcnvint (:,:,1)= 0.5*bcnv(i_bc  ,:,:,1)
+     .                    +0.5*bcnv(i_bc-1,:,:,1)
+
+          !Extrapolate tangential components (problematic)
+          i = i_bc-1 ; ord = 3
+          call getMGmap(g_def,i,1,1,igr,igr,igr,ig,jg,kg)
+          do k=0,nz+1
+            do j=0,ny+1
+              xh = 0.5*(g_def%xx(ig)+g_def%xx(ig+1))
+              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,2)
+     .                      ,1,xh,bcnvint (j,k,2),ord,0)
+              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
+     .                      ,1,xh,bcnvint (j,k,3),ord,0)
+              bcovint(j,k,:)
+     .       =XformToCov_ijk_face(g_def,i_bc-1,j,k,igr,bcnvint(j,k,:),1)
+            enddo
+          enddo
+        elseif (extrap) then
+          !Extrapolate ALL components
+          i = i_bc-1 ; ord = 2
+          call getMGmap(g_def,i,1,1,igr,igr,igr,ig,jg,kg)
+          do k=0,nz+1
+            do j=0,ny+1
+              xh = 0.5*(g_def%xx(ig)+g_def%xx(ig+1))
+              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,1)
+     .                      ,1,xh,bcnvint (j,k,1),ord,0)
+              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,2)
+     .                      ,1,xh,bcnvint (j,k,2),ord,0)
+              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
+     .                      ,1,xh,bcnvint (j,k,3),ord,0)
+              bcovint(j,k,:)
+     .       =XformToCov_ijk_face(g_def,i_bc-1,j,k,igr,bcnvint(j,k,:),1)
+            enddo
+          enddo
+        else
+          !WARNING: tangential comp. seed RW instability
+          !         for small tau_w for arbitrary dt
+          do k=0,nz+1
+            do j=0,ny+1
+              bcovint(j,k,:)
+     .          =0.5*XformToCov(g_def,i_bc-1,j,k,igr,bcnv(i_bc-1,j,k,:))
+     $          +0.5*XformToCov(g_def,i_bc  ,j,k,igr,bcnv(i_bc,  j,k,:))
+            enddo
+          enddo
+        endif
+        
 c     Perform angular average: EXCLUDE m=n=0 mode (CRITICAL)
 
         bcov_avg(2) = sum(bcovint(1:ny,1:nz,2))
@@ -320,60 +455,11 @@ c     Perform angular average: EXCLUDE m=n=0 mode (CRITICAL)
         bcovint(:,:,2) = bcovint(:,:,2) - bcov_avg(2)
         bcovint(:,:,3) = bcovint(:,:,3) - bcov_avg(3)
 
-      end function bcov_plasma_bdry_v1
+      end function bcov_plasma_bdry
       
-c     bcov_plasma_bdry_v2
+c     bcnv1_plasma_int
 c     ####################################################################      
-      function bcov_plasma_bdry_v2(bcnvint) result(bcovint)
-
-c     --------------------------------------------------------------------
-c     Compute Bcov @ wall on plasma side (for E-field computation)
-c     --------------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        real(8),dimension(0:,0:,:) :: bcnvint
-        real(8) :: bcovint (0:size(bcnvint,1)-1
-     .                     ,0:size(bcnvint,2)-1,3)
-
-c     Local variables
-        
-        real(8) :: bcov_avg(2:3),send_buf(2),rec_buf(2)
-
-c     Begin program
-
-        !Compute Bcov @ wall        
-        do k=0,nz+1
-          do j=0,ny+1
-            bcovint(j,k,:)
-     .       =XformToCov_ijk_face(g_def,i_bc-1,j,k,igr,bcnvint(j,k,:),1)
-          enddo
-        enddo
-
-        !Perform angular average: EXCLUDE m=n=0 mode (CRITICAL)
-        bcov_avg(2) = sum(bcovint(1:ny,1:nz,2))
-        bcov_avg(3) = sum(bcovint(1:ny,1:nz,3))
-
-#if defined(petsc)
-        send_buf = bcov_avg
-        call MPI_Allreduce(send_buf,rec_buf,2,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,g_def%MPI_COMM_YZ,mpierr)
-        bcov_avg = rec_buf
-#endif
-
-        bcov_avg = bcov_avg/(nyd*nzd)
-      
-        !Subtract average
-        bcovint(:,:,2) = bcovint(:,:,2) - bcov_avg(2)
-        bcovint(:,:,3) = bcovint(:,:,3) - bcov_avg(3)
-
-      end function bcov_plasma_bdry_v2
-
-c     bcnv_plasma_int
-c     ####################################################################      
-      function bcnv_plasma_int(bcnv) result(bcnvintm)
+      function bcnv1_plasma_int(bcnv) result(bcnv1intm)
 
 c     --------------------------------------------------------------------
 c     Store Bcnv inside plasma (dr from wall) for radial-B response
@@ -382,17 +468,17 @@ c     --------------------------------------------------------------------
         implicit none
       
         real(8),dimension(0:,0:,0:,:) :: bcnv
-        real(8) :: bcnvintm (0:size(bcnv,2)-1
-     .                      ,0:size(bcnv,3)-1,3)
+        real(8) :: bcnv1intm(0:size(bcnv,2)-1
+     .                      ,0:size(bcnv,3)-1)
 
         dr_w = (g_def%xg(nxg)-g_def%xg(nxg-1))
 
 c$$$        bcnvintm(:,:,:) = bcnv(i_bc-2,:,:,:)
 c$$$        dr_w = 1.5*dr_w
-        bcnvintm(:,:,:) = bcnv(i_bc-1,:,:,:)
+        bcnv1intm(:,:) = bcnv(i_bc-1,:,:,1)
         dr_w = 0.5*dr_w
 
-      end function bcnv_plasma_int
+      end function bcnv1_plasma_int
 
       end subroutine rw_Ebc
 
@@ -1085,16 +1171,7 @@ c     ##################################################################
       implicit none
 
       !Compute RW E-field using time-n B
-      if (save_tn) then
-        if (rw_exp_fix) then
-          call find_B(gv%gparams,igr,B0,acov_n,bcnv,.false.
-     $             ,bcond_b=bcnd_b)
-          call rw_Ebc(gv%gparams,igr,bcnv  ,Erw)
-        else
-          !WARNING:seeds RW instability for small tau_w for arbitrary dt
-          call rw_Ebc(gv%gparams,igr,bcnv_n,Erw)
-        endif
-      endif
+      if (save_tn) call rw_Ebc(gv%gparams,igr,bcnv_n,Erw)
       
       !Second-order SSP explicit update of RW BC
       if ((itime > inewtime + 2).and.(.not.rw_fft_tupdate)
