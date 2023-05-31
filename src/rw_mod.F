@@ -388,37 +388,19 @@ c     Begin program
 
 c     Compute Bcov @ wall
 
-c$$$        if (fix.and.(.not.extrap)) then
-c$$$          !Interpolate normal component (trustworthy, needed for div(B)=0)
-c$$$          bcnvint (:,:,1)= 0.5*bcnv(i_bc  ,:,:,1)
-c$$$     .                    +0.5*bcnv(i_bc-1,:,:,1)
-c$$$
-c$$$          !Extrapolate tangential components (problematic)
-c$$$          i = i_bc-1 ; ord = 3
-c$$$          call getMGmap(g_def,i,1,1,igr,igr,igr,ig,jg,kg)
-c$$$          do k=0,nz+1
-c$$$            do j=0,ny+1
-c$$$              xh = 0.5*(g_def%xx(ig)+g_def%xx(ig+1))
-c$$$              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,2)
-c$$$     .                      ,1,xh,bcnvint (j,k,2),ord,0)
-c$$$              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
-c$$$     .                      ,1,xh,bcnvint (j,k,3),ord,0)
-c$$$              bcovint(j,k,:)
-c$$$     .       =XformToCov_ijk_face(g_def,i_bc-1,j,k,igr,bcnvint(j,k,:),1)
-c$$$            enddo
-c$$$          enddo
-c$$$        elseif (extrap) then
         if (extrap) then
           !Extrapolate ALL components
           i = i_bc-1 ; ord = 2
           call getMGmap(g_def,i,1,1,igr,igr,igr,ig,jg,kg)
           do k=0,nz+1
             do j=0,ny+1
-              bcovl(1,:) = XformToCov(g_def,i,j,k,igr,bcnv(i-3,j,k,:))
-              bcovl(2,:) = XformToCov(g_def,i,j,k,igr,bcnv(i-2,j,k,:))
-              bcovl(3,:) = XformToCov(g_def,i,j,k,igr,bcnv(i-1,j,k,:))
-              bcovl(4,:) = XformToCov(g_def,i,j,k,igr,bcnv(i  ,j,k,:))
+              bcovl(1,:) = XformToCov(g_def,i-3,j,k,igr,bcnv(i-3,j,k,:))
+              bcovl(2,:) = XformToCov(g_def,i-2,j,k,igr,bcnv(i-2,j,k,:))
+              bcovl(3,:) = XformToCov(g_def,i-1,j,k,igr,bcnv(i-1,j,k,:))
+              bcovl(4,:) = XformToCov(g_def,i  ,j,k,igr,bcnv(i  ,j,k,:))
+
               xh = 0.5*(g_def%xx(ig)+g_def%xx(ig+1))
+
               call IntDriver1d(4,g_def%xx(ig-3:ig),bcovl(:,1)
      .                        ,1,xh,bcovint(j,k,1),ord,0)
               call IntDriver1d(4,g_def%xx(ig-3:ig),bcovl(:,2)
