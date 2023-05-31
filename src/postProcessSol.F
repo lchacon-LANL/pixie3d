@@ -610,18 +610,6 @@ c       Find vector potential RW boundary condition at face
           b_cnv(:,:,:,1) = vn%array_var(IBX)%array
           b_cnv(:,:,:,2) = vn%array_var(IBY)%array
           b_cnv(:,:,:,3) = vn%array_var(IBZ)%array
-
-c$$$          !Reimpose EXTRAP B-tangential BCs to avoid instability
-c$$$          if (rw_exp_fix) then
-c$$$            bcnd = gv%aux%vec_list(IBCNV)%bconds
-c$$$            where (bcnd==-NEU) bcnd = EXT
-c$$$
-c$$$            b_cov = XformToCov(gv%gparams,igx,b_cnv)
-c$$$            v0    = 0d0
-c$$$        
-c$$$            call setBC(gv%gparams,IBX,3,nx,ny,nz,b_cnv,b_cov,v0
-c$$$     .                ,bcnd,igx,igx,igx,iorder=1,is_cnv=.true.)
-c$$$          endif
          
           !Compute RW E_bc
           call rw_Ebc(gv%gparams,igx,b_cnv,E_bc)
