@@ -167,14 +167,14 @@ c     Begin program
 
 c     Compute INTERNAL B-field components @ RW
 
+      bcnv1int  = bcnv1_plasma_bdry(bcnv)              !Previous time step
+
       if (PRESENT(bcnvp)) then
-        bcnv1int  = bcnv1_plasma_bdry(bcnv)                  !Previous time step
-        bcovint   = bcov_plasma_bdry (bcnvp,.false.,.false.) !New time step
-        bcnv1intm = bcnv1_plasma_int (bcnvp)                 !New time step
+        bcovint   = bcov_plasma_bdry(bcnvp,.false.)    !New time step
+        bcnv1intm = bcnv1_plasma_int(bcnvp)            !New time step
       else
-        bcnv1int  = bcnv1_plasma_bdry(bcnv)
-        bcovint   = bcov_plasma_bdry (bcnv,extrap,rw_exp_fix)
-        bcnv1intm = bcnv1_plasma_int (bcnv)
+        bcovint   = bcov_plasma_bdry(bcnv,extrap.or.rw_exp_fix)
+        bcnv1intm = bcnv1_plasma_int(bcnv)
       endif
 
 c     Compute EXTERNAL tangential B-field components @ RW (VACUUM response)
@@ -361,7 +361,7 @@ c$$$      end function bcov_plasma_bdry_v2
 
 c     bcov_plasma_bdry
 c     ####################################################################      
-      function bcov_plasma_bdry(bcnv,extrap,fix) result(bcovint)
+      function bcov_plasma_bdry(bcnv,extrap) result(bcovint)
 
 c     --------------------------------------------------------------------
 c     Compute Bcov @ wall on plasma side (for E-field computation)
@@ -375,58 +375,70 @@ c     Call variables
         real(8) :: bcovint (0:size(bcnv,2)-1
      .                     ,0:size(bcnv,3)-1,3)
 
-        logical :: extrap,fix
+        logical :: extrap
         
 c     Local variables
         
-        real(8) :: bcov_avg(2:3),send_buf(2),rec_buf(2)
-        real(8) :: xh(1)
         integer :: ig,jg,kg,i,j,k,ord
-        real(8) :: bcnvint (0:size(bcnv,2)-1
-     .                     ,0:size(bcnv,3)-1,3)
+        real(8) :: bcov_avg(2:3),send_buf(2),rec_buf(2),bcovl(4,3),xh(1)
+c$$$        real(8) :: bcnvint (0:size(bcnv,2)-1
+c$$$     .                     ,0:size(bcnv,3)-1,3)
 
 c     Begin program
 
 c     Compute Bcov @ wall
 
-        if (fix.and.(.not.extrap)) then
-          !Interpolate normal component (trustworthy, needed for div(B)=0)
-          bcnvint (:,:,1)= 0.5*bcnv(i_bc  ,:,:,1)
-     .                    +0.5*bcnv(i_bc-1,:,:,1)
-
-          !Extrapolate tangential components (problematic)
-          i = i_bc-1 ; ord = 3
-          call getMGmap(g_def,i,1,1,igr,igr,igr,ig,jg,kg)
-          do k=0,nz+1
-            do j=0,ny+1
-              xh = 0.5*(g_def%xx(ig)+g_def%xx(ig+1))
-              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,2)
-     .                      ,1,xh,bcnvint (j,k,2),ord,0)
-              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
-     .                      ,1,xh,bcnvint (j,k,3),ord,0)
-              bcovint(j,k,:)
-     .       =XformToCov_ijk_face(g_def,i_bc-1,j,k,igr,bcnvint(j,k,:),1)
-            enddo
-          enddo
-        elseif (extrap) then
+c$$$        if (fix.and.(.not.extrap)) then
+c$$$          !Interpolate normal component (trustworthy, needed for div(B)=0)
+c$$$          bcnvint (:,:,1)= 0.5*bcnv(i_bc  ,:,:,1)
+c$$$     .                    +0.5*bcnv(i_bc-1,:,:,1)
+c$$$
+c$$$          !Extrapolate tangential components (problematic)
+c$$$          i = i_bc-1 ; ord = 3
+c$$$          call getMGmap(g_def,i,1,1,igr,igr,igr,ig,jg,kg)
+c$$$          do k=0,nz+1
+c$$$            do j=0,ny+1
+c$$$              xh = 0.5*(g_def%xx(ig)+g_def%xx(ig+1))
+c$$$              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,2)
+c$$$     .                      ,1,xh,bcnvint (j,k,2),ord,0)
+c$$$              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
+c$$$     .                      ,1,xh,bcnvint (j,k,3),ord,0)
+c$$$              bcovint(j,k,:)
+c$$$     .       =XformToCov_ijk_face(g_def,i_bc-1,j,k,igr,bcnvint(j,k,:),1)
+c$$$            enddo
+c$$$          enddo
+c$$$        elseif (extrap) then
+        if (extrap) then
           !Extrapolate ALL components
           i = i_bc-1 ; ord = 2
           call getMGmap(g_def,i,1,1,igr,igr,igr,ig,jg,kg)
           do k=0,nz+1
             do j=0,ny+1
+              bcovl(1,:) = XformToCov(g_def,i,j,k,igr,bcnv(i-3,j,k,:))
+              bcovl(2,:) = XformToCov(g_def,i,j,k,igr,bcnv(i-2,j,k,:))
+              bcovl(3,:) = XformToCov(g_def,i,j,k,igr,bcnv(i-1,j,k,:))
+              bcovl(4,:) = XformToCov(g_def,i,j,k,igr,bcnv(i  ,j,k,:))
               xh = 0.5*(g_def%xx(ig)+g_def%xx(ig+1))
-              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,1)
-     .                      ,1,xh,bcnvint (j,k,1),ord,0)
-              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,2)
-     .                      ,1,xh,bcnvint (j,k,2),ord,0)
-              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
-     .                      ,1,xh,bcnvint (j,k,3),ord,0)
-              bcovint(j,k,:)
-     .       =XformToCov_ijk_face(g_def,i_bc-1,j,k,igr,bcnvint(j,k,:),1)
+              call IntDriver1d(4,g_def%xx(ig-3:ig),bcovl(:,1)
+     .                        ,1,xh,bcovint(j,k,1),ord,0)
+              call IntDriver1d(4,g_def%xx(ig-3:ig),bcovl(:,2)
+     .                        ,1,xh,bcovint(j,k,2),ord,0)
+              call IntDriver1d(4,g_def%xx(ig-3:ig),bcovl(:,3)
+     .                        ,1,xh,bcovint(j,k,3),ord,0)
+
+c$$$              xh = 0.5*(g_def%xx(ig)+g_def%xx(ig+1))
+c$$$              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,1)
+c$$$     .                      ,1,xh,bcnvint (j,k,1),ord,0)
+c$$$              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,2)
+c$$$     .                      ,1,xh,bcnvint (j,k,2),ord,0)
+c$$$              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
+c$$$     .                      ,1,xh,bcnvint (j,k,3),ord,0)
+c$$$              bcovint(j,k,:)
+c$$$     .       =XformToCov_ijk_face(g_def,i_bc-1,j,k,igr,bcnvint(j,k,:),1)
             enddo
           enddo
         else
-          !WARNING: tangential comp. seed RW instability
+          !WARNING: tangential comps. seed RW instability
           !         for small tau_w for arbitrary dt
           do k=0,nz+1
             do j=0,ny+1
