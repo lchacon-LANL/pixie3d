@@ -1633,7 +1633,7 @@ cc        if (adiabatic) n00 = (p00/p0max)**(1./gamma)
             enddo
           enddo
         case('cyl')
-          if (nh3 == 0) nh3 = nint(kk*RR) !To set the right perturbation wavelength
+cc          if (nh3 == 0) nh3 = nint(kk*RR) !Unsafe!!!
 
           if (nh2 == 0 .and. nh3 == 0) then
             messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
