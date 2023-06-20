@@ -166,12 +166,12 @@ c     Begin program
 
 c     Compute INTERNAL B-field components @ RW
 
-      bcnv1int  = bcnv1_plasma_bdry(bcnv)              !Previous time step
+      bcnv1int  = bcnv1_plasma_bdry(bcnv,extrap)       !Previous time step
 
-      if (PRESENT(bcnvp)) then
-        bcovint   = bcov_plasma_bdry(bcnvp,.false.)    !New time step
-        bcnv1intm = bcnv1_plasma_int(bcnvp)            !New time step
-      else
+      if (PRESENT(bcnvp)) then                         !New time step
+        bcovint   = bcov_plasma_bdry(bcnvp,.false.)
+        bcnv1intm = bcnv1_plasma_int(bcnvp)
+      else                                             !Old time step
         bcovint   = bcov_plasma_bdry(bcnv,extrap.or.rw_exp_fix)
         bcnv1intm = bcnv1_plasma_int(bcnv)
       endif
@@ -207,11 +207,9 @@ c     Find electric field components @ r=1 (store in (nx+1))
 c     Debug IO
 
       if (debug.and.(.not.test)) then
-#if defined(petsc)
-        mag = pmax(maxval(abs(E_0(i_bc,1:ny,1:nz,:)))
-     $            ,mpi_comm=g_def%MPI_COMM_YZ)
-#else
         mag = maxval(abs(E_0(i_bc,1:ny,1:nz,:)))
+#if defined(petsc)
+        mag = pmax(mag,mpi_comm=g_def%MPI_COMM_YZ)
 #endif
         if (my_rank_yz==0) write (*,*) "max RW Ebc=",mag
       elseif (my_rank_yz==0) then
@@ -224,37 +222,50 @@ c     End program
 
 c     bcnv1_plasma_bdry
 c     ####################################################################      
-      function bcnv1_plasma_bdry(bcnv) result(bcnv1int)
+      function bcnv1_plasma_bdry(bcnv,extrap) result(bcnv1int)
 
 c     --------------------------------------------------------------------
-c     Compute Bcnv @ wall on plasma side
+c     Compute Bcnv^1 @ wall on plasma side
 c     --------------------------------------------------------------------
 
         implicit none
-      
+
+c     Call variables
+        
         real(8),dimension(0:,0:,0:,:) :: bcnv
         real(8) :: bcnv1int(0:size(bcnv,2)-1
      .                     ,0:size(bcnv,3)-1)
 
-        real(8) :: xh(1)
+        logical :: extrap
+                
+c     Local variables
+
         integer :: ig,jg,kg,i,j,k,ord
-        
+        real(8) :: xh(1)
+
+c     Begin program
+
         if (extrap) then
           !Extrapolate to face from interior
           i = i_bc-1 ; ord = 2
           call getMGmap(g_def,i,1,1,igr,igr,igr,ig,jg,kg)
           xh = 0.5*(g_def%xx(ig)+g_def%xx(ig+1))
-
-          do k=0,nz+1
-            do j=0,ny+1
-              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,1)
-     .                        ,1,xh,bcnv1int(j,k),ord,0)
-            enddo
-          enddo
         else
-          bcnv1int = 0.5*bcnv(i_bc  ,:,:,1)
-     .              +0.5*bcnv(i_bc-1,:,:,1)
+          !Interpolate to face
+          i = i_bc ; ord = 1
+          call getMGmap(g_def,i,1,1,igr,igr,igr,ig,jg,kg)
+          xh = 0.5*(g_def%xx(ig)+g_def%xx(ig-1))
         endif
+        
+        do k=0,nz+1
+          do j=0,ny+1
+            call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,1)
+     .                        ,1,xh,bcnv1int(j,k),ord,0)
+          enddo
+        enddo
+
+c$$$          bcnv1int = 0.5*bcnv(i_bc  ,:,:,1)
+c$$$     .              +0.5*bcnv(i_bc-1,:,:,1)
 
       end function bcnv1_plasma_bdry
 
@@ -278,71 +289,46 @@ c     Call variables
         
 c     Local variables
         
-        integer :: ig,jg,kg,i,j,k,ord
+        integer :: ig,jg,kg,i,j,k,ord,nyg,nzg
         real(8) :: bcov_avg(2:3),send_buf(2),rec_buf(2),bcovl(4,3),xh(1)
-c$$$        real(8) :: bcnvint (0:size(bcnv,2)-1
-c$$$     .                     ,0:size(bcnv,3)-1,3)
 
 c     Begin program
-
-c     Compute Bcov @ wall
 
         if (extrap) then
           i = i_bc-1 ; ord = 2
           call getMGmap(g_def,i,1,1,igr,igr,igr,ig,jg,kg)
           xh = 0.5*(g_def%xx(ig)+g_def%xx(ig+1))
-
-          do k=0,nz+1
-            do j=0,ny+1
-              bcovl(1,:) = XformToCov(g_def,i-3,j,k,igr,bcnv(i-3,j,k,:))
-              bcovl(2,:) = XformToCov(g_def,i-2,j,k,igr,bcnv(i-2,j,k,:))
-              bcovl(3,:) = XformToCov(g_def,i-1,j,k,igr,bcnv(i-1,j,k,:))
-              bcovl(4,:) = XformToCov(g_def,i  ,j,k,igr,bcnv(i  ,j,k,:))
-
-              call IntDriver1d(4,g_def%xx(ig-3:ig),bcovl(:,1)
-     .                        ,1,xh,bcovint(j,k,1),ord,0)
-              call IntDriver1d(4,g_def%xx(ig-3:ig),bcovl(:,2)
-     .                        ,1,xh,bcovint(j,k,2),ord,0)
-              call IntDriver1d(4,g_def%xx(ig-3:ig),bcovl(:,3)
-     .                        ,1,xh,bcovint(j,k,3),ord,0)
-
-c$$$              xh = 0.5*(g_def%xx(ig)+g_def%xx(ig+1))
-c$$$              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,1)
-c$$$     .                      ,1,xh,bcnvint (j,k,1),ord,0)
-c$$$              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,2)
-c$$$     .                      ,1,xh,bcnvint (j,k,2),ord,0)
-c$$$              call IntDriver1d(4,g_def%xx(ig-3:ig),bcnv(i-3:i,j,k,3)
-c$$$     .                      ,1,xh,bcnvint (j,k,3),ord,0)
-c$$$              bcovint(j,k,:)
-c$$$     .       =XformToCov_ijk_face(g_def,i_bc-1,j,k,igr,bcnvint(j,k,:),1)
-            enddo
-          enddo
         else
           !WARNING: tangential comps. seed RW instability
           !         for small tau_w for arbitrary dt
           i = i_bc ; ord = 1
           call getMGmap(g_def,i,1,1,igr,igr,igr,ig,jg,kg)
           xh = 0.5*(g_def%xx(ig)+g_def%xx(ig-1))
+        endif
+        
+        do k=0,nz+1
+          do j=0,ny+1
+            bcovl(1,:) = XformToCov(g_def,i-3,j,k,igr,bcnv(i-3,j,k,:))
+            bcovl(2,:) = XformToCov(g_def,i-2,j,k,igr,bcnv(i-2,j,k,:))
+            bcovl(3,:) = XformToCov(g_def,i-1,j,k,igr,bcnv(i-1,j,k,:))
+            bcovl(4,:) = XformToCov(g_def,i  ,j,k,igr,bcnv(i  ,j,k,:))
 
-          do k=0,nz+1
-            do j=0,ny+1
-              bcovl(1,:) = XformToCov(g_def,i-3,j,k,igr,bcnv(i-3,j,k,:))
-              bcovl(2,:) = XformToCov(g_def,i-2,j,k,igr,bcnv(i-2,j,k,:))
-              bcovl(3,:) = XformToCov(g_def,i-1,j,k,igr,bcnv(i-1,j,k,:))
-              bcovl(4,:) = XformToCov(g_def,i  ,j,k,igr,bcnv(i  ,j,k,:))
-
-              call IntDriver1d(4,g_def%xx(ig-3:ig),bcovl(:,1)
+            call IntDriver1d(4,g_def%xx(ig-3:ig),bcovl(:,1)
      .                        ,1,xh,bcovint(j,k,1),ord,0)
-              call IntDriver1d(4,g_def%xx(ig-3:ig),bcovl(:,2)
+            call IntDriver1d(4,g_def%xx(ig-3:ig),bcovl(:,2)
      .                        ,1,xh,bcovint(j,k,2),ord,0)
-              call IntDriver1d(4,g_def%xx(ig-3:ig),bcovl(:,3)
+            call IntDriver1d(4,g_def%xx(ig-3:ig),bcovl(:,3)
      .                        ,1,xh,bcovint(j,k,3),ord,0)
+          enddo
+        enddo
+
+c$$$          do k=0,nz+1
+c$$$            do j=0,ny+1
 c$$$              bcovint(j,k,:)
 c$$$     .          =0.5*XformToCov(g_def,i_bc-1,j,k,igr,bcnv(i_bc-1,j,k,:))
 c$$$     $          +0.5*XformToCov(g_def,i_bc  ,j,k,igr,bcnv(i_bc,  j,k,:))
-            enddo
-          enddo
-        endif
+c$$$            enddo
+c$$$          enddo
         
 c     Perform angular average: EXCLUDE m=n=0 mode (CRITICAL)
 
@@ -356,7 +342,10 @@ c     Perform angular average: EXCLUDE m=n=0 mode (CRITICAL)
         bcov_avg = rec_buf
 #endif
 
-        bcov_avg = bcov_avg/(nyd*nzd)
+        nyg = g_def%nygl(igr)
+        nzg = g_def%nzgl(igr)
+
+        bcov_avg = bcov_avg/(nyg*nzg)
       
         !Subtract average
         bcovint(:,:,2) = bcovint(:,:,2) - bcov_avg(2)
