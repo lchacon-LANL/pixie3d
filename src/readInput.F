@@ -717,6 +717,7 @@ c     #####################################################################
       implicit none
 
       integer :: i
+      real(8) :: kk,rr
       
       !Check legacy parameters
       if (hall_new     )  ion_hall = .true.
@@ -895,7 +896,14 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
 
       if (coords == 'hel') then  !Special case for 2D helical geometry
         if (nh2 == 0) nh2 = nint(gparams(1))
-        nh1 = nh2                
+        nh1 = nh2
+        
+        kk = gparams(2)
+        rr = gparams(3)
+        if (abs(kk*rr-1d0*nint(kk*rr)) > 1d-13) then
+          call critical(" Inconsistent helical input: k*R not integer")
+        endif
+
         if (.not.test)
      $     call warning("  Hardwired nh1 for this coordinate system")
       endif
