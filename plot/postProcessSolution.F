@@ -23,7 +23,8 @@ c--------------------------------------------------------------------
 
       use poincare_io
 
-      use app_iosetup, ONLY: car_diag_plots,heat_flx_diag
+      use app_iosetup, ONLY: car_diag_plots,heat_flx_diag,fourier
+     $                      ,poincare
 
 #if defined(RFX)
       use rfx

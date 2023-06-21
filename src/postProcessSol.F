@@ -601,8 +601,6 @@ c       Find db=B^(n+1)-B^n
      $          ,da_cov(0:nx+1,0:ny+1,0:nz+1,3)
      $          ,v0    (0:nx+1,0:ny+1,0:nz+1,3))
 
-        da_cov = 0d0
-
         db_cnv(:,:,:,1) = vnp%array_var(IBX)%array
      .                   -vn %array_var(IBX)%array
         db_cnv(:,:,:,2) = vnp%array_var(IBY)%array
@@ -618,19 +616,7 @@ c       Find vector potential RW boundary condition at face
           b_cnv(:,:,:,1) = vn%array_var(IBX)%array
           b_cnv(:,:,:,2) = vn%array_var(IBY)%array
           b_cnv(:,:,:,3) = vn%array_var(IBZ)%array
-
-          !Reimpose EXTRAP B-tangential BCs to avoid instability
-          if (rw_exp_fix) then
-            bcnd = gv%aux%vec_list(IBCNV)%bconds
-            where (bcnd==-NEU) bcnd = EXT
-
-            b_cov = XformToCov(gv%gparams,igx,b_cnv)
-            v0    = 0d0
-        
-            call setBC(gv%gparams,IBX,3,nx,ny,nz,b_cnv,b_cov,v0
-     .                ,bcnd,igx,igx,igx,iorder=1,is_cnv=.true.)
-          endif
-          
+         
           !Compute RW E_bc
           call rw_Ebc(gv%gparams,igx,b_cnv,E_bc)
 
@@ -653,6 +639,8 @@ c$$$          endif
 
           !E-field at face: nx+1/2
           da_cov(nx+1,:,:,:) = -dt*(1d0+xi_rw)*E_bc(nx+1,:,:,:)
+        else
+          da_cov = 0d0
         endif
         
 c       Clean db (and impose RW BC, if applicable)
