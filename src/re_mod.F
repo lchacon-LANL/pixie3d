@@ -8,11 +8,12 @@
 
       real(8),pointer,dimension(:,:,:),private :: nre_nm,nre_n,nre_np
 
-      logical,private :: B_weight,do_3d
-      real(8),private :: G_tol,Dstar,c_va
-      integer,private :: sp_order
-
-      logical :: re_pkg=.false.
+      !Setup lagrangian integration
+      logical,private :: B_weight=.false.
+     $                  ,do_3d=.true.
+      real(8),private :: G_tol=1e-8       !Green's function tol
+     $                  ,Dstar=0.15d0     !For stability
+      integer,private :: sp_order=2       !Spline order of interpolation
 
       type(mg_array),target,private :: gv_exb,bbmag
         
@@ -66,15 +67,28 @@ c     ###############################################################
         
       end subroutine re_init
 
+c     n_re
+c     ###############################################################
+      subroutine n_re(nre)
+
+        implicit none
+
+        real(8) :: nre(0:,0:,0:)
+
+        nre = nre_np
+ 
+      end subroutine n_re
+
 c     re_updt
 c     ###############################################################
-      subroutine re_updt(vnm,vn,vnp,iout)
+      subroutine re_updt(vnm,vn,vnp,nre,iout)
 
         implicit none
 
         !Call variables
         type(var_array),pointer :: vnm,vn,vnp
         integer :: iout
+        real(8) :: nre(0:,0:,0:)
 
         if (iout > 0 .and. my_rank == 0) then
           write (*,*)
@@ -90,7 +104,10 @@ c     ###############################################################
 
         !Lagrangian update for nre_np
         call re_lag(vnm,vn,vnp,iout)
-        
+
+        !Return n_re
+        nre = nre_np        
+
       end subroutine re_updt
 
 c     re_Eul
@@ -392,14 +409,6 @@ c     ###############################################################
      $          ,bcnv_n (0:nx+1,0:ny+1,0:nz+1,3)
      $          ,bcnv_nm(0:nx+1,0:ny+1,0:nz+1,3)
      $          ,bcnv_np(0:nx+1,0:ny+1,0:nz+1,3))
-
-        !Setup lagrangian integration
-        G_tol    = 1d-8       !Green's function tol
-        sp_order = 2          !Spline order of interpolation
-        B_weight = .false.
-        do_3d    = .true.
-        Dstar    = 0.15d0     !For stability
-        c_va     = 1d2        !c/v_A parameter
         
         !Set orbit tols to Green's function tol
         call set_orbit_tols(G_tol,G_tol)
@@ -466,13 +475,14 @@ c$$$        nre_np = nre_np*renum_before/renum_after
 
 c     re_lag_liu
 c     ###############################################################
-      subroutine re_lag_liu(vnm,vn,vnp,iout)
+      subroutine re_lag_liu(vnm,vn,vnp,nre,iout)
 
         implicit none
 
         !Call variables
         type(var_array),pointer :: vnm,vn,vnp
         integer :: iout
+        real(8) :: nre(0:,0:,0:)
 
         !Local variables
         integer :: igrid,nx,ny,nz
@@ -511,14 +521,6 @@ c     ###############################################################
      $          ,bcnv_nm (0:nx+1,0:ny+1,0:nz+1,3)
      $          ,bcnv_np (0:nx+1,0:ny+1,0:nz+1,3)
      $          ,bcov_np (0:nx+1,0:ny+1,0:nz+1,3))
-
-        !Setup lagrangian integration
-        G_tol    = 1d-8       !Green's function tol
-        sp_order = 2          !Spline order of interpolation
-        B_weight = .false.
-        do_3d    = .true.
-        Dstar    = 0.15d0     !For stability
-        c_va     = 1d2        !c/v_A parameter
         
         !Set orbit tols to Green's function tol
         call set_orbit_tols(G_tol,G_tol)
@@ -604,6 +606,9 @@ c$$$        nre_np = nre_np*renum_before/renum_after
         !Garbage collection
         deallocate(tmp_nm,tmp_n,tmp_np,bb,ibmag_nm,ibmag_n,ibmag_np
      $            ,bcnv_n,bcnv_nm,bcnv_np,ieps,j_cnv,bcov_np)
+
+        !Return n_re
+        nre = nre_np
         
       end subroutine re_lag_liu
       

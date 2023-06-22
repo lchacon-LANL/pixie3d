@@ -181,7 +181,7 @@ c ######################################################################
         integer :: xport_order=2
         
         real(8) :: nu,eta,dd,chi,chi_par,gamma,di,de,a_p,temp_ratio
-     .            ,heta=0d0,c_hyper,beta=1d-3,te0_ref
+     .            ,heta=0d0,c_hyper,beta=1d-3,te0_ref,c_va
 
         real(8) :: aa_eta,bb_eta,cc_eta
      .            ,aa_nu ,bb_nu ,cc_nu
@@ -500,6 +500,7 @@ c ######################################################################
      .                                       ,heat_xport
      .                                       ,heat_xport0
      .                                       ,heat_src
+     .                                       ,nre
 
         real(8),pointer,dimension(:,:,:,:) :: bcnv
      .                                       ,bcnv_0
@@ -525,6 +526,7 @@ c ######################################################################
      .                                       ,jcnv_0
      .                                       ,jcov
      .                                       ,jcov_0
+     .                                       ,jre
 
         real(8),pointer,dimension(:,:,:,:) :: vecnv
      .                                       ,vecov
@@ -742,6 +744,41 @@ cc        bhat => vaux%vec_list(IBHAT)%vec
 c     End program
 
       end subroutine createAuxVariables
+
+c     deallocLocalAuxVars
+c     ###################################################################
+      subroutine allocLocalAuxVars(igr)
+
+c     -------------------------------------------------------------------
+c     Deallocates LOCAL auxiliary variable storage.
+c     -------------------------------------------------------------------
+
+      integer :: igr
+      
+      integer :: nx,ny,nz
+
+c     Begin program
+
+      nx = gv%gparams%nxv(igr)
+      ny = gv%gparams%nyv(igr)
+      nz = gv%gparams%nzv(igr)
+
+      allocate(pcnv    (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,vscnv   (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,bhat    (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,v_advc  (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,rho_advc(0:nx+1,0:ny+1,0:nz+1)
+     .        ,prs_advc(0:nx+1,0:ny+1,0:nz+1)
+     .        ,tmp_advc(0:nx+1,0:ny+1,0:nz+1)
+     .        ,heat_xport(0:nx+1,0:ny+1,0:nz+1)
+     .        ,heat_xport0(0:nx+1,0:ny+1,0:nz+1)
+     .        ,heat_src(0:nx+1,0:ny+1,0:nz+1)
+     .        ,prs     (0:nx+1,0:ny+1,0:nz+1)
+     .        ,chi_tnsr(0:nx+1,0:ny+1,0:nz+1,6)
+     .        ,nre     (0:nx+1,0:ny+1,0:nz+1)
+     .        ,jre     (0:nx+1,0:ny+1,0:nz+1,3))
+
+      end subroutine allocLocalAuxVars
       
 c     deallocLocalAuxVars
 c     ###################################################################
@@ -756,7 +793,8 @@ c     -------------------------------------------------------------------
 c     Begin program
 
       deallocate(pcnv,vscnv,prs,bhat,v_advc,rho_advc,prs_advc,tmp_advc
-     .          ,heat_xport,heat_xport0,heat_src,chi_tnsr,stat=istat)
+     .          ,heat_xport,heat_xport0,heat_src,chi_tnsr,jre,nre
+     .          ,stat=istat)
 
       nullify(bcnv
      .       ,bcnv_0
@@ -2871,7 +2909,8 @@ c ######################################################################
      .            ,post_smooth_B    =.false. !Whether to smooth at postprocessing stage
      .            ,limit_dt_flow_cfl=.false. !Whether to limit Dt according to flow CFL
      .            ,post_filter_hel  =.false. !Whether to filter helical simulations
-        
+     .            ,re_pkg           =.false. !Whether we are using the runaway-e package
+
         logical,private :: symm_pi
 
         real(8) :: binom_alph=0d0
@@ -3323,8 +3362,8 @@ c     End program
 
 c     int_heat_src
 c     ###################################################################
-      function int_heat_src(g_def,i,j,k,igr,eta,nu,heta,jcnv,jcov,vcnv
-     .                     ,vecnv) result(ihs)
+      function int_heat_src(g_def,i,j,k,igr,eta,nu,heta,jcov,vcnv,vecnv)
+     .                     result(ihs)
 
 c     -------------------------------------------------------------------
 c     Provides external momentum source for selected equilibria, in
@@ -3339,7 +3378,6 @@ c     Call variables
 
         integer :: i,j,k,igr
         real(8) :: ihs
-     .            ,jcnv (0:,0:,0:,:)
      .            ,jcov (0:,0:,0:,:)
      .            ,vcnv (0:,0:,0:,:)
      .            ,vecnv(0:,0:,0:,:)
@@ -3352,8 +3390,7 @@ c     Local variables
 c     Begin program
 
         !Joule heating
-        ihs =eta(i,j,k)*scalarProduct_ijk(g_def,i,j,k,igr,jcnv(i,j,k,:)
-     .                                                   ,jcov(i,j,k,:))
+        ihs =eta(i,j,k)*vectorNorm(g_def,i,j,k,igr,jcov(i,j,k,:),.true.)
         
         !Ion viscosity
         ihs =ihs + viscous_heat_src(g_def,i,j,k,igr,nu,vcnv,vcnv,sym_st)
@@ -3369,14 +3406,113 @@ c     End program
 
       end function int_heat_src
 
+c     j_re
+c     ###############################################################
+      function j_re(g_def,igr,n_re,eeta,bcnv,bcov,ecov) result(jre)
+
+        implicit none
+
+c     Call variables
+
+        type(grid_mg_def),pointer :: g_def
+
+        integer :: igr
+        
+        real(8) :: n_re(0:,0:,0:)
+     $            ,eeta(0:,0:,0:)
+     $            ,bcnv(0:,0:,0:,:)
+     $            ,bcov(0:,0:,0:,:)
+     $            ,ecov(0:,0:,0:,:)
+        
+        real(8) :: jre(0:size(bcnv,1)-1
+     $                ,0:size(bcnv,2)-1
+     $                ,0:size(bcnv,3)-1,3)
+
+c     Local variables
+
+        real(8) :: ib2  (0:size(bcnv,1)-1
+     $                  ,0:size(bcnv,2)-1
+     $                  ,0:size(bcnv,3)-1)
+     $            ,alpha(0:size(bcnv,1)-1
+     $                  ,0:size(bcnv,2)-1
+     $                ,  0:size(bcnv,3)-1)
+     $            ,beta (0:size(bcnv,1)-1
+     $                  ,0:size(bcnv,2)-1
+     $                  ,0:size(bcnv,3)-1)
+     $            ,v_exb(0:size(bcnv,1)-1
+     $                  ,0:size(bcnv,2)-1
+     $                  ,0:size(bcnv,3)-1,3)
+     $            ,bn   (0:size(bcnv,1)-1
+     $                  ,0:size(bcnv,2)-1
+     $                ,  0:size(bcnv,3)-1,3)
+     $            ,axb  (0:size(bcnv,1)-1
+     $                  ,0:size(bcnv,2)-1
+     $                  ,0:size(bcnv,3)-1,3)
+     $            ,abb  (0:size(bcnv,1)-1
+     $                  ,0:size(bcnv,2)-1
+     $                  ,0:size(bcnv,3)-1,3)
+
+        real(8),dimension(:,:,:),pointer :: jac
+        
+c     Begin program
+
+        jac => g_def%gmetric%grid(igr)%jac
+        
+        ib2 = jac/sum(bcnv*bcov,4)
+
+        alpha = n_re*eeta*ib2
+        beta  = 1d0 + alpha*alpha/ib2
+
+        !Covariant ExB flow
+        v_exb = crossProduct(g_def,igr,ecov,bcov,.false.)
+        v_exb = XformToCov(g_def,igr,v_exb)
+        
+        v_exb(:,:,:,1) = v_exb(:,:,:,1)*ib2
+        v_exb(:,:,:,2) = v_exb(:,:,:,2)*ib2
+        v_exb(:,:,:,3) = v_exb(:,:,:,3)*ib2
+        
+        !Covariant unit b-field vector
+        ib2 = sqrt(ib2)
+        bn(:,:,:,1) = bcov(:,:,:,1)*ib2
+        bn(:,:,:,2) = bcov(:,:,:,2)*ib2
+        bn(:,:,:,3) = bcov(:,:,:,3)*ib2
+
+        !Compute COVARIANT runaway current with MHD E-field
+        jre = c_va*bn + v_exb
+
+        jre(:,:,:,1) = -n_re*jre(:,:,:,1)
+        jre(:,:,:,2) = -n_re*jre(:,:,:,2)
+        jre(:,:,:,3) = -n_re*jre(:,:,:,3)
+
+        !Account for runaway resistive term in E-field self-consistently
+        axb = crossProduct(g_def,igr,jre,bcov,.false.)
+        axb = XformToCov(g_def,igr,axb)
+        axb(:,:,:,1) = alpha*axb(:,:,:,1)
+        axb(:,:,:,2) = alpha*axb(:,:,:,2)
+        axb(:,:,:,3) = alpha*axb(:,:,:,3)
+
+        beta = alpha*alpha*sum(bcnv*jre,4)/jac
+        abb(:,:,:,1) = beta*bcov(:,:,:,1)
+        abb(:,:,:,2) = beta*bcov(:,:,:,2)
+        abb(:,:,:,3) = beta*bcov(:,:,:,3)
+
+        jre = jre + axb + abb
+        
+        jre(:,:,:,1) = jre(:,:,:,1)/beta
+        jre(:,:,:,2) = jre(:,:,:,2)/beta
+        jre(:,:,:,3) = jre(:,:,:,3)/beta
+        
+      end function j_re
+      
 c     fillLocalAuxVars
 c     ###################################################################
       subroutine fillLocalAuxVars(igr,varray,vaux)
 
-      implicit none
 c     -------------------------------------------------------------------
 c     Fills local auxiliary variables (SAMRAI unaware)
 c     -------------------------------------------------------------------
+
+      implicit none
 
 c     Call variables
 
@@ -3404,20 +3540,7 @@ c     Begin program
 
 c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
 
-      if (.not.associated(pcnv)) then
-        allocate(pcnv    (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,vscnv   (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,bhat    (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,v_advc  (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,rho_advc(0:nx+1,0:ny+1,0:nz+1)
-     .          ,prs_advc(0:nx+1,0:ny+1,0:nz+1)
-     .          ,tmp_advc(0:nx+1,0:ny+1,0:nz+1)
-     .          ,heat_xport(0:nx+1,0:ny+1,0:nz+1)
-     .          ,heat_xport0(0:nx+1,0:ny+1,0:nz+1)
-     .          ,heat_src(0:nx+1,0:ny+1,0:nz+1)
-     .          ,prs     (0:nx+1,0:ny+1,0:nz+1)
-     .          ,chi_tnsr(0:nx+1,0:ny+1,0:nz+1,6))
-      endif
+      if (.not.associated(pcnv)) call allocLocalAuxVars(igr)
 
       pcnv = 0d0
       vscnv= 0d0
@@ -3431,6 +3554,7 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
       heat_src   = 0d0
       prs        = 0d0
       chi_tnsr   = 0d0
+      jre        = 0d0
       
       rho => vaux%var_list(IRHO_AUX )%array
       tmp => vaux%var_list(ITMP_AUX )%array
@@ -3548,7 +3672,16 @@ c$$$      endif
         endif
       endif
 #endif
-      
+
+      !Runaway current and contribution to Ohm's law
+      if (re_pkg) then
+        jre = j_re(gv%gparams,igr,nre,eeta,bcnv,bcov,E_ni)
+        
+        E_ni(:,:,:,1) = E_ni(:,:,:,1) - eeta*jre(:,:,:,1)
+        E_ni(:,:,:,2) = E_ni(:,:,:,1) - eeta*jre(:,:,:,2)
+        E_ni(:,:,:,3) = E_ni(:,:,:,1) - eeta*jre(:,:,:,3)
+      endif
+
       !Heat source term
       if ((.not.adiabatic).and.(gamma > 1d0)) then
         do k=1,nz
@@ -3557,7 +3690,7 @@ c$$$      endif
               !Internal heat source
               heat_src(i,j,k) =
      .             int_heat_src(gv%gparams,i,j,k,igr,eeta,nuu,h_eta
-     .                         ,jcnv,jcov,vcnv,vecnv)
+     .                         ,jcov-jre,vcnv,vecnv)
 
               !External heat source
               heat_src(i,j,k) = heat_src(i,j,k)
@@ -3566,7 +3699,7 @@ c$$$      endif
           enddo
         enddo
       endif
-
+      
 c     End program
 
       end subroutine fillLocalAuxVars

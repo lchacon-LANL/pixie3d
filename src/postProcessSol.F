@@ -26,7 +26,7 @@ c--------------------------------------------------------------------
       use rw_bc, ONLY: res_wall_bc,E_bc,rw_Ebc,rw_fft_tupdate,rw_exp_fix
      $                ,rw_exp_ssp_bc
 
-      use re, ONLY: re_updt,re_pkg
+      use re, ONLY: re_updt,re_lag_liu
       
       implicit none
 
@@ -134,9 +134,10 @@ c Perform Lagrangian temperature transport step
 
       if (lagrangian) call post__lag_xport
 
-c Perform runaway electron update
+c Perform runaway electron density update
 
-      if (re_pkg) call re_updt(vnm,vn,vnp,ilevel)
+c$$$      if (re_pkg) call re_updt(vnm,vn,vnp,nre,ilevel)
+      if (re_pkg) call re_lag_liu(vnm,vn,vnp,nre,ilevel)
       
 c Add rotating magnetic perturbation
 

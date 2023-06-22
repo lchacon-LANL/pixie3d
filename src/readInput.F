@@ -67,6 +67,7 @@ c Namelists
      .                   ,r_v,tau_w,normal_flow_bc
      .                   ,rw_fft_tupdate,rw_implicit_bc,rw_exp_ssp_bc
      .                   ,rw_exp_pc_bc,rw_exp_fix
+     .                   ,re_pkg,c_va
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                   ,pc_as_solver,fpa,fpa_it
@@ -129,6 +130,7 @@ c Namelists
      .                   ,r_v,tau_w,normal_flow_bc,rw_implicit_bc
      .                   ,rw_exp_ssp_bc,rw_exp_pc_bc,rw_exp_fix
      .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_flow_bc
+     .                   ,re_pkg,c_va
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
@@ -522,6 +524,9 @@ c     #####################################################################
       rw_exp_ssp_bc  = .true.  ! Whether we use explicit SSP RW BCs
       rw_exp_pc_bc   = .false. ! Whether we use explicit predictor-corrector BCs
       rw_exp_fix     = .true.  ! Whether we use instability fix for small tau_w
+
+      re_pkg         = .false. ! Whether we activate the RE package
+      c_va           = 1d2     ! Ratio speed of light / Alfven speed
       
       !Nonlinear function parameters
       adiabatic  = .false.     ! Whether we use adiabatic EoS or not

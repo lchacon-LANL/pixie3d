@@ -115,7 +115,7 @@ c Local variables
       real(8) :: joule,viscous,heat_flx,heat_srce
 
       ! EOM equation
-      real(8) :: MS(3)
+      real(8) :: MS(3),RE(3)
 
 c Begin program
 
@@ -236,16 +236,32 @@ c     Sources
 
       if (.not.source_eval) then
         MS = ext_mom_src(gv%gparams,i,j,k,igx)
-      else
-        MS = 0d0
+
+        if (nc_eom_v) then
+          ff(IVX:IVZ) = ff(IVX:IVZ) - MS/rho(i,j,k)
+        else
+          ff(IVX:IVZ) = ff(IVX:IVZ) - MS
+        endif
       endif
 
-      if (nc_eom_v) then
-        ff(IVX:IVZ) = ff(IVX:IVZ) - MS/rho(i,j,k)
-      else
-        ff(IVX:IVZ) = ff(IVX:IVZ) - MS
+c     RE term
+
+      if (re_pkg) then
+        RE = nre(i,j,k)*E_ni(i,j,k,:)
+        RE = XformToCnv(gv%gparams,i,j,k,igx,RE)
+
+        RE = RE - crossProduct(gv%gparams,i,j,k,igx
+     $                        ,jre(i,j,k,:),bcov(i,j,k,:),.false.)
+
+        if (nc_eom_v) then
+          ff(IVX:IVZ) = ff(IVX:IVZ) - RE/rho(i,j,k)
+        else
+          ff(IVX:IVZ) = ff(IVX:IVZ) - RE
+        endif
       endif
 
+c     Jacobian factor
+      
       if (alt__eom()) ff(IVY) = ff(IVY)*jac
 
 c End
