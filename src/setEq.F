@@ -1679,6 +1679,7 @@ cc          if (nh3 == 0) nh3 = nint(kk*RR) !Unsafe!!!
      $            ,jcnv(0:nx+1,0:ny+1,0:nz+1,3)
      $            ,nre (0:nx+1,0:ny+1,0:nz+1)
      $            )
+
           bcov = XformToCov(gv%gparams,igr,bb)
           jcnv = curl(gv%gparams,igr,bcov)
           nre = scalarProduct(gv%gparams,igr,jcnv,bcov)

@@ -11,8 +11,8 @@
      $                                           ,nre_np=>null()
 
       !Setup lagrangian integration
-      logical,private :: B_weight=.false.
-     $                  ,do_3d=.true.
+      logical,private :: do_3d=.true.
+     $                  ,local_interp=.false.
       real(8),private :: G_tol=1e-8       !Green's function tol
      $                  ,Dstar=0.15d0     !For stability
       integer,private :: sp_order=2       !Spline order of interpolation
@@ -437,7 +437,7 @@ c     ###############################################################
         !Initialize Lagrangian step (!advection-diff mode with diff coeff Dstar)
         rkernel = -1d0/sqrt(Dstar) 
         call lag_init(gv%gparams,igrid,bcnv_np,rkernel,iout
-     .               ,G_tol,sp_order,B_weight,do_3d)
+     .               ,G_tol,sp_order,.not.local_interp,.false.,do_3d)
 
         !Find temp from pressure (automatically takes care of jacobian factor)
         tmp_nm = nre_nm/bmag_nm
@@ -448,8 +448,7 @@ c     ###############################################################
         
         call lag_update_bdf2(gv%gparams,igrid,IRHO
      .                      ,vnp%array_var(IRHO)%bconds
-     $                      ,tmp_nm,tmp_n,tmp_np,ieps,iout
-     .                      ,no_global_splines=.true.)
+     $                      ,tmp_nm,tmp_n,tmp_np,ieps,iout)
 
         !Destroy Lagrangian step
         call lag_destroy
@@ -568,11 +567,11 @@ c     ###############################################################
 
         !Find orbit flow
         bb = bb + v_exb/c_va
-
-        !Initialize Lagrangian step (!advection-diff mode with diff coeff Dstar)
+        
+        !Initialize Lagrangian step (advection-diff mode with diff coeff Dstar)
         rkernel = -1d0/sqrt(Dstar) 
-        call lag_init(gv%gparams,igrid,bb,rkernel,iout
-     .               ,G_tol,sp_order,B_weight,do_3d)
+        call lag_init(gv%gparams,igrid,bb,rkernel,iout,G_tol,sp_order
+     .               ,.not.local_interp,.false.,do_3d)
 
         !Find temp from pressure (automatically takes care of jacobian factor)
         tmp_nm = log(nre_nm*ibmag_nm)
@@ -583,13 +582,12 @@ c     ###############################################################
         call lag_update_bdf2(gv%gparams,igrid,IRHO
      .                      ,vnp%array_var(IRHO)%bconds
      .                      ,tmp_nm,tmp_n,tmp_np,ieps,iout
-     .                      ,lsode_ext=lsode_3d_ext
-     .                      ,no_global_splines=.true.)
+     .                      ,lsode_ext=lsode_3d_ext)
 
         !Destroy Lagrangian step
         call lag_destroy
 
-        !Return RE density
+        !Compute new-time RE density
         nre_np = exp(tmp_np)/ibmag_np
         
         !Check and correct for particle conservation?

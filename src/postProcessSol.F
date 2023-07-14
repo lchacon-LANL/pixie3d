@@ -718,7 +718,7 @@ c     ###############################################################
         endif
 
         call lag_init(gv%gparams,igrid,bcnv,2d0,ilevel
-     .               ,G_tol,sp_order,B_weight,do_3d)
+     .               ,G_tol,sp_order,.true.,B_weight,do_3d)
 
         !Find temp from pressure (automatically takes care of jacobian factor)
         tmp_nm = vnm%array_var(IPRS)%array
