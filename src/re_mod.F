@@ -6,7 +6,9 @@
 
       use local_BCS_variables, ONLY: order_bc
 
-      real(8),pointer,dimension(:,:,:),private :: nre_nm,nre_n,nre_np
+      real(8),pointer,dimension(:,:,:),private :: nre_nm=>null()
+     $                                           ,nre_n =>null()
+     $                                           ,nre_np=>null()
 
       !Setup lagrangian integration
       logical,private :: B_weight=.false.
@@ -53,9 +55,9 @@ c     ###############################################################
       
       end subroutine re_deallocVariables
 
-c     re_init
+c     init_nre
 c     ###############################################################
-      subroutine re_init(nre)
+      subroutine init_nre(nre)
 
         implicit none
 
@@ -65,11 +67,11 @@ c     ###############################################################
         nre_n  = nre
         nre_np = nre
         
-      end subroutine re_init
+      end subroutine init_nre
 
-c     n_re
+c     get_nre
 c     ###############################################################
-      subroutine n_re(nre)
+      subroutine get_nre(nre)
 
         implicit none
 
@@ -77,7 +79,7 @@ c     ###############################################################
 
         nre = nre_np
  
-      end subroutine n_re
+      end subroutine get_nre
 
 c     re_updt
 c     ###############################################################
@@ -475,14 +477,13 @@ c$$$        nre_np = nre_np*renum_before/renum_after
 
 c     re_lag_liu
 c     ###############################################################
-      subroutine re_lag_liu(vnm,vn,vnp,nre,iout)
+      subroutine re_lag_liu(vnm,vn,vnp,iout)
 
         implicit none
 
         !Call variables
         type(var_array),pointer :: vnm,vn,vnp
         integer :: iout
-        real(8) :: nre(0:,0:,0:)
 
         !Local variables
         integer :: igrid,nx,ny,nz
@@ -576,10 +577,8 @@ c     ###############################################################
         !Find temp from pressure (automatically takes care of jacobian factor)
         tmp_nm = log(nre_nm*ibmag_nm)
         tmp_n  = log(nre_n *ibmag_n )
-c$$$        tmp_np = nre_np/bmag_np
         tmp_np = (dt*nre_np - cn*tmp_n - cnm*tmp_nm)/cnp !Integrate source
-
-        ieps = 0d0  !Computed in lsode_3d_ext
+        ieps = c_va  !Not used, but needs to be <> 0
         
         call lag_update_bdf2(gv%gparams,igrid,IRHO
      .                      ,vnp%array_var(IRHO)%bconds
@@ -606,10 +605,7 @@ c$$$        nre_np = nre_np*renum_before/renum_after
         !Garbage collection
         deallocate(tmp_nm,tmp_n,tmp_np,bb,ibmag_nm,ibmag_n,ibmag_np
      $            ,bcnv_n,bcnv_nm,bcnv_np,ieps,j_cnv,bcov_np)
-
-        !Return n_re
-        nre = nre_np
-        
+       
       end subroutine re_lag_liu
       
 c     lsode_3d_ext

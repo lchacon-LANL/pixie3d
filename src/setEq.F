@@ -31,6 +31,8 @@ c--------------------------------------------------------------------
 
       use B_tools, ONLY: B_div_clean,findVectorPotential
 
+      use re, ONLY: init_nre
+
       implicit none
 
 c Call variables
@@ -1671,6 +1673,26 @@ cc          if (nh3 == 0) nh3 = nint(kk*RR) !Unsafe!!!
           enddo
         end select
 
+        !Compute runaway-e initial density
+        if (re_pkg) then
+          allocate(bcov(0:nx+1,0:ny+1,0:nz+1,3)
+     $            ,jcnv(0:nx+1,0:ny+1,0:nz+1,3)
+     $            ,nre (0:nx+1,0:ny+1,0:nz+1)
+     $            )
+          bcov = XformToCov(gv%gparams,igr,bb)
+          jcnv = curl(gv%gparams,igr,bcov)
+          nre = scalarProduct(gv%gparams,igr,jcnv,bcov)
+     $         /(sqrt(vectorNorm(gv%gparams,igr,bb,.false.))*c_va)
+
+          c_va = sign(1d0,sum(nre))*c_va
+          nre = abs(nre)
+          
+          call init_nre(nre)
+
+          
+          deallocate(bcov,jcnv,nre)
+        endif
+        
       case ('ntm2d')
 
         bootstrap= .true.

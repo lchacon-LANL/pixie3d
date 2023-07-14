@@ -265,7 +265,7 @@ c###################################################################
 
 c     Deallocate LOCAL auxiliary variables
 
-      call destroyAppBCs
+      call deallocLocalAuxVars
 
 cc      if (pc_vars_allcd) call deallocPCVariables
       

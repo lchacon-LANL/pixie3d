@@ -27,6 +27,8 @@ c------------------------------------------------------------------
 
       use xdraw_io
 
+      use re, ONLY: get_nre
+
       implicit none
 
 c Call variables
@@ -86,6 +88,11 @@ c Impose boundary conditions and find auxiliary quantities
 
 c Fill LOCAL auxiliary variables
 
+      if (re_pkg) then
+        if (.not.associated(nre)) allocate(nre(0:nx+1,0:ny+1,0:nz+1))
+        call get_nre(nre)
+      endif
+      
       call fillLocalAuxVars(igx,varray,gv%aux)
 
 c Safeguards
@@ -200,7 +207,7 @@ c------------------------------------------------------------------
 
 c Begin program
 
-      call destroyAppBCs
+      call deallocLocalAuxVars
 
 c End program
 

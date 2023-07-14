@@ -134,10 +134,10 @@ c Perform Lagrangian temperature transport step
 
       if (lagrangian) call post__lag_xport
 
-c Perform runaway electron density update
+c Update runaway electron density
 
-c$$$      if (re_pkg) call re_updt(vnm,vn,vnp,nre,ilevel)
-      if (re_pkg) call re_lag_liu(vnm,vn,vnp,nre,ilevel)
+c$$$      if (re_pkg) call re_updt(vnm,vn,vnp,ilevel)
+      if (re_pkg) call re_lag_liu(vnm,vn,vnp,ilevel)
       
 c Add rotating magnetic perturbation
 

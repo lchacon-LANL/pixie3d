@@ -557,7 +557,7 @@ c     Local variables
 c     Begin program
 
         if (.not.associated(vaux)) then
-          call pstop('defineAuxVariables'
+          call pstop('createAuxVariables'
      .              ,'Auxiliary variable structured not allocated')
         endif
 
@@ -745,7 +745,7 @@ c     End program
 
       end subroutine createAuxVariables
 
-c     deallocLocalAuxVars
+c     allocLocalAuxVars
 c     ###################################################################
       subroutine allocLocalAuxVars(igr)
 
@@ -755,7 +755,7 @@ c     -------------------------------------------------------------------
 
       integer :: igr
       
-      integer :: nx,ny,nz
+      integer :: nx,ny,nz,istat
 
 c     Begin program
 
@@ -775,8 +775,7 @@ c     Begin program
      .        ,heat_src(0:nx+1,0:ny+1,0:nz+1)
      .        ,prs     (0:nx+1,0:ny+1,0:nz+1)
      .        ,chi_tnsr(0:nx+1,0:ny+1,0:nz+1,6)
-     .        ,nre     (0:nx+1,0:ny+1,0:nz+1)
-     .        ,jre     (0:nx+1,0:ny+1,0:nz+1,3))
+     .        ,jre     (0:nx+1,0:ny+1,0:nz+1,3),stat=istat)
 
       end subroutine allocLocalAuxVars
       
@@ -2897,6 +2896,8 @@ c ######################################################################
 
         use ts_setup
 
+        use app_iosetup, ONLY: contour
+
         logical :: bootstrap        =.false. !Whether to calculate bootstrap current
      .            ,solenoidal       =.true.  !Whether we keep B solenoidal
      .            ,nc_eom_jxb       =.false. !Whether we use JxB instead of conserv. form
@@ -3410,7 +3411,11 @@ c     j_re
 c     ###############################################################
       function j_re(g_def,igr,n_re,eeta,bcnv,bcov,ecov) result(jre)
 
-        implicit none
+c     ---------------------------------------------------------------
+c     Compute COVARIANT runaway current
+c     ---------------------------------------------------------------
+
+      implicit none
 
 c     Call variables
 
@@ -3437,6 +3442,9 @@ c     Local variables
      $                  ,0:size(bcnv,2)-1
      $                ,  0:size(bcnv,3)-1)
      $            ,beta (0:size(bcnv,1)-1
+     $                  ,0:size(bcnv,2)-1
+     $                  ,0:size(bcnv,3)-1)
+     $            ,gamma(0:size(bcnv,1)-1
      $                  ,0:size(bcnv,2)-1
      $                  ,0:size(bcnv,3)-1)
      $            ,v_exb(0:size(bcnv,1)-1
@@ -3491,10 +3499,10 @@ c     Begin program
         axb(:,:,:,2) = alpha*axb(:,:,:,2)
         axb(:,:,:,3) = alpha*axb(:,:,:,3)
 
-        beta = alpha*alpha*sum(bcnv*jre,4)/jac
-        abb(:,:,:,1) = beta*bcov(:,:,:,1)
-        abb(:,:,:,2) = beta*bcov(:,:,:,2)
-        abb(:,:,:,3) = beta*bcov(:,:,:,3)
+        gamma = alpha*alpha*sum(bcnv*jre,4)/jac
+        abb(:,:,:,1) = gamma*bcov(:,:,:,1)
+        abb(:,:,:,2) = gamma*bcov(:,:,:,2)
+        abb(:,:,:,3) = gamma*bcov(:,:,:,3)
 
         jre = jre + axb + abb
         
@@ -3511,7 +3519,7 @@ c     ###################################################################
 c     -------------------------------------------------------------------
 c     Fills local auxiliary variables (SAMRAI unaware)
 c     -------------------------------------------------------------------
-
+      
       implicit none
 
 c     Call variables
@@ -3673,13 +3681,13 @@ c$$$      endif
       endif
 #endif
 
-      !Runaway current and contribution to Ohm's law
-      if (re_pkg) then
+      !Runaway COVARIANT current and contribution to Ohm's law
+      if (re_pkg.and.associated(nre)) then
         jre = j_re(gv%gparams,igr,nre,eeta,bcnv,bcov,E_ni)
-        
+
         E_ni(:,:,:,1) = E_ni(:,:,:,1) - eeta*jre(:,:,:,1)
-        E_ni(:,:,:,2) = E_ni(:,:,:,1) - eeta*jre(:,:,:,2)
-        E_ni(:,:,:,3) = E_ni(:,:,:,1) - eeta*jre(:,:,:,3)
+        E_ni(:,:,:,2) = E_ni(:,:,:,2) - eeta*jre(:,:,:,2)
+        E_ni(:,:,:,3) = E_ni(:,:,:,3) - eeta*jre(:,:,:,3)
       endif
 
       !Heat source term
