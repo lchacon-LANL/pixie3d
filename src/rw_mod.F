@@ -161,6 +161,7 @@ c     Begin program
       call MPI_Comm_rank(g_def%MPI_COMM_YZ,my_rank_yz,mpierr)
       debug_io = debug.and.my_rank_yz==0.and.(.not.test)
 #else
+      my_rank_yz = 0
       debug_io = debug.and.(.not.test)
 #endif
 
