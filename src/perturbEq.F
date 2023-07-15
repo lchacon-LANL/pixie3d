@@ -828,8 +828,8 @@ c     Read perturbation file
 
       if (my_rank == 0) then
         write (*,*)
-        write (*,*) 'Reading EXTERNAL eigenmodes from '
-     .       //trim(prt_file)//'...'
+        call info('  Reading EXTERNAL eigenmodes from '
+     .       //trim(prt_file)//'...')
       endif
 
       if (is_file(trim(prt_file))) then
@@ -857,6 +857,8 @@ c     Read perturbation file
 #if defined(petsc)
       call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
+
+      if (my_rank == 0) call info('  Done!')
 
 c     Interpolate to local mesh (does NOT work with packing yet)
 
