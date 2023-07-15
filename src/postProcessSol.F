@@ -588,9 +588,9 @@ c     ###############################################################
         if (ilevel > 0 .and. my_rank == 0) then
           write (*,*)
           if (res_wall_bc) then
-            write (*,*) 'Applying RW BC in postproc...'
+            call info('Applying RW BC in postproc...')
           else
-            write (*,*) 'Performing divergence cleaning in postproc...'
+            call info('Performing divergence cleaning in postproc...')
           endif
         endif
 

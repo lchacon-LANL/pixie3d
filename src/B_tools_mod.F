@@ -678,10 +678,9 @@ c     Local variables
       
 c     Begin program
 
-      if (my_rank == 0.and.iout > 1) then
+      if (my_rank == 0.and.iout > 0) then
         write (*,*)
-        write (*,*) 'Div-cleaning B-field...'
-        write (*,*)
+        call info('  Div-cleaning B-field...')
       endif
 
       if (PRESENT(diag_plots)) then
@@ -728,6 +727,11 @@ c     Find new dB (with BCs)
 c     Store vector potential
 
       if (PRESENT(dacov)) dacov = da_cov
+
+      if (my_rank == 0.and.iout > 0) then
+        call info('  Done!')
+        write (*,*)
+      endif
 
       end subroutine vlap_div_clean
 
