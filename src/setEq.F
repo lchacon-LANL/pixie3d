@@ -1690,6 +1690,22 @@ cc          if (nh3 == 0) nh3 = nint(kk*RR) !Unsafe!!!
           
           call init_nre(nre)
 
+c diag ****
+c$$$          write (*,*) "rms nre"
+c$$$     $       ,rms(reshape(nre,(/(nx+2)*(ny+2)*(nz+2)/)))
+c$$$          call createDrawInCfile(3,'nre.bin','n_re','t','x','y'
+c$$$     $        ,(/'nre_1','nre_2','nre_3'/) ,'-c -X0 -L57','drawnre.in')
+c$$$          open(unit=110,file='nre.bin',form='unformatted'
+c$$$     .         ,status='unknown')
+c$$$          call contour(nre(0:nxd+1,0:nyd,0),nxd+2,nyd+1
+c$$$     .                ,0d0,xmax,0d0,ymax,0,110)
+c$$$          call contour(nre(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+c$$$     .                ,0d0,xmax,0d0,ymax,1,110)
+c$$$          call contour(nre(0:nxd+1,0:nyd,2),nxd+2,nyd+1
+c$$$     .                ,0d0,xmax,0d0,ymax,1,110)
+c$$$          close(110)
+c$$$          stop
+c diag ****
           
           deallocate(bcov,jcnv,nre)
         endif

@@ -12,7 +12,7 @@
 
       !Setup lagrangian integration
       logical,private :: do_3d=.true.
-     $                  ,local_interp=.false.
+     $                  ,local_interp=.true.
       real(8),private :: G_tol=1e-8       !Green's function tol
      $                  ,Dstar=0.15d0     !For stability
       integer,private :: sp_order=2       !Spline order of interpolation
@@ -567,6 +567,35 @@ c     ###############################################################
 
         !Find orbit flow
         bb = bb + v_exb/c_va
+c diag ****
+c$$$        call createDrawInCfile(9,'bb.bin','j_re','t','x','y'
+c$$$     $     ,(/'bb_1','bb_2','bb_3'
+c$$$     $       ,'bb_1','bb_2','bb_3'
+c$$$     $       ,'bb_1','bb_2','bb_3'/)
+c$$$     $     ,'-c -X0 -L57','drawbb.in')
+c$$$        open(unit=110,file='bb.bin',form='unformatted'
+c$$$     .      ,status='unknown')
+c$$$        call contour(bb (0:nxd+1,0:nyd,0,1),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,0,110)
+c$$$        call contour(bb (0:nxd+1,0:nyd,0,2),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(bb (0:nxd+1,0:nyd,0,3),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(bb (0:nxd+1,0:nyd,1,1),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(bb (0:nxd+1,0:nyd,1,2),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(bb (0:nxd+1,0:nyd,1,3),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(bb (0:nxd+1,0:nyd,2,1),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(bb (0:nxd+1,0:nyd,2,2),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(bb (0:nxd+1,0:nyd,2,3),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        close(110)
+c$$$        stop
+c diag ****
         
         !Initialize Lagrangian step (advection-diff mode with diff coeff Dstar)
         rkernel = -1d0/sqrt(Dstar) 
@@ -577,7 +606,37 @@ c     ###############################################################
         tmp_nm = log(nre_nm*ibmag_nm)
         tmp_n  = log(nre_n *ibmag_n )
         tmp_np = (dt*nre_np - cn*tmp_n - cnm*tmp_nm)/cnp !Integrate source
-        ieps = c_va  !Not used, but needs to be <> 0
+
+c diag ****
+c$$$        call createDrawInCfile(9,'tmp.bin','j_re','t','x','y'
+c$$$     $     ,(/'tnm_1','tnn_2','tnp_3'
+c$$$     $       ,'tnm_1','tnn_2','tnp_3'
+c$$$     $       ,'tnm_1','tnn_2','tnp_3'/)
+c$$$     $     ,'-c -X0 -L57','drawtmp.in')
+c$$$        open(unit=110,file='tmp.bin',form='unformatted'
+c$$$     .      ,status='unknown')
+c$$$        call contour(tmp_nm(0:nxd+1,0:nyd,0),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,0,110)
+c$$$        call contour(tmp_n (0:nxd+1,0:nyd,0),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(tmp_np(0:nxd+1,0:nyd,0),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(tmp_nm(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(tmp_n (0:nxd+1,0:nyd,1),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(tmp_np(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(tmp_nm(0:nxd+1,0:nyd,2),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(tmp_n (0:nxd+1,0:nyd,2),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(tmp_np(0:nxd+1,0:nyd,2),nxd+2,nyd+1
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        close(110)
+c$$$        stop
+c diag ****
+        ieps = 1d0 !c_va  !Not used, but needs to be <> 0
         
         call lag_update_bdf2(gv%gparams,igrid,IRHO
      .                      ,vnp%array_var(IRHO)%bconds
