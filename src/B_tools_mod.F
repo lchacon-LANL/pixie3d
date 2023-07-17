@@ -553,11 +553,11 @@ c     Find rhs of vec_lap solve: rhs=-vol*dJ (with dJ=curl(dB); dB already has B
         if (PRESENT(dbcov)) then
           db_cov = dbcov
         else
-          db_cov = XformVector(g_def,igx,db_cnv,.false.)
+          db_cov = XformToCov(g_def,igx,db_cnv)
         endif
       endif
 
-      dj_cnv = curl(g_def,igrid,db_cov) + dlapa0
+      dj_cnv = curl(g_def,igx,db_cov)
 
       do k = 1,nz
         do j = 1,ny
@@ -570,7 +570,7 @@ c     Find rhs of vec_lap solve: rhs=-vol*dJ (with dJ=curl(dB); dB already has B
               dvol = 1d0
             endif
 
-            rhs(ii,:) = -dvol*dj_cnv(i,j,k,:)
+            rhs(ii,:) = -dvol*(dj_cnv(i,j,k,:) + dlapa0(i,j,k,:))
           enddo
         enddo
       enddo

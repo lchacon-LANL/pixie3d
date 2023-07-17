@@ -612,6 +612,8 @@ c       Find db=B^(n+1)-B^n
 c       Find vector potential RW boundary condition at face
 
         xi_rw = 0d0
+
+        da_cov = 0d0
         
         if (res_wall_bc) then
           b_cnv(:,:,:,1) = vn%array_var(IBX)%array
@@ -640,8 +642,6 @@ c$$$          endif
 
           !E-field at face: nx+1/2
           da_cov(nx+1,:,:,:) = -dt*(1d0+xi_rw)*E_bc(nx+1,:,:,:)
-        else
-          da_cov = 0d0
         endif
         
 c       Clean db (and impose RW BC, if applicable)
