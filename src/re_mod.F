@@ -1,5 +1,7 @@
       module re
 
+      use app_iosetup
+      
       use nlfunction_setup
 
       use par_int
@@ -499,7 +501,7 @@ c     ###############################################################
         
         if (iout > 0 .and. my_rank == 0) then
           write (*,*)
-          write (*,*) 'Performing RE integration in postproc...'
+          call info(' Performing RE integration in postproc...')
         endif
 
         igrid = 1
@@ -608,6 +610,7 @@ c diag ****
         tmp_np = (dt*nre_np - cn*tmp_n - cnm*tmp_nm)/cnp !Integrate source
 
 c diag ****
+c$$$        write (*,*) sum(tmp_nm**2),sum(tmp_n**2),sum(tmp_np**2)
 c$$$        call createDrawInCfile(9,'tmp.bin','j_re','t','x','y'
 c$$$     $     ,(/'tnm_1','tnn_2','tnp_3'
 c$$$     $       ,'tnm_1','tnn_2','tnp_3'

@@ -2871,10 +2871,9 @@ c$$$     .                 - 2    /24*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
           gs_err = sqrt(sum(bth0(0:nxd)-rh*bzz0(0:nxd)/q0h(0:nxd))**2)  !RMS error
 
           if (ilevel > 0 .and. my_rank == 0) then
-            write (messg,'(a,i0,a,1pe10.2)')
+            write (*,'(a,i0,a,1pe10.2)')
      $           '  1D Grad-Shafranov equilibrium iter =',it
      .          ,' ; Force balance error=',gs_err
-            call info(messg)
           endif
 
           !Updated poloidal B-field component
@@ -2886,10 +2885,9 @@ c$$$     .                 - 2    /24*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
         enddo
 
         if (ilevel == 0 .and. my_rank == 0) then
-          write (messg,'(a,i0,a,1pe10.2)')
+          write (*,'(a,i0,a,1pe10.2)')
      .          '  1D equilibrium converged in ',it
      .          ,' its with error =',gs_err
-          call info(messg)
         endif
 
         !Check force balance
@@ -2908,9 +2906,8 @@ c$$$     .                 - 2    /24*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
 
         if (my_rank == 0) then
           write(*,*)
-          write(messg,'(a,1pe14.7)') '  Force-balance error ='
+          write(*,'(a,1pe14.7)') '  Force-balance error ='
      .                        ,sqrt(sum(dummy(1:nxd)**2)/nxd)
-          call info(messg)
         endif
 
         !Calculate equilibrium properties
