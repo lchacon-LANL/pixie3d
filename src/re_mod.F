@@ -1,14 +1,24 @@
       module re
 
-      use app_iosetup
+      use xdraw_io
+
+      use pixie3d_io
       
       use nlfunction_setup
 
+c$$$      use grid
+c$$$      
+c$$$      use parameters
+c$$$
+c$$$      use variables
+c$$$
+c$$$      use mg_solver
+
       use par_int
 
-      use timestepping, ONLY: ts_chk_dump
+      use timestepping
 
-      use local_BCS_variables, ONLY: order_bc
+      integer,private :: order_bc=1
 
       real(8),pointer,dimension(:,:,:),private :: nre_nm=>null()
      $                                           ,nre_n =>null()
@@ -17,6 +27,8 @@
       real(8),pointer,dimension(:,:,:,:),private :: j__re=>null()
 
       logical :: re_diag=.true.
+
+      real(8),private :: c__va
       
       !Setup lagrangian integration
       logical,private :: do_3d=.true.
@@ -103,13 +115,14 @@ c     ###############################################################
 
 c     re_updt
 c     ###############################################################
-      subroutine re_updt(vnm,vn,vnp,Ecov,iout)
+      subroutine re_updt(c_va,vnm,vn,vnp,Ecov,iout)
 
         implicit none
 
         !Call variables
         type(var_array),pointer :: vnm,vn,vnp
         integer :: iout
+        real(8) :: c_va
 
         real(8),pointer,dimension(:,:,:,:) :: Ecov
 
@@ -117,18 +130,18 @@ c     ###############################################################
           write (*,*)
           write (*,*) 'Performing RE integration in postproc...'
         endif
-        
+ 
         !Eulerian update for nre_np
-        call re_Eul(vnm,vn,vnp,Ecov,iout,.false.)
+        call re_Eul(c_va,vnm,vn,vnp,Ecov,iout,.false.)
 
         !Lagrangian update for nre_np
-        call re_lag(vnm,vn,vnp,iout)
+        call re_lag(c_va,vnm,vn,vnp,iout)
 
       end subroutine re_updt
 
 c     re_Eul
 c     ###############################################################
-      subroutine re_Eul(v_nm,v_n,v_np,Ecov,iout,full_flow)
+      subroutine re_Eul(c_va,v_nm,v_n,v_np,Ecov,iout,full_flow)
 
         implicit none
 
@@ -136,6 +149,7 @@ c       Call variables
 
         type(var_array),pointer :: v_nm,v_n,v_np
         integer :: iout
+        real(8) :: c_va
 
         real(8),pointer,dimension(:,:,:,:) :: Ecov
         
@@ -426,13 +440,14 @@ c     End program
 
 c     re_Lag
 c     ###############################################################
-      subroutine re_Lag(vnm,vn,vnp,iout)
+      subroutine re_Lag(c_va,vnm,vn,vnp,iout)
 
         implicit none
 
         !Call variables
         type(var_array),pointer :: vnm,vn,vnp
         integer :: iout
+        real(8) :: c_va
 
         !Local variables
         integer :: igrid,nx,ny,nz
@@ -525,13 +540,14 @@ c$$$        nre_np = nre_np*renum_before/renum_after
 
 c     re_Lag_liu
 c     ###############################################################
-      subroutine re_Lag_liu(vnm,vn,vnp,Ecov,iout)
+      subroutine re_Lag_liu(c_va,vnm,vn,vnp,Ecov,iout)
 
         implicit none
 
         !Call variables
         type(var_array),pointer :: vnm,vn,vnp
         integer :: iout
+        real(8) :: c_va
 
         real(8),pointer,dimension(:,:,:,:) :: Ecov
         
@@ -547,7 +563,9 @@ c     ###############################################################
      $                                           ,bcov_np
 
         !Begin program
-        
+
+        c__va = c_va
+
         if (iout > 0 .and. my_rank == 0) then
           write (*,*)
           call info('  Lagrangian RE integration...')
@@ -805,7 +823,7 @@ c     Call LSODE orbit evaluation function (extracting logical coords x1,y1,z1)
 
 c     Call additional integrators
 
-      i_eps = c_va
+      i_eps = c__va
       
       call evalFlds(x1,y1,z1,sp_coef,flds)
 
