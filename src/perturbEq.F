@@ -1008,7 +1008,6 @@ c     Divergence clean B perturbation
       if (my_rank == 0) then
         write (*,*)
         call info('  Divergence cleaning perturbation...')
-        if (ilevel > 0) write (*,*)
       endif
 
       call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz,igx,igy,igz
@@ -1256,7 +1255,6 @@ c     Divergence clean perturbation
       if (my_rank == 0) then
         write (*,*)
         call info('  Divergence cleaning perturbation...')
-        if (ilevel > 0) write (*,*)
       endif
 
       call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz,igx,igy,igz

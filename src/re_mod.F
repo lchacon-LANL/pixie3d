@@ -20,12 +20,16 @@ c$$$      use mg_solver
 
       integer,private :: order_bc=1
 
+      type(mg_array),target,private :: gv_exb,bbmag
+
+      type(grid_mg_def),pointer,private :: g_def_re => null()
+
       real(8),pointer,dimension(:,:,:),private :: nre_nm=>null()
      $                                           ,nre_n =>null()
      $                                           ,nre_np=>null()
      $                                           ,nre_0 =>null()
       real(8),pointer,dimension(:,:,:,:),private :: j__re=>null()
-
+      
       logical :: re_diag=.true.
 
       real(8),private :: c__va
@@ -37,23 +41,27 @@ c$$$      use mg_solver
      $                  ,Dstar=0.15d0     !For stability
       integer,private :: sp_order=2       !Spline order of interpolation
 
-      type(mg_array),target,private :: gv_exb,bbmag
-        
       contains
 
 c     re_allocVariables
 c     ###############################################################
-      subroutine re_allocVariables
+      subroutine re_allocVariables(g_def)
 
       implicit none
+        
+      type(grid_mg_def),pointer :: g_def
 
-      integer :: igrid,nx,ny,nz
+      integer :: igrid
+
+      integer :: nx,ny,nz
       
-      igrid = 1
+      g_def_re => g_def
 
-      nx = gv%gparams%nxv(igrid)
-      ny = gv%gparams%nyv(igrid)
-      nz = gv%gparams%nzv(igrid)
+      igrid = 1
+      
+      nx = g_def_re%nxv(igrid)
+      ny = g_def_re%nyv(igrid)
+      nz = g_def_re%nzv(igrid)
 
       allocate(nre_nm(0:nx+1,0:ny+1,0:nz+1)
      $        ,nre_n (0:nx+1,0:ny+1,0:nz+1)
@@ -73,6 +81,8 @@ c     ###############################################################
 
       implicit none
 
+      nullify(g_def_re)
+      
       deallocate(nre_nm
      $          ,nre_n 
      $          ,nre_np
@@ -81,48 +91,74 @@ c     ###############################################################
       
       end subroutine re_deallocVariables
 
-c     init_re
+c     re_init
 c     ###############################################################
-      subroutine init_re(nre,jre)
+      subroutine re_init(c_va,bcnv)
 
         implicit none
 
-        real(8) :: nre(0:,0:,0:),jre(0:,0:,0:,:)
+c     Call variables
 
-        nre_nm = nre
-        nre_n  = nre
-        nre_np = nre
-        nre_0  = nre
+        real(8) :: bcnv(0:,0:,0:,:),c_va
 
-        if (re_diag) then
-          j__re = jre
-          call dump_re_diag(.true.)
-        endif
+c     Local variables
         
-      end subroutine init_re
+        integer :: nx,ny,nz,igr
 
-c     get_nre
-c     ###############################################################
-      subroutine get_nre(nre)
+        real(8),dimension(:,:,:,:),pointer :: bcov
 
-        implicit none
+c     Begin program
 
-        real(8) :: nre(0:,0:,0:)
+        igr = 1
+        
+        nx = size(bcnv,1)-2
+        ny = size(bcnv,2)-2
+        nz = size(bcnv,3)-2
+        
+        allocate(bcov(0:nx+1,0:ny+1,0:nz+1,3))
 
-        nre = nre_np
- 
-      end subroutine get_nre
+        bcov = XformToCov(g_def_re,igr,bcnv)
+        
+        j__re = curl(g_def_re,igr,bcov)
+
+        nre_0 = scalarProduct(g_def_re,igr,j__re,bcov)
+     $         /(sqrt(vectorNorm(g_def_re,igr,bcnv,.false.))*c_va)
+
+        c__va = sign(1d0,sum(nre_0))*c_va
+
+        nre_0 = abs(nre_0)
+          
+        nre_nm = nre_0
+        nre_n  = nre_0
+        nre_np = nre_0
+
+        if (re_diag) call dump_re_diag(.true.)
+
+        deallocate(bcov)
+
+      end subroutine re_init
+
+c$$$c     get_nre
+c$$$c     ###############################################################
+c$$$      subroutine get_nre(nre)
+c$$$
+c$$$        implicit none
+c$$$
+c$$$        real(8) :: nre(0:,0:,0:)
+c$$$
+c$$$        nre = nre_np
+c$$$ 
+c$$$      end subroutine get_nre
 
 c     re_updt
 c     ###############################################################
-      subroutine re_updt(c_va,vnm,vn,vnp,Ecov,iout)
+      subroutine re_updt(vnm,vn,vnp,Ecov,iout)
 
         implicit none
 
         !Call variables
         type(var_array),pointer :: vnm,vn,vnp
         integer :: iout
-        real(8) :: c_va
 
         real(8),pointer,dimension(:,:,:,:) :: Ecov
 
@@ -132,16 +168,16 @@ c     ###############################################################
         endif
  
         !Eulerian update for nre_np
-        call re_Eul(c_va,vnm,vn,vnp,Ecov,iout,.false.)
+        call re_Eul(vnm,vn,vnp,Ecov,iout,.false.)
 
         !Lagrangian update for nre_np
-        call re_lag(c_va,vnm,vn,vnp,iout)
+        call re_lag(vnm,vn,vnp,iout)
 
       end subroutine re_updt
 
 c     re_Eul
 c     ###############################################################
-      subroutine re_Eul(c_va,v_nm,v_n,v_np,Ecov,iout,full_flow)
+      subroutine re_Eul(v_nm,v_n,v_np,Ecov,iout,full_flow)
 
         implicit none
 
@@ -149,7 +185,6 @@ c       Call variables
 
         type(var_array),pointer :: v_nm,v_n,v_np
         integer :: iout
-        real(8) :: c_va
 
         real(8),pointer,dimension(:,:,:,:) :: Ecov
         
@@ -168,20 +203,20 @@ c       Local variables
 
 c       Begin program
 
-        if (iout > 0 .and. my_rank == 0) then
-          write (*,*)
+        if (my_rank == 0) then
+          if (iout > 0) write (*,*)
           call info('  Eulerian RE integration...')
         endif
 
         igrid = 1
 
-        nx = gv%gparams%nxv(igrid)
-        ny = gv%gparams%nyv(igrid)
-        nz = gv%gparams%nzv(igrid)
+        nx = g_def_re%nxv(igrid)
+        ny = g_def_re%nyv(igrid)
+        nz = g_def_re%nzv(igrid)
 
         nn = nx*ny*nz
 
-        call allocateMGArray(gv%gparams,3,gv_exb)
+        call allocateMGArray(g_def_re,3,gv_exb)
 
         allocate(b_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      $          ,b_cov(0:nx+1,0:ny+1,0:nz+1,3)
@@ -189,7 +224,8 @@ c       Begin program
         
         allocate(x(nn,1),y(nn,1))
 
-       !Save old timestep solutions
+c       Save old timestep solutions
+
         nre_nm = nre_n
         nre_n  = nre_np
       
@@ -199,12 +235,12 @@ c       Prepare solver coefficients
         b_cnv(:,:,:,2) = v_np%array_var(IBY)%array
         b_cnv(:,:,:,3) = v_np%array_var(IBZ)%array
 
-        b_cov = XformToCov(gv%gparams,igrid,b_cnv)
+        b_cov = XformToCov(g_def_re,igrid,b_cnv)
 
-        ib2 = 1d0/vectornorm(gv%gparams,igrid,b_cnv,.false.)
+        ib2 = 1d0/vectornorm(g_def_re,igrid,b_cnv,.false.)
 
         gv_exb%grid(igrid)%array =
-     $       crossproduct(gv%gparams,igrid,Ecov,b_cov,.false.)
+     $       crossproduct(g_def_re,igrid,Ecov,b_cov,.false.)
         gv_exb%grid(igrid)%array(:,:,:,1) =
      $       gv_exb%grid(igrid)%array(:,:,:,1)*ib2
         gv_exb%grid(igrid)%array(:,:,:,2) =
@@ -216,13 +252,13 @@ c       Prepare solver coefficients
           ib2 = sqrt(ib2)
           gv_exb%grid(igrid)%array(:,:,:,1) =
      $       gv_exb%grid(igrid)%array(:,:,:,1)
-     $      +c_va*b_cnv(:,:,:,1)*ib2
+     $      +c__va*b_cnv(:,:,:,1)*ib2
           gv_exb%grid(igrid)%array(:,:,:,2) =
      $       gv_exb%grid(igrid)%array(:,:,:,2)
-     $      +c_va*b_cnv(:,:,:,2)*ib2
+     $      +c__va*b_cnv(:,:,:,2)*ib2
           gv_exb%grid(igrid)%array(:,:,:,3) =
      $       gv_exb%grid(igrid)%array(:,:,:,3)
-     $      +c_va*b_cnv(:,:,:,3)*ib2
+     $      +c__va*b_cnv(:,:,:,3)*ib2
         endif
         
         bcs(:,1) = v_np%array_var(IVX)%bconds
@@ -243,13 +279,13 @@ c       Solve n_re system for new-time n_re
               ii  = i + nx*(j-1) + nx*ny*(k-1)
 
               y(ii,1) = -(cn*nre_n(i,j,k) + cnm*nre_nm(i,j,k))/dt
-     $         - cnfactor*flx_advec(gv%gparams,i,j,k,nx,ny,nz
+     $         - cnfactor*flx_advec(g_def_re,i,j,k,nx,ny,nz
      $                       ,igrid,igrid,igrid,gv_exb%grid(igrid)%array
      $                       ,nre_n,UPWD)
 
-              dvol = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
+              dvol = g_def_re%gmetric%grid(igrid)%jac(i,j,k)
               if (vol_wgt) then
-                dvol = dvol*gv%gparams%gmetric%grid(igrid)%dlvol(i,j,k)
+                dvol = dvol*g_def_re%gmetric%grid(igrid)%dlvol(i,j,k)
               endif
               
               y(ii,1) = y(ii,1)*dvol
@@ -260,7 +296,7 @@ c       Solve n_re system for new-time n_re
         enddo
 
         guess = 1
-        call cSolver(gv%gparams,1,nn,y,x,bc_nre
+        call cSolver(g_def_re,1,nn,y,x,bc_nre
      .              ,igrid,iout,guess,nre_mtvc,vol_wgt
      .              ,tol           = rtol !pc_tol
      .              ,gm_driver     = .true. !pc_gm_driver
@@ -293,7 +329,7 @@ c       Return new-time RE density (with BCs)
 
         !Impose BCs on perturbation
         nre_np = nre_np - nre_0
-        call setBC_ez(gv%gparams,igrid,nre_np,bc_nre,iorder=order_bc)
+        call setBC_ez(g_def_re,igrid,nre_np,bc_nre,iorder=order_bc)
         nre_np = nre_np + nre_0
 
 c       Diagnostics
@@ -440,14 +476,13 @@ c     End program
 
 c     re_Lag
 c     ###############################################################
-      subroutine re_Lag(c_va,vnm,vn,vnp,iout)
+      subroutine re_Lag(vnm,vn,vnp,iout)
 
         implicit none
 
         !Call variables
         type(var_array),pointer :: vnm,vn,vnp
         integer :: iout
-        real(8) :: c_va
 
         !Local variables
         integer :: igrid,nx,ny,nz
@@ -462,9 +497,9 @@ c     ###############################################################
         
         igrid = 1
 
-        nx = gv%gparams%nxv(igrid)
-        ny = gv%gparams%nyv(igrid)
-        nz = gv%gparams%nzv(igrid)
+        nx = g_def_re%nxv(igrid)
+        ny = g_def_re%nyv(igrid)
+        nz = g_def_re%nzv(igrid)
 
         allocate(ieps   (0:nx+1,0:ny+1,0:nz+1)
      $          ,tmp_nm (0:nx+1,0:ny+1,0:nz+1)
@@ -491,9 +526,9 @@ c     ###############################################################
         bcnv_np(:,:,:,2) = vnp%array_var(IBY)%array
         bcnv_np(:,:,:,3) = vnp%array_var(IBZ)%array
         
-        bmag_nm = vectorNorm(gv%gparams,igrid,bcnv_nm,.false.)
-        bmag_n  = vectorNorm(gv%gparams,igrid,bcnv_n ,.false.)
-        bmag_np = vectorNorm(gv%gparams,igrid,bcnv_np,.false.)
+        bmag_nm = vectorNorm(g_def_re,igrid,bcnv_nm,.false.)
+        bmag_n  = vectorNorm(g_def_re,igrid,bcnv_n ,.false.)
+        bmag_np = vectorNorm(g_def_re,igrid,bcnv_np,.false.)
 
         bmag_nm = sqrt(bmag_nm)
         bmag_n  = sqrt(bmag_n )
@@ -501,7 +536,7 @@ c     ###############################################################
         
         !Initialize Lagrangian step (!advection-diff mode with diff coeff Dstar)
         rkernel = -1d0/sqrt(Dstar) 
-        call lag_init(gv%gparams,igrid,bcnv_np,rkernel,iout
+        call lag_init(g_def_re,igrid,bcnv_np,rkernel,iout
      .               ,G_tol,sp_order,.not.local_interp,.false.,do_3d)
 
         !Find temp from pressure (automatically takes care of jacobian factor)
@@ -509,9 +544,9 @@ c     ###############################################################
         tmp_n  = nre_n /bmag_n
         tmp_np = nre_np/bmag_np
 
-        ieps = c_va
+        ieps = c__va
         
-        call lag_update_bdf2(gv%gparams,igrid,IRHO
+        call lag_update_bdf2(g_def_re,igrid,IRHO
      .                      ,vnp%array_var(IRHO)%bconds
      $                      ,tmp_nm,tmp_n,tmp_np,ieps,iout)
 
@@ -522,13 +557,13 @@ c     ###############################################################
         nre_np = tmp_np*bmag_np
         
         !Check and correct for particle conservation?
-c$$$        renum_before = integral(gv%gparams,igrid,nre_n )
-c$$$        renum_after  = integral(gv%gparams,igrid,nre_np)
+c$$$        renum_before = integral(g_def_re,igrid,nre_n )
+c$$$        renum_after  = integral(g_def_re,igrid,nre_np)
 c$$$        nre_np = nre_np*renum_before/renum_after
         
         !Impose BCs on perturbation
         nre_np = nre_np - nre_0
-        call setBC_ez(gv%gparams,igrid,nre_np,vnp%array_var(IRHO)%bconds
+        call setBC_ez(g_def_re,igrid,nre_np,vnp%array_var(IRHO)%bconds
      $               ,iorder=order_bc)
         nre_np = nre_np + nre_0
 
@@ -540,14 +575,13 @@ c$$$        nre_np = nre_np*renum_before/renum_after
 
 c     re_Lag_liu
 c     ###############################################################
-      subroutine re_Lag_liu(c_va,vnm,vn,vnp,Ecov,iout)
+      subroutine re_Lag_liu(vnm,vn,vnp,Ecov,iout)
 
         implicit none
 
         !Call variables
         type(var_array),pointer :: vnm,vn,vnp
         integer :: iout
-        real(8) :: c_va
 
         real(8),pointer,dimension(:,:,:,:) :: Ecov
         
@@ -564,8 +598,6 @@ c     ###############################################################
 
         !Begin program
 
-        c__va = c_va
-
         if (iout > 0 .and. my_rank == 0) then
           write (*,*)
           call info('  Lagrangian RE integration...')
@@ -573,9 +605,9 @@ c     ###############################################################
 
         igrid = 1
 
-        nx = gv%gparams%nxv(igrid)
-        ny = gv%gparams%nyv(igrid)
-        nz = gv%gparams%nzv(igrid)
+        nx = g_def_re%nxv(igrid)
+        ny = g_def_re%nyv(igrid)
+        nz = g_def_re%nzv(igrid)
 
         bc_nre = vnp%array_var(IRHO)%bconds
 
@@ -612,9 +644,9 @@ c     ###############################################################
         bcnv_np(:,:,:,2) = vnp%array_var(IBY)%array
         bcnv_np(:,:,:,3) = vnp%array_var(IBZ)%array
         
-        ibmag_nm = vectorNorm(gv%gparams,igrid,bcnv_nm,.false.)
-        ibmag_n  = vectorNorm(gv%gparams,igrid,bcnv_n ,.false.)
-        ibmag_np = vectorNorm(gv%gparams,igrid,bcnv_np,.false.)
+        ibmag_nm = vectorNorm(g_def_re,igrid,bcnv_nm,.false.)
+        ibmag_n  = vectorNorm(g_def_re,igrid,bcnv_n ,.false.)
+        ibmag_np = vectorNorm(g_def_re,igrid,bcnv_np,.false.)
 
         ibmag_nm = 1d0/sqrt(ibmag_nm)
         ibmag_n  = 1d0/sqrt(ibmag_n )
@@ -624,14 +656,14 @@ c     ###############################################################
         bb(:,:,:,2) = bcnv_np(:,:,:,2)*ibmag_np
         bb(:,:,:,3) = bcnv_np(:,:,:,3)*ibmag_np
 
-        j_cnv = curl(gv%gparams,igrid,XformToCov(gv%gparams,igrid,bb))
+        j_cnv = curl(g_def_re,igrid,XformToCov(g_def_re,igrid,bb))
 
         !Impose BCs on current
         bcnd = gv%aux%vec_list(IJCNV)%bconds
         where(    abs(bcnd) == DIR
      $       .or. abs(bcnd) == NEU
      $       .or. abs(bcnd) == EQU ) bcnd = EXT
-        call setBC_ez(gv%gparams,igrid,j_cnv,.true.,bcnd,1)
+        call setBC_ez(g_def_re,igrid,j_cnv,.true.,bcnd,1)
 c diag ****
 c$$$        write (*,*) bcnd
 c$$$        call createDrawInCfile(9,'jj.bin','j','t','x','y'
@@ -667,19 +699,19 @@ c diag ****
         nre_np =(Ecov(:,:,:,1)*j_cnv(:,:,:,1)
      $          +Ecov(:,:,:,2)*j_cnv(:,:,:,2)
      $          +Ecov(:,:,:,3)*j_cnv(:,:,:,3))
-     $          /gv%gparams%gmetric%grid(igrid)%jac
+     $          /g_def_re%gmetric%grid(igrid)%jac
 
         nre_np = nre_np*ibmag_np
         
         !Find ExB flow
-        bcov_np = XformToCov(gv%gparams,igrid,bcnv_np)
-        v_exb = crossproduct(gv%gparams,igrid,Ecov,bcov_np,.false.)
+        bcov_np = XformToCov(g_def_re,igrid,bcnv_np)
+        v_exb = crossproduct(g_def_re,igrid,Ecov,bcov_np,.false.)
         v_exb(:,:,:,1) = v_exb(:,:,:,1)*ibmag_np*ibmag_np
         v_exb(:,:,:,2) = v_exb(:,:,:,2)*ibmag_np*ibmag_np
         v_exb(:,:,:,3) = v_exb(:,:,:,3)*ibmag_np*ibmag_np
 
         !Find orbit flow
-        bb = bb + v_exb/c_va
+        bb = bb + v_exb/c__va
 c diag ****
 c$$$        call createDrawInCfile(9,'bb.bin','bb','t','x','y'
 c$$$     $     ,(/'bb_1','bb_2','bb_3'
@@ -712,7 +744,7 @@ c diag ****
         
         !Initialize Lagrangian step (advection-diff mode with diff coeff Dstar)
         rkernel = -1d0/sqrt(Dstar) 
-        call lag_init(gv%gparams,igrid,bb,rkernel,iout,G_tol,sp_order
+        call lag_init(g_def_re,igrid,bb,rkernel,iout,G_tol,sp_order
      .               ,.not.local_interp,.false.,do_3d)
 
         !Find temp from pressure (automatically takes care of jacobian factor)
@@ -750,9 +782,9 @@ c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
 c$$$        close(110)
 c$$$        stop
 c diag ****
-        ieps = 1d0 !c_va  !Not used, but needs to be <> 0
+        ieps = 1d0 !c__va  !Not used, but needs to be <> 0
         
-        call lag_update_bdf2(gv%gparams,igrid,IRHO,bc_nre
+        call lag_update_bdf2(g_def_re,igrid,IRHO,bc_nre
      .                      ,tmp_nm,tmp_n,tmp_np,ieps,iout
      .                      ,lsode_ext=lsode_3d_ext)
 
@@ -763,22 +795,22 @@ c diag ****
         nre_np = exp(tmp_np)/ibmag_np
         
         !Check and correct for particle conservation?
-c$$$        renum_before = integral(gv%gparams,igrid,nre_n )
-c$$$        renum_after  = integral(gv%gparams,igrid,nre_np)
+c$$$        renum_before = integral(g_def_re,igrid,nre_n )
+c$$$        renum_after  = integral(g_def_re,igrid,nre_np)
 c$$$        nre_np = nre_np*renum_before/renum_after
         
         !Impose BCs on perturbation
         nre_np = nre_np - nre_0
-        call setBC_ez(gv%gparams,igrid,nre_np,bc_nre,iorder=order_bc)
+        call setBC_ez(g_def_re,igrid,nre_np,bc_nre,iorder=order_bc)
         nre_np = nre_np + nre_0
 
         !Diagnostics
         if (my_rank == 0.and.iout > 0) call info('  Done!')
 
         if (TS_chk_dump().and.re_diag) then
-          j__re(:,:,:,1) = c_va*bb(:,:,:,1)*nre_np
-          j__re(:,:,:,2) = c_va*bb(:,:,:,2)*nre_np
-          j__re(:,:,:,3) = c_va*bb(:,:,:,3)*nre_np
+          j__re(:,:,:,1) = c__va*bb(:,:,:,1)*nre_np
+          j__re(:,:,:,2) = c__va*bb(:,:,:,2)*nre_np
+          j__re(:,:,:,3) = c__va*bb(:,:,:,3)*nre_np
           call dump_re_diag(.false.)
         endif
         
@@ -958,5 +990,115 @@ c diag ****
 #endif
 
       end subroutine dump_re_diag
+
+c     re_qtys
+c     ###############################################################
+      subroutine re_qtys(eeta,bcnv,bcov,ecov,nre,jre)
+
+c     ---------------------------------------------------------------
+c     Compute COVARIANT runaway current
+c     ---------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+        
+        real(8),INTENT(IN)    :: eeta(0:,0:,0:)
+     $                          ,bcnv(0:,0:,0:,:)
+     $                          ,bcov(0:,0:,0:,:)
+        real(8),INTENT(INOUT) :: ecov(0:,0:,0:,:)
+        real(8),INTENT(OUT)   :: nre (0:,0:,0:)
+     $                          ,jre (0:,0:,0:,:)
+
+c     Local variables
+
+        integer :: igr
+        
+        real(8) :: ib2  (0:size(bcnv,1)-1
+     $                  ,0:size(bcnv,2)-1
+     $                  ,0:size(bcnv,3)-1)
+     $            ,alpha(0:size(bcnv,1)-1
+     $                  ,0:size(bcnv,2)-1
+     $                ,  0:size(bcnv,3)-1)
+     $            ,beta (0:size(bcnv,1)-1
+     $                  ,0:size(bcnv,2)-1
+     $                  ,0:size(bcnv,3)-1)
+     $            ,gamma(0:size(bcnv,1)-1
+     $                  ,0:size(bcnv,2)-1
+     $                  ,0:size(bcnv,3)-1)
+     $            ,v_exb(0:size(bcnv,1)-1
+     $                  ,0:size(bcnv,2)-1
+     $                  ,0:size(bcnv,3)-1,3)
+     $            ,bn   (0:size(bcnv,1)-1
+     $                  ,0:size(bcnv,2)-1
+     $                ,  0:size(bcnv,3)-1,3)
+     $            ,axb  (0:size(bcnv,1)-1
+     $                  ,0:size(bcnv,2)-1
+     $                  ,0:size(bcnv,3)-1,3)
+     $            ,abb  (0:size(bcnv,1)-1
+     $                  ,0:size(bcnv,2)-1
+     $                  ,0:size(bcnv,3)-1,3)
+
+        real(8),dimension(:,:,:),pointer :: jac
+        
+c     Begin program
+
+        igr = 1
+        
+        jac => g_def_re%gmetric%grid(igr)%jac
+        
+        ib2 = jac/sum(bcnv*bcov,4)
+
+        alpha = nre_np*eeta*ib2
+        beta  = 1d0 + alpha*alpha/ib2
+
+        !Covariant ExB flow
+        v_exb = crossProduct(g_def_re,igr,ecov,bcov,.false.)
+        v_exb = XformToCov(g_def_re,igr,v_exb)
+        
+        v_exb(:,:,:,1) = v_exb(:,:,:,1)*ib2
+        v_exb(:,:,:,2) = v_exb(:,:,:,2)*ib2
+        v_exb(:,:,:,3) = v_exb(:,:,:,3)*ib2
+        
+        !Covariant unit b-field vector
+        ib2 = sqrt(ib2)
+        bn(:,:,:,1) = bcov(:,:,:,1)*ib2
+        bn(:,:,:,2) = bcov(:,:,:,2)*ib2
+        bn(:,:,:,3) = bcov(:,:,:,3)*ib2
+
+        !Compute COVARIANT runaway current with MHD E-field
+        jre = c__va*bn + v_exb
+
+        jre(:,:,:,1) = -nre_np*jre(:,:,:,1)
+        jre(:,:,:,2) = -nre_np*jre(:,:,:,2)
+        jre(:,:,:,3) = -nre_np*jre(:,:,:,3)
+
+        !Account for runaway resistive term in E-field self-consistently
+        axb = crossProduct(g_def_re,igr,jre,bcov,.false.)
+        axb = XformToCov(g_def_re,igr,axb)
+        axb(:,:,:,1) = alpha*axb(:,:,:,1)
+        axb(:,:,:,2) = alpha*axb(:,:,:,2)
+        axb(:,:,:,3) = alpha*axb(:,:,:,3)
+
+        gamma = alpha*alpha*sum(bcnv*jre,4)/jac
+        abb(:,:,:,1) = gamma*bcov(:,:,:,1)
+        abb(:,:,:,2) = gamma*bcov(:,:,:,2)
+        abb(:,:,:,3) = gamma*bcov(:,:,:,3)
+
+        jre = jre + axb + abb
+        
+        jre(:,:,:,1) = jre(:,:,:,1)/beta
+        jre(:,:,:,2) = jre(:,:,:,2)/beta
+        jre(:,:,:,3) = jre(:,:,:,3)/beta
+
+        !Update Ohm's law E-field
+        Ecov(:,:,:,1) = Ecov(:,:,:,1) - eeta*jre(:,:,:,1)
+        Ecov(:,:,:,2) = Ecov(:,:,:,2) - eeta*jre(:,:,:,2)
+        Ecov(:,:,:,3) = Ecov(:,:,:,3) - eeta*jre(:,:,:,3)
+
+        !Return RE density
+        nre = nre_np
+        
+      end subroutine re_qtys
       
       end module re

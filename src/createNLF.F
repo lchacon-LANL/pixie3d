@@ -47,7 +47,7 @@ c Begin program
 
       call rw_allocBCVariables
 
-      if (re_pkg) call re_allocVariables
+      if (re_pkg) call re_allocVariables(gv%gparams)
       
 c     End programs
 

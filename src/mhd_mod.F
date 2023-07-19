@@ -500,7 +500,7 @@ c ######################################################################
      .                                       ,heat_xport
      .                                       ,heat_xport0
      .                                       ,heat_src
-     .                                       ,nre
+     .                                       ,nre => null() !Used to check
 
         real(8),pointer,dimension(:,:,:,:) :: bcnv
      .                                       ,bcnv_0
@@ -526,7 +526,7 @@ c ######################################################################
      .                                       ,jcnv_0
      .                                       ,jcov
      .                                       ,jcov_0
-     .                                       ,jre
+     .                                       ,jre => null()
 
         real(8),pointer,dimension(:,:,:,:) :: vecnv
      .                                       ,vecov
@@ -763,7 +763,8 @@ c     Begin program
       ny = gv%gparams%nyv(igr)
       nz = gv%gparams%nzv(igr)
 
-      allocate(pcnv    (0:nx+1,0:ny+1,0:nz+1,3)
+      if (.not.associated(pcnv))
+     .allocate(pcnv    (0:nx+1,0:ny+1,0:nz+1,3)
      .        ,vscnv   (0:nx+1,0:ny+1,0:nz+1,3)
      .        ,bhat    (0:nx+1,0:ny+1,0:nz+1,3)
      .        ,v_advc  (0:nx+1,0:ny+1,0:nz+1,3)
@@ -774,9 +775,27 @@ c     Begin program
      .        ,heat_xport0(0:nx+1,0:ny+1,0:nz+1)
      .        ,heat_src(0:nx+1,0:ny+1,0:nz+1)
      .        ,prs     (0:nx+1,0:ny+1,0:nz+1)
-     .        ,chi_tnsr(0:nx+1,0:ny+1,0:nz+1,6)
-     .        ,jre     (0:nx+1,0:ny+1,0:nz+1,3),stat=istat)
+     .        ,chi_tnsr(0:nx+1,0:ny+1,0:nz+1,6),stat=istat)
 
+      pcnv = 0d0
+      vscnv= 0d0
+      bhat = 0d0
+      v_advc = 0d0
+      rho_advc = 0d0
+      prs_advc = 0d0
+      tmp_advc = 0d0
+      heat_xport = 0d0
+      heat_xport0= 0d0
+      heat_src   = 0d0
+      prs        = 0d0
+      chi_tnsr   = 0d0
+
+      if (.not.associated(nre)) then
+        allocate(nre(0:nx+1,0:ny+1,0:nz+1)
+     .          ,jre(0:nx+1,0:ny+1,0:nz+1,3),stat=istat)
+        jre = 0d0 ; nre = 0d0
+      endif
+      
       end subroutine allocLocalAuxVars
       
 c     deallocLocalAuxVars
@@ -3407,111 +3426,6 @@ c     End program
 
       end function int_heat_src
 
-c     j_re
-c     ###############################################################
-      function j_re(g_def,igr,n_re,eeta,bcnv,bcov,ecov) result(jre)
-
-c     ---------------------------------------------------------------
-c     Compute COVARIANT runaway current
-c     ---------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-        type(grid_mg_def),pointer :: g_def
-
-        integer :: igr
-        
-        real(8) :: n_re(0:,0:,0:)
-     $            ,eeta(0:,0:,0:)
-     $            ,bcnv(0:,0:,0:,:)
-     $            ,bcov(0:,0:,0:,:)
-     $            ,ecov(0:,0:,0:,:)
-        
-        real(8) :: jre(0:size(bcnv,1)-1
-     $                ,0:size(bcnv,2)-1
-     $                ,0:size(bcnv,3)-1,3)
-
-c     Local variables
-
-        real(8) :: ib2  (0:size(bcnv,1)-1
-     $                  ,0:size(bcnv,2)-1
-     $                  ,0:size(bcnv,3)-1)
-     $            ,alpha(0:size(bcnv,1)-1
-     $                  ,0:size(bcnv,2)-1
-     $                ,  0:size(bcnv,3)-1)
-     $            ,beta (0:size(bcnv,1)-1
-     $                  ,0:size(bcnv,2)-1
-     $                  ,0:size(bcnv,3)-1)
-     $            ,gamma(0:size(bcnv,1)-1
-     $                  ,0:size(bcnv,2)-1
-     $                  ,0:size(bcnv,3)-1)
-     $            ,v_exb(0:size(bcnv,1)-1
-     $                  ,0:size(bcnv,2)-1
-     $                  ,0:size(bcnv,3)-1,3)
-     $            ,bn   (0:size(bcnv,1)-1
-     $                  ,0:size(bcnv,2)-1
-     $                ,  0:size(bcnv,3)-1,3)
-     $            ,axb  (0:size(bcnv,1)-1
-     $                  ,0:size(bcnv,2)-1
-     $                  ,0:size(bcnv,3)-1,3)
-     $            ,abb  (0:size(bcnv,1)-1
-     $                  ,0:size(bcnv,2)-1
-     $                  ,0:size(bcnv,3)-1,3)
-
-        real(8),dimension(:,:,:),pointer :: jac
-        
-c     Begin program
-
-        jac => g_def%gmetric%grid(igr)%jac
-        
-        ib2 = jac/sum(bcnv*bcov,4)
-
-        alpha = n_re*eeta*ib2
-        beta  = 1d0 + alpha*alpha/ib2
-
-        !Covariant ExB flow
-        v_exb = crossProduct(g_def,igr,ecov,bcov,.false.)
-        v_exb = XformToCov(g_def,igr,v_exb)
-        
-        v_exb(:,:,:,1) = v_exb(:,:,:,1)*ib2
-        v_exb(:,:,:,2) = v_exb(:,:,:,2)*ib2
-        v_exb(:,:,:,3) = v_exb(:,:,:,3)*ib2
-        
-        !Covariant unit b-field vector
-        ib2 = sqrt(ib2)
-        bn(:,:,:,1) = bcov(:,:,:,1)*ib2
-        bn(:,:,:,2) = bcov(:,:,:,2)*ib2
-        bn(:,:,:,3) = bcov(:,:,:,3)*ib2
-
-        !Compute COVARIANT runaway current with MHD E-field
-        jre = c_va*bn + v_exb
-
-        jre(:,:,:,1) = -n_re*jre(:,:,:,1)
-        jre(:,:,:,2) = -n_re*jre(:,:,:,2)
-        jre(:,:,:,3) = -n_re*jre(:,:,:,3)
-
-        !Account for runaway resistive term in E-field self-consistently
-        axb = crossProduct(g_def,igr,jre,bcov,.false.)
-        axb = XformToCov(g_def,igr,axb)
-        axb(:,:,:,1) = alpha*axb(:,:,:,1)
-        axb(:,:,:,2) = alpha*axb(:,:,:,2)
-        axb(:,:,:,3) = alpha*axb(:,:,:,3)
-
-        gamma = alpha*alpha*sum(bcnv*jre,4)/jac
-        abb(:,:,:,1) = gamma*bcov(:,:,:,1)
-        abb(:,:,:,2) = gamma*bcov(:,:,:,2)
-        abb(:,:,:,3) = gamma*bcov(:,:,:,3)
-
-        jre = jre + axb + abb
-        
-        jre(:,:,:,1) = jre(:,:,:,1)/beta
-        jre(:,:,:,2) = jre(:,:,:,2)/beta
-        jre(:,:,:,3) = jre(:,:,:,3)/beta
-        
-      end function j_re
-      
 c     fillLocalAuxVars
 c     ###################################################################
       subroutine fillLocalAuxVars(igr,varray,vaux)
@@ -3548,22 +3462,8 @@ c     Begin program
 
 c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
 
-      if (.not.associated(pcnv)) call allocLocalAuxVars(igr)
+      call allocLocalAuxVars(igr)
 
-      pcnv = 0d0
-      vscnv= 0d0
-      bhat = 0d0
-      v_advc = 0d0
-      rho_advc = 0d0
-      prs_advc = 0d0
-      tmp_advc = 0d0
-      heat_xport = 0d0
-      heat_xport0= 0d0
-      heat_src   = 0d0
-      prs        = 0d0
-      chi_tnsr   = 0d0
-      jre        = 0d0
-      
       rho => vaux%var_list(IRHO_AUX )%array
       tmp => vaux%var_list(ITMP_AUX )%array
       tmpe=> vaux%var_list(ITMPE_AUX)%array
@@ -3680,15 +3580,6 @@ c$$$      endif
         endif
       endif
 #endif
-
-      !Runaway COVARIANT current and contribution to Ohm's law
-      if (re_pkg.and.associated(nre)) then
-        jre = j_re(gv%gparams,igr,nre,eeta,bcnv,bcov,E_ni)
-
-        E_ni(:,:,:,1) = E_ni(:,:,:,1) - eeta*jre(:,:,:,1)
-        E_ni(:,:,:,2) = E_ni(:,:,:,2) - eeta*jre(:,:,:,2)
-        E_ni(:,:,:,3) = E_ni(:,:,:,3) - eeta*jre(:,:,:,3)
-      endif
 
       !Heat source term
       if ((.not.adiabatic).and.(gamma > 1d0)) then
