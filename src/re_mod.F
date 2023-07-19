@@ -150,9 +150,9 @@ c$$$        nre = nre_np
 c$$$ 
 c$$$      end subroutine get_nre
 
-c     re_updt
+c     re_hyb_updt
 c     ###############################################################
-      subroutine re_updt(vnm,vn,vnp,Ecov,iout)
+      subroutine re_hyb_updt(vnm,vn,vnp,Ecov,iout)
 
         implicit none
 
@@ -168,16 +168,16 @@ c     ###############################################################
         endif
  
         !Eulerian update for nre_np
-        call re_Eul(vnm,vn,vnp,Ecov,iout,.false.)
+        call re_Eul_updt(vnm,vn,vnp,Ecov,iout,.false.)
 
         !Lagrangian update for nre_np
-        call re_lag(vnm,vn,vnp,iout)
+        call re_lag_updt(vnm,vn,vnp,iout)
 
-      end subroutine re_updt
+      end subroutine re_hyb_updt
 
-c     re_Eul
+c     re_Eul_updt
 c     ###############################################################
-      subroutine re_Eul(v_nm,v_n,v_np,Ecov,iout,full_flow)
+      subroutine re_Eul_updt(v_nm,v_n,v_np,Ecov,iout,full_flow)
 
         implicit none
 
@@ -348,7 +348,7 @@ c       Garbage collection
         deallocate(x,y,b_cnv,b_cov,ib2)
         call deallocateMGArray(gv_exb)
 
-      end subroutine re_Eul
+      end subroutine re_Eul_updt
 
 c     nre_mtvc
 c     ####################################################################
@@ -474,9 +474,9 @@ c     End program
 
       end subroutine nre_mtvc
 
-c     re_Lag
+c     re_Lag_updt
 c     ###############################################################
-      subroutine re_Lag(vnm,vn,vnp,iout)
+      subroutine re_Lag_updt(vnm,vn,vnp,iout)
 
         implicit none
 
@@ -571,7 +571,7 @@ c$$$        nre_np = nre_np*renum_before/renum_after
         deallocate(tmp_nm,tmp_n,tmp_np,bmag_nm,bmag_n,bmag_np
      $            ,bcnv_n,bcnv_nm,bcnv_np,ieps)
         
-      end subroutine re_Lag
+      end subroutine re_Lag_updt
 
 c     re_Lag_liu
 c     ###############################################################

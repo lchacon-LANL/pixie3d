@@ -23,10 +23,10 @@ c--------------------------------------------------------------------
 
       use local_BCS_variables, ONLY: order_bc
 
-      use rw_bc, ONLY: res_wall_bc,E_bc,rw_Ebc,rw_fft_tupdate,rw_exp_fix
-     $                ,rw_exp_ssp_bc
+      use rw_bc, ONLY: res_wall_bc,E_bc,rw_Ebc
+c$$$     $                ,rw_fft_tupdate,rw_exp_ssp_bc
 
-      use re, ONLY: re_updt,re_lag_liu,re_eul
+      use re, ONLY: re_lag_liu,re_eul_updt
       
       implicit none
 
@@ -136,9 +136,8 @@ c Perform Lagrangian temperature transport step
 
 c Update runaway electron density
 
-c$$$      if (re_pkg) call re_updt(vnm,vn,vnp,ilevel)
 c$$$      if (re_pkg) call re_lag_liu(vnm,vn,vnp,E_ni,ilevel)
-      if (re_pkg) call re_Eul(vnm,vn,vnp,E_ni,ilevel,.true.)
+      if (re_pkg) call re_Eul_updt(vnm,vn,vnp,E_ni,ilevel,.true.)
       
 c Add rotating magnetic perturbation
 
