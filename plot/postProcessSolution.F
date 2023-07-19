@@ -454,7 +454,7 @@ c Heat source diagnostics
               !Internal heat source
               heat_src(i,j,k) =
      .             int_heat_src(gv%gparams,i,j,k,igx,eeta,nuu,h_eta
-     .                         ,jcnv,jcov,vcnv,vecnv)
+     .                         ,jcov,vcnv,vecnv)
 
               !External heat source
               heat_src(i,j,k) = heat_src(i,j,k)

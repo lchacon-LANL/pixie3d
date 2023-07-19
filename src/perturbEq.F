@@ -1005,6 +1005,12 @@ c     Find perturbations
 
 c     Divergence clean B perturbation
 
+      if (my_rank == 0) then
+        write (*,*)
+        call info('  Divergence cleaning perturbation...')
+        if (ilevel > 0) write (*,*)
+      endif
+
       call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz,igx,igy,igz
      .                   ,db_cnv,w_pre_bcs=.true.
      .                   ,gm_it=its,rtol=0.1*rtol)
@@ -1014,7 +1020,7 @@ c$$$     .                ,gm_it=its,rtol=0.1*rtol)
 
       if (my_rank == 0.and.ilevel == 0) then
         write (*,'(a,i3,a)')
-     .       ' Divergence cleaning converged in',its,' its'
+     .       '  >> Divergence cleaning converged in',its,' its'
       endif
 
       varr%array_var(IBX)%array = perturb*db_cnv(:,:,:,1)
@@ -1249,7 +1255,7 @@ c     Divergence clean perturbation
 
       if (my_rank == 0) then
         write (*,*)
-        write (*,*) 'Divergence cleaning perturbation...'
+        call info('  Divergence cleaning perturbation...')
         if (ilevel > 0) write (*,*)
       endif
 
@@ -1261,7 +1267,8 @@ c$$$     .                   ,db_cnv,"line",w_pre_bcs=.true.
 c$$$     .                   ,gm_it=its,rtol=0.1*rtol)
 
       if (my_rank == 0.and.ilevel == 0) then
-        write (*,*) 'Divergence cleaning converged in',its,' its'
+        write (*,'(a,i3,a)')
+     $       '  >> Divergence cleaning converged in',its,' its'
       endif
       
 c     Add equilibrium

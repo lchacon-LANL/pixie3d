@@ -728,10 +728,7 @@ c     Store vector potential
 
       if (PRESENT(dacov)) dacov = da_cov
 
-      if (my_rank == 0.and.iout > 0) then
-        call info('  Done!')
-        write (*,*)
-      endif
+      if (my_rank == 0.and.iout > 0) call info('  Done!')
 
       end subroutine vlap_div_clean
 

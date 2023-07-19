@@ -3685,37 +3685,6 @@ c$$$      endif
       if (re_pkg.and.associated(nre)) then
         jre = j_re(gv%gparams,igr,nre,eeta,bcnv,bcov,E_ni)
 
-c     diag ****
-        bnorm = rms(reshape(nre,(/(nx+2)*(ny+2)*(nz+2)/)))
-        if (my_rank == 0) write (*,*) "rms nre",bnorm
-
-        bnorm = rms(reshape(jre,(/(nx+2)*(ny+2)*(nz+2)*3/)))
-        if (my_rank == 0) write (*,*) "rms jre",bnorm
-
-        bnorm = rms(reshape(jcov,(/(nx+2)*(ny+2)*(nz+2)*3/)))
-        if (my_rank == 0) write (*,*) "rms jcov",bnorm
-c$$$        call createDrawInCfile(7,'jre.bin','j_re','t','x','y'
-c$$$     $     ,(/'nre  ','jre_1','jre_2','jre_3','jcov1','jcov2','jcov3'/)
-c$$$     $     ,'-c -X0 -L57','drawjre.in')
-c$$$        open(unit=110,file='jre.bin',form='unformatted'
-c$$$     .      ,status='unknown')
-c$$$        call contour(nre (0:nxd+1,0:nyd,1),nxd+2,nyd+1
-c$$$     .              ,0d0,xmax,0d0,ymax,0,110)
-c$$$        call contour(jre (0:nxd+1,0:nyd,1,1),nxd+2,nyd+1
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(jre (0:nxd+1,0:nyd,1,2),nxd+2,nyd+1
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(jre (0:nxd+1,0:nyd,1,3),nxd+2,nyd+1
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(jcov(0:nxd+1,0:nyd,1,1),nxd+2,nyd+1
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(jcov(0:nxd+1,0:nyd,1,2),nxd+2,nyd+1
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(jcov(0:nxd+1,0:nyd,1,3),nxd+2,nyd+1
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        close(110)
-c$$$        stop
-c diag ****
         E_ni(:,:,:,1) = E_ni(:,:,:,1) - eeta*jre(:,:,:,1)
         E_ni(:,:,:,2) = E_ni(:,:,:,2) - eeta*jre(:,:,:,2)
         E_ni(:,:,:,3) = E_ni(:,:,:,3) - eeta*jre(:,:,:,3)

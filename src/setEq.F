@@ -31,7 +31,7 @@ c--------------------------------------------------------------------
 
       use B_tools, ONLY: B_div_clean,findVectorPotential
 
-      use re, ONLY: init_nre
+      use re, ONLY: init_re
 
       implicit none
 
@@ -1676,19 +1676,19 @@ cc          if (nh3 == 0) nh3 = nint(kk*RR) !Unsafe!!!
         !Compute runaway-e initial density
         if (re_pkg) then
           allocate(bcov(0:nx+1,0:ny+1,0:nz+1,3)
-     $            ,jcnv(0:nx+1,0:ny+1,0:nz+1,3)
+     $            ,jre (0:nx+1,0:ny+1,0:nz+1,3)
      $            ,nre (0:nx+1,0:ny+1,0:nz+1)
      $            )
 
           bcov = XformToCov(gv%gparams,igr,bb)
-          jcnv = curl(gv%gparams,igr,bcov)
-          nre = scalarProduct(gv%gparams,igr,jcnv,bcov)
+          jre = curl(gv%gparams,igr,bcov)
+          nre = scalarProduct(gv%gparams,igr,jre,bcov)
      $         /(sqrt(vectorNorm(gv%gparams,igr,bb,.false.))*c_va)
 
           c_va = sign(1d0,sum(nre))*c_va
           nre = abs(nre)
           
-          call init_nre(nre)
+          call init_re(nre,jre)
 
 c diag ****
 c$$$          write (*,*) "rms nre"
@@ -1707,7 +1707,7 @@ c$$$          close(110)
 c$$$          stop
 c diag ****
           
-          deallocate(bcov,jcnv,nre)
+          deallocate(bcov,jre,nre)
         endif
         
       case ('ntm2d')

@@ -26,7 +26,7 @@ c--------------------------------------------------------------------
       use rw_bc, ONLY: res_wall_bc,E_bc,rw_Ebc,rw_fft_tupdate,rw_exp_fix
      $                ,rw_exp_ssp_bc
 
-      use re, ONLY: re_updt,re_lag_liu
+      use re, ONLY: re_updt,re_lag_liu,re_eul
       
       implicit none
 
@@ -137,7 +137,8 @@ c Perform Lagrangian temperature transport step
 c Update runaway electron density
 
 c$$$      if (re_pkg) call re_updt(vnm,vn,vnp,ilevel)
-      if (re_pkg) call re_lag_liu(vnm,vn,vnp,ilevel)
+c$$$      if (re_pkg) call re_lag_liu(vnm,vn,vnp,E_ni,ilevel)
+      if (re_pkg) call re_Eul(vnm,vn,vnp,E_ni,ilevel,.true.)
       
 c Add rotating magnetic perturbation
 
@@ -585,13 +586,9 @@ c     ###############################################################
 
         integer :: bcnd(6,3)
         
-        if (ilevel > 0 .and. my_rank == 0) then
+        if (ilevel > 0 .and. my_rank == 0.and.res_wall_bc) then
           write (*,*)
-          if (res_wall_bc) then
-            call info('  Applying RW BC in postproc...')
-          else
-            call info('  Performing divergence cleaning in postproc...')
-          endif
+          call info('  Applying RW BC in postproc...')
         endif
 
 c       Find db=B^(n+1)-B^n
