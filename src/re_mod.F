@@ -43,7 +43,7 @@ c$$$      use mg_solver
 
 #if defined(ADIOS2)
       type(adios2_adios),private :: re_obj
-      type(adios2_engine),private :: re_engine
+      type(adios2_engine),private :: re_eng
       type(adios2_io),private :: re_io
       character(20),private :: re_file = 're.bp'
 #else
@@ -113,7 +113,7 @@ c     ###############################################################
       integer :: ierr
       
 #if defined(ADIOS2)
-      ierr = destroy_ADIOS2_IO(re_obj,re_engine)
+      ierr = destroy_ADIOS2_IO(re_obj,re_eng)
 #endif
       nullify(g_def_re)
       
@@ -183,8 +183,8 @@ c     IO
      $        v_re%array_var(INRE )%bconds =  NEU
         
 #if defined(ADIOS2)
-        call writeADIOS2File(re_io,re_engine,re_file,itime,time
-     $                      ,v_re,.true.)
+        call writeADIOS2File(re_io,re_eng,re_file,itime,time,v_re
+     $                      ,.true.)
 #endif
 
         if (re_diag) call dump_re_diag(.true.)
@@ -404,8 +404,8 @@ c       Diagnostics
           v_re%array_var(IJRE2)%array = j__re(:,:,:,2)
           v_re%array_var(IJRE3)%array = j__re(:,:,:,3)
 
-          call writeADIOS2File(re_io,re_engine,re_file,itime,time
-     $                        ,v_re,.false.)
+          call writeADIOS2File(re_io,re_eng,re_file,itime,time,v_re
+     $                        ,.false.)
         endif
 #endif
         
@@ -887,8 +887,8 @@ c$$$        nre_np = nre_np*renum_before/renum_after
           v_re%array_var(IJRE2)%array = j__re(:,:,:,2)
           v_re%array_var(IJRE3)%array = j__re(:,:,:,3)
 
-          call writeADIOS2File(re_io,re_engine,re_file,itime,time
-     $                        ,v_re,.false.)
+          call writeADIOS2File(re_io,re_eng,re_file,itime,time,v_re
+     $                        ,.false.)
         endif
 #endif
         
@@ -1215,9 +1215,9 @@ c     Local variables
 
       real(8) :: tm_l
 
-      type(adios2_adios)  :: re_obj_rstrt
-      type(adios2_engine) :: re_engine_rstrt
-      type(adios2_io)     :: re_io_rstrt
+      type(adios2_adios)  :: obj
+      type(adios2_engine) :: eng
+      type(adios2_io)     :: io
       
 c     Begin program
 
@@ -1227,16 +1227,15 @@ c     Begin program
 
 c     Open restart files
 
-      ierr =  init_ADIOS2_IO(re_obj_rstrt,re_io_rstrt,v_re)
+      ierr = init_ADIOS2_IO(obj,io,v_re)
 
-      call openADIOS2FileForRead(re_obj_rstrt,re_io_rstrt
-     $                          ,re_engine_rstrt,re_file,ierr)
+      ierr = openADIOS2FileForRead(obj,io,eng,re_file)
 
 c     Read equilibrium
 
       if (my_rank == 0) call info(' Reading RE restart file(s)...')
 
-      ierr = readADIOS2File(re_io_rstrt,re_engine_rstrt,itm_l,tm_l,v_re)
+      ierr = readADIOS2File(io,eng,itm_l,tm_l,v_re)
 
       nre_0  = v_re%array_var(INRE)%array
       bc_nre = v_re%array_var(INRE)%bconds
@@ -1247,7 +1246,7 @@ c     Read equilibrium
 
 c     Read files
 
-      ierr = readADIOS2File(re_io_rstrt,re_engine_rstrt,itm_l,tm_l,v_re)
+      ierr = readADIOS2File(io,eng,itm_l,tm_l,v_re)
 
       if (ierr /= 0) then  !Starting from file-based initial condition
 
@@ -1262,12 +1261,12 @@ c     Read files
         do
           itime_old = itm_l + 1
 
-          ierr=readADIOS2File(re_io_rstrt,re_engine_rstrt,itm_l,tm_l
-     $                       ,v_re)
+          ierr=readADIOS2File(io,eng,itm_l,tm_l,v_re)
 
-c$$$          if(ierr==0.and.switch_dumpfile(itime_old,itime,ufile)) then
-c$$$            ierr = readADIOS2File(re_io,re_engine,itime,time,v_re)
-c$$$          endif
+          if(ierr==0.and.switch_dumpfile_re(obj,io,eng,itime_old,itm_l))
+     $    then
+            ierr = readADIOS2File(io,eng,itm_l,tm_l,v_re)
+          endif
 
           if (ierr /= 0) then
             exit
@@ -1293,7 +1292,7 @@ c     Exit
 
 c     End
 
-      ierr = closeADIOS2FileForRead(re_obj_rstrt,re_engine_rstrt)
+      ierr = closeADIOS2FileForRead(obj,eng)
 
       end subroutine re_readRestartFile
 
@@ -1323,7 +1322,7 @@ c     Open restart files
 
       if (.not.already_init) then
         already_init = .true.
-        call openADIOS2FileForRead(re_obj,re_io,re_engine,re_file,ierr)
+        ierr = openADIOS2FileForRead(re_obj,re_io,re_eng,re_file)
       elseif(already_init.and.itime == 0) then !avoid second itime=0 read
         return
       endif
@@ -1332,20 +1331,22 @@ c     Read state
 
       if (my_rank == 0) call info(' Reading RE graphics file(s)...')
 
-      ierr = readADIOS2File(re_io,re_engine,itm_l,tm_l,v_re)
+      itime_old = itime
+      
+      ierr = readADIOS2File(re_io,re_eng,itm_l,tm_l,v_re)
 
       if (ierr /= 0) then
         call pstop('re_readRestartFile','Unable to read RE state')
       endif
 
-c$$$      !Read additional state if at beginning
-c$$$      if (itm_l == 0) then
-c$$$        ierr=readADIOS2File(re_io,re_engine,itm_l,tm_l,v_re)
-c$$$
-c$$$        if (ierr /= 0) then
-c$$$          call pstop('re_readRestartFile','Unable to read RE state')
-c$$$        endif
-c$$$      endif
+      !Read additional state if at beginning
+      if (switch_dumpfile_re(re_obj,re_io,re_eng,itime_old,itm_l)) then
+        ierr=readADIOS2File(re_io,re_eng,itm_l,tm_l,v_re)
+
+        if (ierr /= 0) then
+          call pstop('re_readRestartFile','Unable to switch RE state')
+        endif
+      endif
 
       if (itm_l == 0) then
         nre_0  = v_re%array_var(INRE)%array
@@ -1356,8 +1357,7 @@ c$$$      endif
       endif
       
       if (itm_l /= itime .or. tm_l /= time) then
-        call pstop("re_readGraphicsFile"
-     $            ,"RE time level is off")
+        call pstop("re_readGraphicsFile","RE time level is off")
       endif
       
 c     Exit
@@ -1367,6 +1367,64 @@ c     Exit
 c     End
 
       end subroutine re_readGraphicsFile
+
+c     switch_dumpfile_re
+c     #################################################################
+      function switch_dumpfile_re(obj,io,eng,itm1,itm2) result(switch)
+
+c     -----------------------------------------------------------------
+c     Switches the dump file to bifurcated one due to restart
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      logical :: switch
+      integer :: itm1,itm2
+
+      type(adios2_adios)  :: obj
+      type(adios2_engine) :: eng
+      type(adios2_io)     :: io
+      
+c     Local variables
+
+      integer :: it,ierr
+      character(1024) :: file
+
+c     Begin program
+
+      switch = .false.
+      
+      do it=itm1,itm2
+        file = new_dumpfile(it,ifile=re_file)
+#if defined(adios)
+        switch = is_file(trim(file))
+#elif defined(ADIOS2)
+#if defined(ifort)
+        switch = is_dir(trim(file))
+#else
+        switch = is_file(trim(file))
+#endif
+#else
+        switch = is_file(trim(file)//"_proc0")
+#endif
+        if (switch) exit
+      end do
+      
+      if (switch) then
+        if (my_rank == 0) then
+cc          write (*,*) itm1,itm2
+          write (*,*) ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+          write (*,*) "Switching RE dump file to ",trim(file)
+          write (*,*) ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+        endif
+        ierr = closeADIOS2FileforRead(obj,eng)
+        ierr =  openADIOS2FileforRead(obj,io,eng,file)
+        recordfile=file
+      endif
+
+      end function switch_dumpfile_re
 #endif
       
       end module re
