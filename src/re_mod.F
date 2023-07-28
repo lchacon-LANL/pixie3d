@@ -1227,8 +1227,6 @@ c     Begin program
 
 c     Open restart files
 
-      ierr = init_ADIOS2_IO(obj,io,v_re)
-
       ierr = openADIOS2FileForRead(obj,io,eng,re_file)
 
 c     Read equilibrium
@@ -1284,6 +1282,11 @@ c     Read files
           call pstop("re_readRestartFile"
      $              ,"RE restart time level is off")
         endif
+
+        re_file = new_dumpfile(itm_l,ifile=re_file)
+        call writeADIOS2File(re_io,re_eng,re_file,itm_l,tm_l,v_re
+     $                      ,.false.)
+          
       endif
       
 c     Exit
@@ -1310,7 +1313,7 @@ c     Call variables
 
 c     Local variables
 
-      integer :: ierr,ufile,itime_old,itm_l
+      integer :: ierr,ufile,itime_old,itm_l=0
 
       real(8) :: tm_l
 
