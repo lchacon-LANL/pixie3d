@@ -244,6 +244,12 @@ c Runaway electron diagnostics
      .            ,jre(0:nx+1,0:ny+1,0:nz+1,3))
         endif
         call re_qtys(eeta,bcnv,bcov,E_ni,nre,jre)
+
+        jrex_car = jre(:,:,:,1)
+        jrey_car = jre(:,:,:,2)
+        jrez_car = jre(:,:,:,3)
+        call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+     .                      ,jrex_car,jrey_car,jrez_car,'cov','car')
       endif
       
 c Velocity and current intrinsic components (wrt B)

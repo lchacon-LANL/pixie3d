@@ -21,7 +21,7 @@ c$$$      use mg_solver
       use timestepping
 
       integer,private :: order_bc=1,bc_nre(6)=0
-     $                  ,INRE=1,IJRE1=2,IJRE2=3,IJRE3=4
+     $                  ,INRE=1,IDNRE=2,IJRE1=3,IJRE2=4,IJRE3=5
 
       type(var_array),pointer :: v_re => null()
 
@@ -89,9 +89,10 @@ c     ###############################################################
 
       j__re = 0d0
 
-      call allocateDerivedType(v_re,neq=4)
+      call allocateDerivedType(v_re,neq=5)
 
       v_re%array_var(INRE )%descr = "n_re"
+      v_re%array_var(IDNRE)%descr = "dn_re"
       v_re%array_var(IJRE1)%descr = "jre^1"
       v_re%array_var(IJRE2)%descr = "jre^2"
       v_re%array_var(IJRE3)%descr = "jre^3"
@@ -174,7 +175,10 @@ c     Compute initial RE current
 
 c     IO
 
+        j__re = XformToCov(g_def_re,igr,j__re)
+        
         v_re%array_var(INRE )%array = nre_0
+        v_re%array_var(IDNRE)%array = 0d0
         v_re%array_var(IJRE1)%array = j__re(:,:,:,1)
         v_re%array_var(IJRE2)%array = j__re(:,:,:,2)
         v_re%array_var(IJRE3)%array = j__re(:,:,:,3)
@@ -395,11 +399,14 @@ c       Diagnostics
         j__re(:,:,:,2) = gv_exb%grid(igrid)%array(:,:,:,2)*nre_np
         j__re(:,:,:,3) = gv_exb%grid(igrid)%array(:,:,:,3)*nre_np
 
+        j__re = XformToCov(g_def_re,igrid,j__re)  
+
         if (TS_chk_dump().and.io.and.re_diag) call dump_re_diag(.false.)
 
 #if defined(ADIOS2)
         if (TS_chk_dump().and.io) then
           v_re%array_var(INRE )%array = nre_np
+          v_re%array_var(IDNRE)%array = nre_np-nre_0
           v_re%array_var(IJRE1)%array = j__re(:,:,:,1)
           v_re%array_var(IJRE2)%array = j__re(:,:,:,2)
           v_re%array_var(IJRE3)%array = j__re(:,:,:,3)
@@ -878,11 +885,14 @@ c$$$        nre_np = nre_np*renum_before/renum_after
         j__re(:,:,:,2) = c__va*bb(:,:,:,2)*nre_np
         j__re(:,:,:,3) = c__va*bb(:,:,:,3)*nre_np
 
+        j__re = XformtoCov(g_def_re,igrid,j__re)
+
         if (TS_chk_dump().and.io.and.re_diag) call dump_re_diag(.false.)
 
 #if defined(ADIOS2)
         if (TS_chk_dump().and.io) then
           v_re%array_var(INRE )%array = nre_np
+          v_re%array_var(IDNRE)%array = nre_np-nre_0
           v_re%array_var(IJRE1)%array = j__re(:,:,:,1)
           v_re%array_var(IJRE2)%array = j__re(:,:,:,2)
           v_re%array_var(IJRE3)%array = j__re(:,:,:,3)
@@ -1190,6 +1200,7 @@ c     Begin program
 
         !Fill RE structure
         v_re%array_var(INRE )%array = nre_np
+        v_re%array_var(IDNRE)%array = nre_np-nre_0
         v_re%array_var(IJRE1)%array = jre(:,:,:,1)
         v_re%array_var(IJRE2)%array = jre(:,:,:,2)
         v_re%array_var(IJRE3)%array = jre(:,:,:,3)

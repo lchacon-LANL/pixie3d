@@ -403,7 +403,28 @@ c Define graphics group #3: Cartesian variables
 
       graph(3)%array_graph(neqd+4:neqd+6)%vector_name = 'Ve' !Identifies vector comp.
 
-      graph(3)%array_graph(neqd+7:ngraph)%descr = ''
+      if (re_pkg) then
+        do ieq=1,2
+          graph(3)%array_graph(neqd+6+ieq)%array
+     $         =>v_re%array_var(ieq)%array
+          graph(3)%array_graph(neqd+6+ieq)%descr
+     $         = v_re%array_var(ieq)%descr
+        enddo
+
+        graph(3)%array_graph(neqd+9 )%array => jrex_car
+        graph(3)%array_graph(neqd+9 )%descr =  "jre_x"
+
+        graph(3)%array_graph(neqd+10)%array => jrey_car
+        graph(3)%array_graph(neqd+10)%descr =  "jre_y"
+
+        graph(3)%array_graph(neqd+11)%array => jrez_car
+        graph(3)%array_graph(neqd+11)%descr =  "jre_z"
+
+        graph(3)%array_graph(neqd+12:ngraph)%descr = ''
+      else
+        graph(3)%array_graph(neqd+7 :ngraph)%descr = ''
+      endif
+
 #else
       graph(3)%array_graph(IRHO)%array=> gv%aux%var_list(IRHO_AUX)%array
       graph(3)%array_graph(IRHO)%descr=  gv%aux%var_list(IRHO_AUX)%descr
@@ -471,7 +492,28 @@ c Define graphics group #3: Cartesian variables
 
       graph(3)%array_graph(neqd+7:neqd+9)%vector_name = 'Ve' !Identifies vector comp.
 
-      graph(3)%array_graph(neqd+10:ngraph)%descr = ''
+      if (re_pkg) then
+        do ieq=1,2
+          graph(3)%array_graph(neqd+9+ieq)%array
+     $         =>v_re%array_var(ieq)%array
+          graph(3)%array_graph(neqd+9+ieq)%descr
+     $         = v_re%array_var(ieq)%descr
+        enddo
+
+        graph(3)%array_graph(neqd+12)%array => jrex_car
+        graph(3)%array_graph(neqd+12)%descr =  "jre_x"
+
+        graph(3)%array_graph(neqd+13)%array => jrey_car
+        graph(3)%array_graph(neqd+13)%descr =  "jre_y"
+
+        graph(3)%array_graph(neqd+14)%array => jrez_car
+        graph(3)%array_graph(neqd+14)%descr =  "jre_z"
+
+        graph(3)%array_graph(neqd+15:ngraph)%descr = ''
+      else
+        graph(3)%array_graph(neqd+10:ngraph)%descr = ''
+      endif
+
 #endif
 
       if (sum(sel_graph) == 0) then

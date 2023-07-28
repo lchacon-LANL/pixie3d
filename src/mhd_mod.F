@@ -894,7 +894,7 @@ c ######################################################################
      .          bx_cov,by_cov,bz_cov
      .         ,jx,jy,jz,jx_cov,jy_cov,jz_cov
      .         ,vx,vy,vz,vx_cov,vy_cov,vz_cov
-     .         ,vex,vey,vez
+     .         ,vex,vey,vez,jrex_car,jrey_car,jrez_car
 
         type(var_array),pointer :: u_pert => null()
 
@@ -969,6 +969,10 @@ c     ##################################################################
       allocate (qfactor(ilom:ihip,jlom:jhip,klom:khip)
      .         ,lambda (ilom:ihip,jlom:jhip,klom:khip))
 
+      allocate (jrex_car(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jrey_car(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jrez_car(ilom:ihip,jlom:jhip,klom:khip))
+ 
       end subroutine allocAuxPlotVar
 
 c     deallocAuxPlotVar
@@ -995,6 +999,8 @@ c     ##################################################################
 
       deallocate (qfactor,lambda)
 
+      deallocate(jrex_car,jrey_car,jrez_car)
+      
       if (associated(u_pert)) call deallocateDerivedType(u_pert)
 
       end subroutine deallocAuxPlotVar
