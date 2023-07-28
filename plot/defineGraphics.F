@@ -46,6 +46,8 @@ c--------------------------------------------------------------------
 
       use app_iosetup, ONLY: car_diag_plots
 
+      use re
+      
       implicit none
 
 c Call variables
@@ -578,8 +580,17 @@ c$$$      graph(4)%array_graph(15)%descr = 'V.(b x grad(psi))'
       graph(4)%array_graph(21)%array => jmag
       graph(4)%array_graph(21)%descr = '|J|'
 
-      graph(4)%array_graph(22:ngraph)%descr = ''
-
+      if (re_pkg) then
+        do ieq=1,size(v_re%array_var)
+          graph(4)%array_graph(21+ieq)%array =>v_re%array_var(ieq)%array
+          graph(4)%array_graph(21+ieq)%descr = v_re%array_var(ieq)%descr
+        enddo
+        
+        graph(4)%array_graph(22+size(v_re%array_var):ngraph)%descr = ''
+      else
+        graph(4)%array_graph(22:ngraph)%descr = ''
+      endif
+      
 cc      sel_gr(4,:) = (/ (i,i=6,14) /)
 cc      sel_gr(4,:) = (/ (i,i=1,9) /)
       sel_gr(4,:) = (/ (i,i=1,xdraw_cont_lim) /)

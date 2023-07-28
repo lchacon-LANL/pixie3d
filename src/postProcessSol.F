@@ -136,8 +136,8 @@ c Perform Lagrangian temperature transport step
 
 c Update runaway electron density
 
-c$$$      if (re_pkg) call re_lag_liu(vnm,vn,vnp,E_ni,ilevel)
-      if (re_pkg) call re_Eul_updt(vnm,vn,vnp,E_ni,ilevel,.true.)
+c$$$      if (re_pkg) call re_lag_liu(vnm,vn,vnp,E_ni,ilevel,.true.)
+      if (re_pkg) call re_Eul_updt(vnm,vn,vnp,E_ni,ilevel,.true.,.true.)
       
 c Add rotating magnetic perturbation
 

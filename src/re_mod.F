@@ -2,6 +2,8 @@
 
       use xdraw_io
 
+      use var_io
+
       use pixie3d_io
       
       use nlfunction_setup
@@ -18,7 +20,10 @@ c$$$      use mg_solver
 
       use timestepping
 
-      integer,private :: order_bc=1
+      integer,private :: order_bc=1,bc_nre(6)=0
+     $                  ,INRE=1,IJRE1=2,IJRE2=3,IJRE3=4
+
+      type(var_array),pointer :: v_re => null()
 
       type(mg_array),target,private :: gv_exb,bbmag
 
@@ -29,10 +34,21 @@ c$$$      use mg_solver
      $                                           ,nre_np=>null()
      $                                           ,nre_0 =>null()
       real(8),pointer,dimension(:,:,:,:),private :: j__re=>null()
+
+      logical,private :: re_initialized = .false.
       
-      logical :: re_diag=.true.
+      logical :: re_diag=.false.
 
       real(8),private :: c__va
+
+#if defined(ADIOS2)
+      type(adios2_adios),private :: re_obj
+      type(adios2_engine),private :: re_engine
+      type(adios2_io),private :: re_io
+      character(20),private :: re_file = 're.bp'
+#else
+      character(20),private :: re_file = 're.bin'
+#endif
       
       !Setup lagrangian integration
       logical,private :: do_3d=.true.
@@ -53,7 +69,7 @@ c     ###############################################################
 
       integer :: igrid
 
-      integer :: nx,ny,nz
+      integer :: nx,ny,nz,ierr
       
       g_def_re => g_def
 
@@ -72,7 +88,20 @@ c     ###############################################################
       nre_nm = 0d0 ; nre_n = 0d0 ; nre_np = 0d0 ; nre_0 = 0d0
 
       j__re = 0d0
+
+      call allocateDerivedType(v_re,neq=4)
+
+      v_re%array_var(INRE )%descr = "n_re"
+      v_re%array_var(IJRE1)%descr = "jre^1"
+      v_re%array_var(IJRE2)%descr = "jre^2"
+      v_re%array_var(IJRE3)%descr = "jre^3"
       
+c     Init IO
+
+#if defined(ADIOS2)
+      ierr =  init_ADIOS2_IO(re_obj,re_io,v_re)
+#endif
+        
       end subroutine re_allocVariables
 
 c     re_deallocVariables
@@ -81,6 +110,11 @@ c     ###############################################################
 
       implicit none
 
+      integer :: ierr
+      
+#if defined(ADIOS2)
+      ierr = destroy_ADIOS2_IO(re_obj,re_engine)
+#endif
       nullify(g_def_re)
       
       deallocate(nre_nm
@@ -88,6 +122,8 @@ c     ###############################################################
      $          ,nre_np
      $          ,nre_0
      $          ,j__re)
+
+      call deallocateDerivedType(v_re)
       
       end subroutine re_deallocVariables
 
@@ -103,17 +139,21 @@ c     Call variables
 
 c     Local variables
         
-        integer :: nx,ny,nz,igr
+        integer :: nx,ny,nz,igr,ierr
 
         real(8),dimension(:,:,:,:),pointer :: bcov
 
 c     Begin program
 
+        re_initialized = .true.
+        
         igr = 1
         
         nx = size(bcnv,1)-2
         ny = size(bcnv,2)-2
         nz = size(bcnv,3)-2
+
+c     Compute initial RE current
         
         allocate(bcov(0:nx+1,0:ny+1,0:nz+1,3))
 
@@ -132,12 +172,28 @@ c     Begin program
         nre_n  = nre_0
         nre_np = nre_0
 
+c     IO
+
+        v_re%array_var(INRE )%array = nre_0
+        v_re%array_var(IJRE1)%array = j__re(:,:,:,1)
+        v_re%array_var(IJRE2)%array = j__re(:,:,:,2)
+        v_re%array_var(IJRE3)%array = j__re(:,:,:,3)
+
+        where(v_re%array_var(INRE )%bconds == DEF)
+     $        v_re%array_var(INRE )%bconds =  NEU
+        
+#if defined(ADIOS2)
+        call writeADIOS2File(re_io,re_engine,re_file,itime,time
+     $                      ,v_re,.true.)
+#endif
+
         if (re_diag) call dump_re_diag(.true.)
 
         deallocate(bcov)
 
       end subroutine re_init
 
+#if !defined(plotting)
 c$$$c     get_nre
 c$$$c     ###############################################################
 c$$$      subroutine get_nre(nre)
@@ -168,7 +224,7 @@ c     ###############################################################
         endif
  
         !Eulerian update for nre_np
-        call re_Eul_updt(vnm,vn,vnp,Ecov,iout,.false.)
+        call re_Eul_updt(vnm,vn,vnp,Ecov,iout,.false.,.false.)
 
         !Lagrangian update for nre_np
         call re_lag_updt(vnm,vn,vnp,iout)
@@ -177,7 +233,7 @@ c     ###############################################################
 
 c     re_Eul_updt
 c     ###############################################################
-      subroutine re_Eul_updt(v_nm,v_n,v_np,Ecov,iout,full_flow)
+      subroutine re_Eul_updt(v_nm,v_n,v_np,Ecov,iout,full_flow,io)
 
         implicit none
 
@@ -188,17 +244,16 @@ c       Call variables
 
         real(8),pointer,dimension(:,:,:,:) :: Ecov
         
-        logical :: full_flow
+        logical :: full_flow,io
         
 c       Local variables
 
         real(8) :: dvol
         
-        integer :: nn,nx,ny,nz,igrid,bcs(6,3),bc_nre(6),guess,order
-     $            ,i,j,k,ii
+        integer :: nn,nx,ny,nz,igrid,bcs(6,3),guess,order,i,j,k,ii
 
-        real(8),allocatable,dimension(:,:) :: x,y
-        real(8),allocatable,dimension(:,:,:) :: ib2
+        real(8),allocatable,dimension(:,:)     :: x,y
+        real(8),allocatable,dimension(:,:,:)   :: ib2
         real(8),allocatable,dimension(:,:,:,:) :: b_cnv,b_cov
 
 c       Begin program
@@ -336,13 +391,24 @@ c       Diagnostics
 
         if (my_rank == 0.and.iout > 0) call info('  Done!')
 
-        if (TS_chk_dump().and.re_diag) then
-          j__re(:,:,:,1) = gv_exb%grid(igrid)%array(:,:,:,1)*nre_np
-          j__re(:,:,:,2) = gv_exb%grid(igrid)%array(:,:,:,2)*nre_np
-          j__re(:,:,:,3) = gv_exb%grid(igrid)%array(:,:,:,3)*nre_np
-          call dump_re_diag(.false.)
+        j__re(:,:,:,1) = gv_exb%grid(igrid)%array(:,:,:,1)*nre_np
+        j__re(:,:,:,2) = gv_exb%grid(igrid)%array(:,:,:,2)*nre_np
+        j__re(:,:,:,3) = gv_exb%grid(igrid)%array(:,:,:,3)*nre_np
+
+        if (TS_chk_dump().and.io.and.re_diag) call dump_re_diag(.false.)
+
+#if defined(ADIOS2)
+        if (TS_chk_dump().and.io) then
+          v_re%array_var(INRE )%array = nre_np
+          v_re%array_var(IJRE1)%array = j__re(:,:,:,1)
+          v_re%array_var(IJRE2)%array = j__re(:,:,:,2)
+          v_re%array_var(IJRE3)%array = j__re(:,:,:,3)
+
+          call writeADIOS2File(re_io,re_engine,re_file,itime,time
+     $                        ,v_re,.false.)
         endif
-                
+#endif
+        
 c       Garbage collection
         
         deallocate(x,y,b_cnv,b_cov,ib2)
@@ -575,18 +641,19 @@ c$$$        nre_np = nre_np*renum_before/renum_after
 
 c     re_Lag_liu
 c     ###############################################################
-      subroutine re_Lag_liu(vnm,vn,vnp,Ecov,iout)
+      subroutine re_Lag_liu(vnm,vn,vnp,Ecov,iout,io)
 
         implicit none
 
         !Call variables
         type(var_array),pointer :: vnm,vn,vnp
         integer :: iout
+        logical :: io
 
         real(8),pointer,dimension(:,:,:,:) :: Ecov
         
         !Local variables
-        integer :: igrid,nx,ny,nz,bcnd(6,3),bc_nre(6)
+        integer :: igrid,nx,ny,nz,bcnd(6,3)
 
         real(8) :: rkernel,renum_before,renum_after
         
@@ -807,12 +874,23 @@ c$$$        nre_np = nre_np*renum_before/renum_after
         !Diagnostics
         if (my_rank == 0.and.iout > 0) call info('  Done!')
 
-        if (TS_chk_dump().and.re_diag) then
-          j__re(:,:,:,1) = c__va*bb(:,:,:,1)*nre_np
-          j__re(:,:,:,2) = c__va*bb(:,:,:,2)*nre_np
-          j__re(:,:,:,3) = c__va*bb(:,:,:,3)*nre_np
-          call dump_re_diag(.false.)
+        j__re(:,:,:,1) = c__va*bb(:,:,:,1)*nre_np
+        j__re(:,:,:,2) = c__va*bb(:,:,:,2)*nre_np
+        j__re(:,:,:,3) = c__va*bb(:,:,:,3)*nre_np
+
+        if (TS_chk_dump().and.io.and.re_diag) call dump_re_diag(.false.)
+
+#if defined(ADIOS2)
+        if (TS_chk_dump().and.io) then
+          v_re%array_var(INRE )%array = nre_np
+          v_re%array_var(IJRE1)%array = j__re(:,:,:,1)
+          v_re%array_var(IJRE2)%array = j__re(:,:,:,2)
+          v_re%array_var(IJRE3)%array = j__re(:,:,:,3)
+
+          call writeADIOS2File(re_io,re_engine,re_file,itime,time
+     $                        ,v_re,.false.)
         endif
+#endif
         
         !Garbage collection
         deallocate(tmp_nm,tmp_n,tmp_np,bb,ibmag_nm,ibmag_n,ibmag_np
@@ -881,7 +959,8 @@ c     Are we done?
 c     End program
 
       end subroutine lsode_3d_ext
-
+#endif
+      
 c     dump_re_diag
 c     ######################################################################
       subroutine dump_re_diag(init)
@@ -1040,9 +1119,19 @@ c     Local variables
      $                  ,0:size(bcnv,3)-1,3)
 
         real(8),dimension(:,:,:),pointer :: jac
-        
-c     Begin program
 
+c     Begin program
+        
+#if defined(ADIOS2)
+#if defined(plotting)
+        call re_readGraphicsFile
+#else
+        if (.not.re_initialized) then
+          call re_readRestartFile
+          re_initialized = .true.
+        endif
+#endif
+#endif
         igr = 1
         
         jac => g_def_re%gmetric%grid(igr)%jac
@@ -1098,7 +1187,186 @@ c     Begin program
 
         !Return RE density
         nre = nre_np
-        
+
+        !Fill RE structure
+        v_re%array_var(INRE )%array = nre_np
+        v_re%array_var(IJRE1)%array = jre(:,:,:,1)
+        v_re%array_var(IJRE2)%array = jre(:,:,:,2)
+        v_re%array_var(IJRE3)%array = jre(:,:,:,3)
+
       end subroutine re_qtys
+
+#if defined(ADIOS2)
+c     re_readRestartFile
+c     #################################################################
+      subroutine re_readRestartFile
+
+c     -----------------------------------------------------------------
+c     Reads restart file
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+c     Local variables
+
+      integer :: nx,ny,nz,ierr,ufile,itime_old,itm_l
+
+      real(8) :: tm_l
+
+      type(adios2_adios)  :: re_obj_rstrt
+      type(adios2_engine) :: re_engine_rstrt
+      type(adios2_io)     :: re_io_rstrt
+      
+c     Begin program
+
+      nx = g_def_re%nxv(1)
+      ny = g_def_re%nyv(1)
+      nz = g_def_re%nzv(1)
+
+c     Open restart files
+
+      ierr =  init_ADIOS2_IO(re_obj_rstrt,re_io_rstrt,v_re)
+
+      call openADIOS2FileForRead(re_obj_rstrt,re_io_rstrt
+     $                          ,re_engine_rstrt,re_file,ierr)
+
+c     Read equilibrium
+
+      if (my_rank == 0) call info(' Reading RE restart file(s)...')
+
+      ierr = readADIOS2File(re_io_rstrt,re_engine_rstrt,itm_l,tm_l,v_re)
+
+      nre_0  = v_re%array_var(INRE)%array
+      bc_nre = v_re%array_var(INRE)%bconds
+      
+      if (ierr /= 0) then
+        call pstop('re_readRestartFile','Unable to read RE state')
+      endif
+
+c     Read files
+
+      ierr = readADIOS2File(re_io_rstrt,re_engine_rstrt,itm_l,tm_l,v_re)
+
+      if (ierr /= 0) then  !Starting from file-based initial condition
+
+        nre_n  = nre_0
+        nre_np = nre_0
+        nre_nm = nre_0
+
+      else
+
+        nre_np = nre_n
+
+        do
+          itime_old = itm_l + 1
+
+          ierr=readADIOS2File(re_io_rstrt,re_engine_rstrt,itm_l,tm_l
+     $                       ,v_re)
+
+c$$$          if(ierr==0.and.switch_dumpfile(itime_old,itime,ufile)) then
+c$$$            ierr = readADIOS2File(re_io,re_engine,itime,time,v_re)
+c$$$          endif
+
+          if (ierr /= 0) then
+            exit
+          else
+            nre_nm = nre_n
+            nre_n  = nre_np
+            nre_np = v_re%array_var(INRE)%array
+            if (   (itm_l > nrestart.and.nrestart > 0)
+     .         .or.(tm_l  > trestart.and.trestart > 0d0)) exit
+          endif
+
+        enddo
+
+        if (itm_l /= itime .or. tm_l /= time) then
+          call pstop("re_readRestartFile"
+     $              ,"RE restart time level is off")
+        endif
+      endif
+      
+c     Exit
+
+      if (my_rank == 0) call info(' Done!')
+
+c     End
+
+      ierr = closeADIOS2FileForRead(re_obj_rstrt,re_engine_rstrt)
+
+      end subroutine re_readRestartFile
+
+c     re_readGraphicsFile
+c     #################################################################
+      subroutine re_readGraphicsFile
+
+c     -----------------------------------------------------------------
+c     Reads restart file
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+c     Local variables
+
+      integer :: ierr,ufile,itime_old,itm_l
+
+      real(8) :: tm_l
+
+      logical :: already_init=.false.
+      
+c     Begin program
+
+c     Open restart files
+
+      if (.not.already_init) then
+        already_init = .true.
+        call openADIOS2FileForRead(re_obj,re_io,re_engine,re_file,ierr)
+      elseif(already_init.and.itime == 0) then !avoid second itime=0 read
+        return
+      endif
+
+c     Read state
+
+      if (my_rank == 0) call info(' Reading RE graphics file(s)...')
+
+      ierr = readADIOS2File(re_io,re_engine,itm_l,tm_l,v_re)
+
+      if (ierr /= 0) then
+        call pstop('re_readRestartFile','Unable to read RE state')
+      endif
+
+c$$$      !Read additional state if at beginning
+c$$$      if (itm_l == 0) then
+c$$$        ierr=readADIOS2File(re_io,re_engine,itm_l,tm_l,v_re)
+c$$$
+c$$$        if (ierr /= 0) then
+c$$$          call pstop('re_readRestartFile','Unable to read RE state')
+c$$$        endif
+c$$$      endif
+
+      if (itm_l == 0) then
+        nre_0  = v_re%array_var(INRE)%array
+        bc_nre = v_re%array_var(INRE)%bconds
+        nre_np = nre_0
+      else
+        nre_np = v_re%array_var(INRE)%array
+      endif
+      
+      if (itm_l /= itime .or. tm_l /= time) then
+        call pstop("re_readGraphicsFile"
+     $            ,"RE time level is off")
+      endif
+      
+c     Exit
+
+      if (my_rank == 0) call info(' Done!')
+
+c     End
+
+      end subroutine re_readGraphicsFile
+#endif
       
       end module re
