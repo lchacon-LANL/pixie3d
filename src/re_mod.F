@@ -187,8 +187,8 @@ c     IO
      $        v_re%array_var(INRE )%bconds =  NEU
         
 #if defined(ADIOS2)
-        call writeADIOS2File(re_io,re_eng,re_file,itime,time,v_re
-     $                      ,.true.)
+        ierr = writeADIOS2File(re_io,re_eng,re_file,itime,time,v_re
+     $                        ,.true.)
 #endif
 
         if (re_diag) call dump_re_diag(.true.)
@@ -254,7 +254,7 @@ c       Local variables
 
         real(8) :: dvol
         
-        integer :: nn,nx,ny,nz,igrid,bcs(6,3),guess,order,i,j,k,ii
+        integer :: nn,nx,ny,nz,igrid,bcs(6,3),guess,order,i,j,k,ii,ierr
 
         real(8),allocatable,dimension(:,:)     :: x,y
         real(8),allocatable,dimension(:,:,:)   :: ib2
@@ -411,8 +411,8 @@ c       Diagnostics
           v_re%array_var(IJRE2)%array = j__re(:,:,:,2)
           v_re%array_var(IJRE3)%array = j__re(:,:,:,3)
 
-          call writeADIOS2File(re_io,re_eng,re_file,itime,time,v_re
-     $                        ,.false.)
+          ierr = writeADIOS2File(re_io,re_eng,re_file,itime,time,v_re
+     $                          ,.false.)
         endif
 #endif
         
@@ -660,7 +660,7 @@ c     ###############################################################
         real(8),pointer,dimension(:,:,:,:) :: Ecov
         
         !Local variables
-        integer :: igrid,nx,ny,nz,bcnd(6,3)
+        integer :: igrid,nx,ny,nz,bcnd(6,3),ierr
 
         real(8) :: rkernel,renum_before,renum_after
         
@@ -897,7 +897,7 @@ c$$$        nre_np = nre_np*renum_before/renum_after
           v_re%array_var(IJRE2)%array = j__re(:,:,:,2)
           v_re%array_var(IJRE3)%array = j__re(:,:,:,3)
 
-          call writeADIOS2File(re_io,re_eng,re_file,itime,time,v_re
+          ierr = writeADIOS2File(re_io,re_eng,re_file,itime,time,v_re
      $                        ,.false.)
         endif
 #endif
@@ -1295,8 +1295,8 @@ c     Read files
         endif
 
         re_file = new_dumpfile(itm_l,ifile=re_file)
-        call writeADIOS2File(re_io,re_eng,re_file,itm_l,tm_l,v_re
-     $                      ,.false.)
+        ierr = writeADIOS2File(re_io,re_eng,re_file,itm_l,tm_l,v_re
+     $                        ,.false.)
           
       endif
       
