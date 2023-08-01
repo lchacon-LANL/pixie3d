@@ -24,6 +24,8 @@ c----------------------------------------------------------------------
 
       use app_iosetup
 
+      use re, ONLY: re_diag
+
       implicit none
 
 c Call variables
@@ -67,7 +69,7 @@ c Namelists
      .                   ,r_v,tau_w,normal_flow_bc
      .                   ,rw_fft_tupdate,rw_implicit_bc,rw_exp_ssp_bc
      .                   ,rw_exp_pc_bc,rw_exp_fix
-     .                   ,re_pkg,c_va
+     .                   ,re_pkg,c_va,re_diag
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                   ,pc_as_solver,fpa,fpa_it
@@ -130,7 +132,7 @@ c Namelists
      .                   ,r_v,tau_w,normal_flow_bc,rw_implicit_bc
      .                   ,rw_exp_ssp_bc,rw_exp_pc_bc,rw_exp_fix
      .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_flow_bc
-     .                   ,re_pkg,c_va
+     .                   ,re_pkg,c_va,re_diag
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal

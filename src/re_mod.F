@@ -401,10 +401,11 @@ c       Diagnostics
 
         j__re = XformToCov(g_def_re,igrid,j__re)  
 
-        if (TS_chk_dump().and.io.and.re_diag) call dump_re_diag(.false.)
+        if ((TS_chk_dump().or.TS_chk_end())
+     $     .and.io.and.re_diag) call dump_re_diag(.false.)
 
 #if defined(ADIOS2)
-        if (TS_chk_dump().and.io) then
+        if ((TS_chk_dump().or.TS_chk_end()).and.io) then
           v_re%array_var(INRE )%array = nre_np
           v_re%array_var(IDNRE)%array = nre_np-nre_0
           v_re%array_var(IJRE1)%array = j__re(:,:,:,1)
@@ -887,10 +888,11 @@ c$$$        nre_np = nre_np*renum_before/renum_after
 
         j__re = XformtoCov(g_def_re,igrid,j__re)
 
-        if (TS_chk_dump().and.io.and.re_diag) call dump_re_diag(.false.)
+        if ((TS_chk_dump().or.TS_chk_end())
+     $     .and.io.and.re_diag) call dump_re_diag(.false.)
 
 #if defined(ADIOS2)
-        if (TS_chk_dump().and.io) then
+        if ((TS_chk_dump().or.TS_chk_end()).and.io) then
           v_re%array_var(INRE )%array = nre_np
           v_re%array_var(IDNRE)%array = nre_np-nre_0
           v_re%array_var(IJRE1)%array = j__re(:,:,:,1)
@@ -1290,6 +1292,9 @@ c     Read files
         enddo
 
         if (itm_l /= itime .or. tm_l /= time) then
+          if (my_rank == 0) write (*,*) itm_l,itime
+          if (my_rank == 0) write (*,*) tm_l,time
+          
           call pstop("re_readRestartFile"
      $              ,"RE restart time level is off")
         endif
