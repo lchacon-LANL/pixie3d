@@ -184,10 +184,16 @@ c     Compute EXTERNAL tangential B-field components @ RW (VACUUM response)
        call vacuum_hel(g_def,igr,bcnv1int,bcnv1intm,bcovext
      $                ,new_time,debug)
 c$$$      case('cyl')
-c$$$      case('tor')
+      case('tor','sha','sh2')
+        if (nzd == 1) then
+          call vacuum_tor_symm(g_def,igr,bcnv1int,bcovext,dbg)
+        else
+          call critical('rw-bc'
+     $      ,'VACUUM B-field response not implemented for non-symm tor')
+        endif
       case default
         call critical('rw_bc'
-     .       ,'VACUUM B-field response not implemented for '//coords)
+     .      ,'VACUUM B-field response not implemented for '//coords)
       end select
 
 c     Find electric field components @ r=1 (store in (nx+1))
@@ -914,6 +920,140 @@ c$$$      deallocate(phir_m_np,phii_m_np)
       
       end subroutine vacuum_cyl
 
+c     vacuum_tor_symm
+c     ####################################################################
+      subroutine vacuum_tor_symm(g_def,igr,bcnvn_int,bcov_ext,dbg)
+      
+c     -----------------------------------------------------------------
+c     Performs RW BC in toroidal geometry. Inputs normal internal
+c     B-component, outputs tangential external B-components
+c     -----------------------------------------------------------------
+
+      use special_funcs
+      
+      implicit none
+
+c     Call variables
+        
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: igr
+      
+      real(8) :: bcnvn_int(0:,0:),bcov_ext(0:,0:,:)
+
+      logical :: dbg
+      
+c     Local variables
+      
+      integer :: jgl,jglp,jglm,i,j,k,nx,ny,nz,nyg
+      real(8) :: xx,yy
+
+      real(8),allocatable,dimension(:,:,:,:) :: nn,ng
+      real(8),allocatable,dimension(:,:,:)   :: Bn,Bng,JJ,RR,ZZ
+     $                                         ,Jg,Rg,Zg
+      real(8),allocatable,dimension(:)       :: phi,theta
+
+c     Begin program
+
+      nx = g_def%nxv(igr) 
+      ny = g_def%nyv(igr)
+      nz = g_def%nzv(igr)
+
+      nyg = g_def%nygl(igr)
+
+      allocate(Bn(1,ny,1),JJ(1,ny,1),nn(1,ny,1,3),RR(1,ny,1)
+     $        ,ZZ(1,ny,1))
+
+      allocate(phi(nyg),Bng(1,nyg,1),Rg(1,nyg,1),Zg(1,nyg,1)
+     $        ,Jg(1,nyg,1),ng(1,nyg,1,3),theta(nyg))
+      
+c     Global angular mesh and associated qtys
+
+      theta = g_def%yg(1:nyg)
+
+      i = nx ; k = 1
+      do j=1,ny
+        !Cell position at (nx+1/2) boundary in (R,Z) coords
+        ZZ(1,j,1) = 0.5*(g_def%gmetric%grid(igr)%car(i  ,j,k,3)
+     $                  +g_def%gmetric%grid(igr)%car(i+1,j,k,3))
+        xx = 0.5*(g_def%gmetric%grid(igr)%car(i  ,j,k,1)
+     $           +g_def%gmetric%grid(igr)%car(i+1,j,k,1))
+        yy = 0.5*(g_def%gmetric%grid(igr)%car(i  ,j,k,2)
+     $           +g_def%gmetric%grid(igr)%car(i+1,j,k,2))
+        RR(1,j,1) = sqrt(xx*xx + yy*yy)
+
+        !Cartesian normal vector at (nx+1/2) bdry at phi=0 poloidal plane
+        nn(1,j,1,:) = 0.25*(g_def%gmetric%grid(igr)%cov(i  ,j,k  ,1,:)
+     $                     +g_def%gmetric%grid(igr)%cov(i+1,j,k  ,1,:)
+     $                     +g_def%gmetric%grid(igr)%cov(i  ,j,k-1,1,:)
+     $                     +g_def%gmetric%grid(igr)%cov(i+1,j,k-1,1,:))
+
+        !Jacobian interpolated at (nx+1/2) bdry
+        JJ(1,j,1) = 0.5*(g_def%gmetric%grid(igr)%jac(i  ,j,k)
+     $                  +g_def%gmetric%grid(igr)%jac(i+1,j,k))
+      enddo
+
+c     FFT Bnormal at plasma wall (divided by J*|n|)
+
+      Bn(1,:,1) = bcnvn_int(1:ny,1)
+     $           /(JJ(1,:,1)*sqrt(sum(nn(1,:,1,:)**2,2)))
+
+      !Gather qtys in parallel along boundary
+#if defined(petsc)
+      call find_global_nobc(Bn,Bng,mpi_comm=g_def%MPI_COMM_Y)
+      call find_global_nobc(RR,Rg ,mpi_comm=g_def%MPI_COMM_Y)
+      call find_global_nobc(ZZ,Zg ,mpi_comm=g_def%MPI_COMM_Y)
+      call find_global_nobc(JJ,Jg ,mpi_comm=g_def%MPI_COMM_Y)
+      call find_global_nobc(nn,ng ,mpi_comm=g_def%MPI_COMM_Y)
+#else
+      call find_global_nobc(Bn,Bng)
+      call find_global_nobc(RR,Rg )
+      call find_global_nobc(ZZ,Zg )
+      call find_global_nobc(JJ,Jg )
+      call find_global_nobc(nn,ng )
+#endif
+      
+c     Find VACUUM potential solution Phi outside of resistive wall
+
+c diag ****
+      if (my_rank == 0) then
+        write (*,*) "BIM DIAG ","theta ","Bng ","Rg ","Zg ","Jg ","|ng|"
+        do i=1,nyd
+          write (*,*) "BIM DIAG",theta(i),Bng(1,i,1),Rg(1,i,1),Zg(1,i,1)
+     $                        ,Jg(1,i,1),sqrt(sum(ng(1,i,1,:)**2))
+        enddo
+      endif
+c diag ****
+      
+!<<< HERE GOES INTERFACE TO BIM COMPUTATION; INPUTS Bng, RETURNS PHI
+!<<< NEED TO PASS (Rg,Zg) COORDINATES OF BOUNDARY CONTOUR
+!<<< NEED TO PASS JACOBIAN Jg, NORMAL VECTOR ng AT BOUNDARY
+
+      phi = 0d0
+      
+c     Find EXTERNAL magnetic field components outside RW
+
+      !Get LOCAL (cov) magnetic field components @ r=1 
+      do j = 0,ny+1
+        jgl = j + g_def%jlo(1) - 1
+        jglp = jgl + 1
+        jglm = jgl - 1
+        if (jglp > nyg) jglp = jglp - nyg
+        if (jglm < 1  ) jglm = nyg + jglm
+        bcov_ext(j,:,1) = 0d0 !Not needed
+        bcov_ext(j,:,2) = (phi  (jglp)-phi  (jglm))
+     $                   /(theta(jglp)-theta(jglm))
+        bcov_ext(j,:,3) = 0d0 !From toroidal symmetry
+      enddo
+
+      deallocate(Bn,JJ,nn,RR,ZZ)
+      
+      deallocate(phi,Bng,Jg,ng,Rg,Zg)
+
+      stop
+      
+      end subroutine vacuum_tor_symm
+      
 c     rw_A_BCs
 c     ##################################################################
       subroutine rw_A_BCs(g_def,acov_n,bcnv_n,acov,acnv,bcnd_a,bcnd_b
@@ -990,7 +1130,7 @@ c     ##################################################################
       call find_B(gv%gparams,igr,B0,acov,bcnv,.false.
      $           ,bcond_a=bcnd_a,bcond_b=bcnd_b)
 
-      !Find RW E-field 
+      !Find RW E-field
       call rw_Ebc(gv%gparams,igr,bcnv_n,Erw,bcnvp=bcnv
      $           ,dbg=(ilevel>0))
 
