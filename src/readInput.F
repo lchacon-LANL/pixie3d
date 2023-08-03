@@ -1009,7 +1009,7 @@ cc      if (bcs(1) == 'spt') vlap_etaj = .false.
 
       !Vector potential exception
 #if defined(vec_pot)
-      rtol = rtol*5
+      if (.not.test) rtol = rtol*5d0
 #endif
 
       !Use PC as linear solver
