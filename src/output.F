@@ -6,20 +6,18 @@ c----------------------------------------------------------------------
 c     Writes program output to standard output
 c----------------------------------------------------------------------
 
-      use equilibrium
-
-      use timeStepping
-
       use PC_setup
 
       use app_iosetup
 
-      use grid
-
       use nlfunction_setup
 
-      use rw_bc, ONLY: res_wall_bc,sheath_bc
+      use local_BCS_variables, ONLY: res_wall_bc
+     $                              ,sheath_flow_bc
+     $                              ,normal_flow_bc
 
+      use ts_base, ONLY: itgmres,itnewt
+      
       implicit none
 
 c Call variables
@@ -320,7 +318,9 @@ c     Warnings
 #endif
       if (refine_eq) call warning('  Running equilibrium-checking mode')
 
-      if (sheath_bc) call info('  Applying SHEATH BC')
+      if (sheath_flow_bc) call info('  Applying SHEATH FLOW BC')
+
+      if (normal_flow_bc) call info('  Applying NORMAL FLOW BC')
 
       if (res_wall_bc) call info('  Applying RW BC')
  

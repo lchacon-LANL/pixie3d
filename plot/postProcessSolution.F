@@ -23,8 +23,11 @@ c--------------------------------------------------------------------
 
       use poincare_io
 
-      use app_iosetup, ONLY: car_diag_plots,heat_flx_diag
+      use app_iosetup, ONLY: car_diag_plots,heat_flx_diag,fourier
+     $                      ,poincare
 
+      use re
+      
 #if defined(RFX)
       use rfx
 #endif
@@ -231,6 +234,22 @@ c Resistive wall diagnostics
      .   sqrt(integral(gv%gparams,igx,bcov(:,:,:,1)**2,average=.false.))
         if (my_rank == 0) write (*,*) '||Bt||',time,
      .   sqrt(integral(gv%gparams,igx,bcov(:,:,:,2)**2,average=.false.))
+      endif
+
+c Runaway electron diagnostics
+
+      if (re_pkg) then
+        if (.not.associated(nre)) then
+          allocate(nre(0:nx+1,0:ny+1,0:nz+1)
+     .            ,jre(0:nx+1,0:ny+1,0:nz+1,3))
+        endif
+        call re_qtys(eeta,bcnv,bcov,E_ni,nre,jre)
+
+        jrex_car = jre(:,:,:,1)
+        jrey_car = jre(:,:,:,2)
+        jrez_car = jre(:,:,:,3)
+        call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+     .                      ,jrex_car,jrey_car,jrez_car,'cov','car')
       endif
       
 c Velocity and current intrinsic components (wrt B)
@@ -505,7 +524,7 @@ c Heat source diagnostics
               !Internal heat source
               heat_src(i,j,k) =
      .             int_heat_src(gv%gparams,i,j,k,igx,eeta,nuu,h_eta
-     .                         ,jcnv,jcov,vcnv,vecnv)
+     .                         ,jcov,vcnv,vecnv)
 
               !External heat source
               heat_src(i,j,k) = heat_src(i,j,k)

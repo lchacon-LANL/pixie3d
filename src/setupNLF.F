@@ -27,6 +27,8 @@ c------------------------------------------------------------------
 
       use xdraw_io
 
+      use re, ONLY: re_qtys
+
       implicit none
 
 c Call variables
@@ -86,6 +88,15 @@ c Impose boundary conditions and find auxiliary quantities
 
 c Fill LOCAL auxiliary variables
 
+      !Runaway electron variables (also updates E-field)
+      if (re_pkg) then
+        if (.not.associated(nre)) then
+          allocate(nre(0:nx+1,0:ny+1,0:nz+1)
+     .            ,jre(0:nx+1,0:ny+1,0:nz+1,3))
+        endif
+        call re_qtys(eeta,bcnv,bcov,E_ni,nre,jre)
+      endif
+      
       call fillLocalAuxVars(igx,varray,gv%aux)
 
 c Safeguards
@@ -200,7 +211,7 @@ c------------------------------------------------------------------
 
 c Begin program
 
-      call destroyAppBCs
+      call deallocLocalAuxVars
 
 c End program
 

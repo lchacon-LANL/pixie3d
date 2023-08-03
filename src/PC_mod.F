@@ -474,6 +474,8 @@ c     Fill LOCAL auxiliary variables
 
 c     Setup BCs
 
+        call setup_PC_BC(igrid,varray,vaux)
+
         call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
 
         !Set boundary conditions
@@ -954,6 +956,43 @@ c     End program
       end subroutine restrict_B
 
       end subroutine findPCcoeffs
+      
+c     setup_PC_BC
+c     ##############################################################
+      subroutine setup_PC_BC(igrid,varray,vaux)
+
+c     --------------------------------------------------------------
+c     Setup preconditioner BCs
+c     --------------------------------------------------------------
+
+c     Call variables
+      
+        type(var_array),pointer :: varray
+        type(aux_array),pointer :: vaux
+
+c     Local variables
+        
+        integer :: ieq
+
+c     Set boundary conditions
+
+        do ieq=1,neqd
+          bcs(:,ieq) = varray%array_var(ieq)%bconds(:)
+        enddo
+
+c     Set BCs for auxiliary variables
+
+#if defined(vec_pot)
+        bcs(:,IBX:IBZ) = vaux%vec_list(IBCNV)%bconds
+#endif
+
+        bcs(:,IJX:IJZ) = vaux%vec_list(IJCNV)%bconds
+
+c     Set parallel BCs
+
+        call setASM_PC_BC(gv%gparams,igrid,igrid,igrid,bcs,pc_asm)
+
+      end subroutine setup_PC_BC
 
 c     poisson
 c     ###############################################################

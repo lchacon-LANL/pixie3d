@@ -11,7 +11,7 @@ else
   PETSC_A_CODE = $(EXECA)-posix.petsc.x
 endif
 
-MODS := io_mod.F90 mhd_mod.F BC_mod.F rw_mod.F PC_mod.F
+MODS := io_mod.F90 mhd_mod.F BC_mod.F rw_mod.F PC_mod.F re_mod.F
 
 EXCLUDE += %ts_if_mod.F %ts_mod.F %proj_int_mod.F
 
@@ -50,7 +50,8 @@ LNK_FILES = ../src/applyBC.F\
 	    ../src/vmec.f90\
 	    ../src/efit.F90\
 	    ../src/io_mod.F90\
-	    ../src/rw_mod.F
+	    ../src/rw_mod.F\
+	    ../src/re_mod.F
 
 # Dependencies
 

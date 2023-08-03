@@ -23,8 +23,10 @@ c--------------------------------------------------------------------
 
       use local_BCS_variables, ONLY: order_bc
 
-      use rw_bc, ONLY: res_wall_bc,E_bc,rw_Ebc,rw_fft_tupdate,rw_exp_fix
-     $                ,rw_exp_ssp_bc
+      use rw_bc, ONLY: res_wall_bc,E_bc,rw_Ebc
+c$$$     $                ,rw_fft_tupdate,rw_exp_ssp_bc
+
+      use re, ONLY: re_lag_liu,re_eul_updt
       
       implicit none
 
@@ -128,10 +130,15 @@ c Divergence-clean magnetic field when PC is on
       if (post_divclean.or.res_wall_bc) call post__divclean
 #endif
 
-c Perform Lagrangian temperature step
+c Perform Lagrangian temperature transport step
 
-      if (lagrangian) call post__lagrangian
+      if (lagrangian) call post__lag_xport
 
+c Update runaway electron density
+
+c$$$      if (re_pkg) call re_lag_liu(vnm,vn,vnp,E_ni,ilevel,.true.)
+      if (re_pkg) call re_Eul_updt(vnm,vn,vnp,E_ni,ilevel,.true.,.true.)
+      
 c Add rotating magnetic perturbation
 
 #if !defined(vec_pot)
@@ -166,18 +173,18 @@ c Dump parareal convergence info
 
       !Magnetic energy
       array = scalarProduct(igrid,bcnv,bcov)
-      Em = 0.5*integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
+      Em = 0.5*integral(gv%gparams,igrid,array,average=.false.)
 
       !Kinetic energy
       array = scalarProduct(igrid,vcnv,vcov)
-      Ek = 0.5*integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
+      Ek = 0.5*integral(gv%gparams,igrid,array,average=.false.)
 
       !Thermal energy
       array = rho*tmp
 
       if (gamma /= 1d0) then
         Et = 1d0/(gamma-1)
-     .      *integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
+     .      *integral(gv%gparams,igrid,array,average=.false.)
       else
         Et = 0d0
       endif
@@ -578,13 +585,9 @@ c     ###############################################################
 
         integer :: bcnd(6,3)
         
-        if (ilevel > 0 .and. my_rank == 0) then
+        if (ilevel > 0 .and. my_rank == 0.and.res_wall_bc) then
           write (*,*)
-          if (res_wall_bc) then
-            write (*,*) 'Applying RW BC in postproc...'
-          else
-            write (*,*) 'Performing divergence cleaning in postproc...'
-          endif
+          call info('  Applying RW BC in postproc...')
         endif
 
 c       Find db=B^(n+1)-B^n
@@ -594,8 +597,6 @@ c       Find db=B^(n+1)-B^n
      $          ,db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      $          ,da_cov(0:nx+1,0:ny+1,0:nz+1,3)
      $          ,v0    (0:nx+1,0:ny+1,0:nz+1,3))
-
-        da_cov = 0d0
 
         db_cnv(:,:,:,1) = vnp%array_var(IBX)%array
      .                   -vn %array_var(IBX)%array
@@ -607,24 +608,14 @@ c       Find db=B^(n+1)-B^n
 c       Find vector potential RW boundary condition at face
 
         xi_rw = 0d0
+
+        da_cov = 0d0
         
         if (res_wall_bc) then
           b_cnv(:,:,:,1) = vn%array_var(IBX)%array
           b_cnv(:,:,:,2) = vn%array_var(IBY)%array
           b_cnv(:,:,:,3) = vn%array_var(IBZ)%array
-
-          !Reimpose EXTRAP B-tangential BCs to avoid instability
-          if (rw_exp_fix) then
-            bcnd = gv%aux%vec_list(IBCNV)%bconds
-            where (bcnd==-NEU) bcnd = EXT
-
-            b_cov = XformToCov(gv%gparams,igx,b_cnv)
-            v0    = 0d0
-        
-            call setBC(gv%gparams,IBX,3,nx,ny,nz,b_cnv,b_cov,v0
-     .                ,bcnd,igx,igx,igx,iorder=1,is_cnv=.true.)
-          endif
-          
+         
           !Compute RW E_bc
           call rw_Ebc(gv%gparams,igx,b_cnv,E_bc)
 
@@ -690,24 +681,20 @@ c       Update magnetic field
 
       end subroutine post__divclean
 
-c     post__lagrangian
+c     post__lag_xport
 c     ###############################################################
-      subroutine post__lagrangian
+      subroutine post__lag_xport
 
         implicit none
 
-        !Lagrangian
+        !Transport
         real(8),allocatable,dimension(:,:,:)   :: tmp_nm,tmp_n,tmp_np
      $                                           ,chipar,array
         logical :: B_weight,do_3d
         real(8) :: G_tol
         integer :: sp_order
 
-        !Parareal
-        integer :: upit=4321
-        character(1024) :: pit_file
-        real(8) :: Et,Ek,Em
-
+        !Begin program
         allocate(tmp_nm(0:nx+1,0:ny+1,0:nz+1)
      $          ,tmp_n (0:nx+1,0:ny+1,0:nz+1)
      $          ,tmp_np(0:nx+1,0:ny+1,0:nz+1)
@@ -723,11 +710,11 @@ c     ###############################################################
 
         if (ilevel > 0 .and. my_rank == 0) then
           write (*,*)
-          write (*,*) 'Performing divergence cleaning in postproc...'
+          write (*,*) 'Performing lag XPORT step in postproc...'
         endif
 
         call lag_init(gv%gparams,igrid,bcnv,2d0,ilevel
-     .               ,G_tol,sp_order,B_weight,do_3d)
+     .               ,G_tol,sp_order,.true.,B_weight,do_3d)
 
         !Find temp from pressure (automatically takes care of jacobian factor)
         tmp_nm = vnm%array_var(IPRS)%array
@@ -751,11 +738,16 @@ c$$$     .                  ,chi_par,chi,lag_init,E_diag,ilevel-3)
         call lag_destroy
 
         !Return pressure (with jacobian)
+c$$$        call setBC(gv%gparams,IPRS,nx,ny,nz
+c$$$     .            ,tmp_np,s0
+c$$$     .            ,varray%array_var(IPRS)%bconds
+c$$$     .            ,igrid,igrid,igrid,iorder=order_bc)
+
         vnp%array_var(IPRS)%array = tmp_np*vnp%array_var(IRHO)%array
 
         deallocate(tmp_nm,tmp_n,tmp_np,chipar)
         
-      end subroutine post__lagrangian
+      end subroutine post__lag_xport
 
       end subroutine postProcessSol
 

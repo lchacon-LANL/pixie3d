@@ -6,6 +6,10 @@ c ######################################################################
 
         use pixie3d_io
 
+        use xdraw_io
+
+cc        use ts_io
+
         integer :: it_divcl=0
 
         logical :: dcon=.false.
@@ -177,7 +181,7 @@ c ######################################################################
         integer :: xport_order=2
         
         real(8) :: nu,eta,dd,chi,chi_par,gamma,di,de,a_p,temp_ratio
-     .            ,heta=0d0,c_hyper,beta=1d-3,te0_ref
+     .            ,heta=0d0,c_hyper,beta=1d-3,te0_ref,c_va
 
         real(8) :: aa_eta,bb_eta,cc_eta
      .            ,aa_nu ,bb_nu ,cc_nu
@@ -282,7 +286,6 @@ c     End program
 
       end function vis_rfx
 
- ! Daniele, 02/07/2014
 c     chi_rfx
 c     #############################################################
       function chi_rfx(rr) result(dfvty)
@@ -528,6 +531,7 @@ c ######################################################################
      .                                       ,heat_xport
      .                                       ,heat_xport0
      .                                       ,heat_src
+     .                                       ,nre => null() !Used to check
 
         real(8),pointer,dimension(:,:,:,:) :: bcnv
      .                                       ,bcnv_0
@@ -553,6 +557,7 @@ c ######################################################################
      .                                       ,jcnv_0
      .                                       ,jcov
      .                                       ,jcov_0
+     .                                       ,jre => null()
 
         real(8),pointer,dimension(:,:,:,:) :: vecnv
      .                                       ,vecov
@@ -583,7 +588,7 @@ c     Local variables
 c     Begin program
 
         if (.not.associated(vaux)) then
-          call pstop('defineAuxVariables'
+          call pstop('createAuxVariables'
      .              ,'Auxiliary variable structured not allocated')
         endif
 
@@ -770,6 +775,59 @@ cc        bhat => vaux%vec_list(IBHAT)%vec
 c     End program
 
       end subroutine createAuxVariables
+
+c     allocLocalAuxVars
+c     ###################################################################
+      subroutine allocLocalAuxVars(igr)
+
+c     -------------------------------------------------------------------
+c     Deallocates LOCAL auxiliary variable storage.
+c     -------------------------------------------------------------------
+
+      integer :: igr
+      
+      integer :: nx,ny,nz,istat
+
+c     Begin program
+
+      nx = gv%gparams%nxv(igr)
+      ny = gv%gparams%nyv(igr)
+      nz = gv%gparams%nzv(igr)
+
+      if (.not.associated(pcnv))
+     .allocate(pcnv    (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,vscnv   (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,bhat    (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,v_advc  (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,rho_advc(0:nx+1,0:ny+1,0:nz+1)
+     .        ,prs_advc(0:nx+1,0:ny+1,0:nz+1)
+     .        ,tmp_advc(0:nx+1,0:ny+1,0:nz+1)
+     .        ,heat_xport(0:nx+1,0:ny+1,0:nz+1)
+     .        ,heat_xport0(0:nx+1,0:ny+1,0:nz+1)
+     .        ,heat_src(0:nx+1,0:ny+1,0:nz+1)
+     .        ,prs     (0:nx+1,0:ny+1,0:nz+1)
+     .        ,chi_tnsr(0:nx+1,0:ny+1,0:nz+1,6),stat=istat)
+
+      pcnv = 0d0
+      vscnv= 0d0
+      bhat = 0d0
+      v_advc = 0d0
+      rho_advc = 0d0
+      prs_advc = 0d0
+      tmp_advc = 0d0
+      heat_xport = 0d0
+      heat_xport0= 0d0
+      heat_src   = 0d0
+      prs        = 0d0
+      chi_tnsr   = 0d0
+
+      if (.not.associated(nre)) then
+        allocate(nre(0:nx+1,0:ny+1,0:nz+1)
+     .          ,jre(0:nx+1,0:ny+1,0:nz+1,3),stat=istat)
+        jre = 0d0 ; nre = 0d0
+      endif
+      
+      end subroutine allocLocalAuxVars
       
 c     deallocLocalAuxVars
 c     ###################################################################
@@ -784,7 +842,8 @@ c     -------------------------------------------------------------------
 c     Begin program
 
       deallocate(pcnv,vscnv,prs,bhat,v_advc,rho_advc,prs_advc,tmp_advc
-     .          ,heat_xport,heat_xport0,heat_src,chi_tnsr,stat=istat)
+     .          ,heat_xport,heat_xport0,heat_src,chi_tnsr,jre,nre
+     .          ,stat=istat)
 
       nullify(bcnv
      .       ,bcnv_0
@@ -867,7 +926,7 @@ c ######################################################################
      .          bx_cov,by_cov,bz_cov
      .         ,jx,jy,jz,jx_cov,jy_cov,jz_cov
      .         ,vx,vy,vz,vx_cov,vy_cov,vz_cov
-     .         ,vex,vey,vez
+     .         ,vex,vey,vez,jrex_car,jrey_car,jrez_car
 
         type(var_array),pointer :: u_pert => null()
 
@@ -945,6 +1004,10 @@ c     ##################################################################
       allocate (qfactor(ilom:ihip,jlom:jhip,klom:khip)
      .         ,lambda (ilom:ihip,jlom:jhip,klom:khip))
 
+      allocate (jrex_car(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jrey_car(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jrez_car(ilom:ihip,jlom:jhip,klom:khip))
+ 
       end subroutine allocAuxPlotVar
 
 c     deallocAuxPlotVar
@@ -972,6 +1035,8 @@ c     ##################################################################
 
       deallocate (qfactor,lambda)
 
+      deallocate(jrex_car,jrey_car,jrez_car)
+      
       if (associated(u_pert)) call deallocateDerivedType(u_pert)
 
       end subroutine deallocAuxPlotVar
@@ -2892,6 +2957,8 @@ c ######################################################################
 
         use ts_setup
 
+        use app_iosetup, ONLY: contour
+
         logical :: bootstrap        =.false. !Whether to calculate bootstrap current
      .            ,solenoidal       =.true.  !Whether we keep B solenoidal
      .            ,nc_eom_jxb       =.false. !Whether we use JxB instead of conserv. form
@@ -2904,7 +2971,8 @@ c ######################################################################
      .            ,post_smooth_B    =.false. !Whether to smooth at postprocessing stage
      .            ,limit_dt_flow_cfl=.false. !Whether to limit Dt according to flow CFL
      .            ,post_filter_hel  =.false. !Whether to filter helical simulations
-        
+     .            ,re_pkg           =.false. !Whether we are using the runaway-e package
+
         logical,private :: symm_pi
 
         real(8) :: binom_alph=0d0
@@ -3356,8 +3424,8 @@ c     End program
 
 c     int_heat_src
 c     ###################################################################
-      function int_heat_src(g_def,i,j,k,igr,eta,nu,heta,jcnv,jcov,vcnv
-     .                     ,vecnv) result(ihs)
+      function int_heat_src(g_def,i,j,k,igr,eta,nu,heta,jcov,vcnv,vecnv)
+     .                     result(ihs)
 
 c     -------------------------------------------------------------------
 c     Provides external momentum source for selected equilibria, in
@@ -3372,7 +3440,6 @@ c     Call variables
 
         integer :: i,j,k,igr
         real(8) :: ihs
-     .            ,jcnv (0:,0:,0:,:)
      .            ,jcov (0:,0:,0:,:)
      .            ,vcnv (0:,0:,0:,:)
      .            ,vecnv(0:,0:,0:,:)
@@ -3385,8 +3452,7 @@ c     Local variables
 c     Begin program
 
         !Joule heating
-        ihs =eta(i,j,k)*scalarProduct_ijk(g_def,i,j,k,igr,jcnv(i,j,k,:)
-     .                                                   ,jcov(i,j,k,:))
+        ihs =eta(i,j,k)*vectorNorm(g_def,i,j,k,igr,jcov(i,j,k,:),.true.)
         
         !Ion viscosity
         ihs =ihs + viscous_heat_src(g_def,i,j,k,igr,nu,vcnv,vcnv,sym_st)
@@ -3406,10 +3472,11 @@ c     fillLocalAuxVars
 c     ###################################################################
       subroutine fillLocalAuxVars(igr,varray,vaux)
 
-      implicit none
 c     -------------------------------------------------------------------
 c     Fills local auxiliary variables (SAMRAI unaware)
 c     -------------------------------------------------------------------
+      
+      implicit none
 
 c     Call variables
 
@@ -3437,34 +3504,8 @@ c     Begin program
 
 c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
 
-      if (.not.associated(pcnv)) then
-        allocate(pcnv    (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,vscnv   (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,bhat    (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,v_advc  (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,rho_advc(0:nx+1,0:ny+1,0:nz+1)
-     .          ,prs_advc(0:nx+1,0:ny+1,0:nz+1)
-     .          ,tmp_advc(0:nx+1,0:ny+1,0:nz+1)
-     .          ,heat_xport(0:nx+1,0:ny+1,0:nz+1)
-     .          ,heat_xport0(0:nx+1,0:ny+1,0:nz+1)
-     .          ,heat_src(0:nx+1,0:ny+1,0:nz+1)
-     .          ,prs     (0:nx+1,0:ny+1,0:nz+1)
-     .          ,chi_tnsr(0:nx+1,0:ny+1,0:nz+1,6))
-      endif
+      call allocLocalAuxVars(igr)
 
-      pcnv = 0d0
-      vscnv= 0d0
-      bhat = 0d0
-      v_advc = 0d0
-      rho_advc = 0d0
-      prs_advc = 0d0
-      tmp_advc = 0d0
-      heat_xport = 0d0
-      heat_xport0= 0d0
-      heat_src   = 0d0
-      prs        = 0d0
-      chi_tnsr   = 0d0
-      
       rho => vaux%var_list(IRHO_AUX )%array
       tmp => vaux%var_list(ITMP_AUX )%array
       tmpe=> vaux%var_list(ITMPE_AUX)%array
@@ -3581,7 +3622,7 @@ c$$$      endif
         endif
       endif
 #endif
-      
+
       !Heat source term
       if ((.not.adiabatic).and.(gamma > 1d0)) then
         do k=1,nz
@@ -3590,7 +3631,7 @@ c$$$      endif
               !Internal heat source
               heat_src(i,j,k) =
      .             int_heat_src(gv%gparams,i,j,k,igr,eeta,nuu,h_eta
-     .                         ,jcnv,jcov,vcnv,vecnv)
+     .                         ,jcov-jre,vcnv,vecnv)
 
               !External heat source
               heat_src(i,j,k) = heat_src(i,j,k)
@@ -3599,7 +3640,7 @@ c$$$      endif
           enddo
         enddo
       endif
-
+      
 c     End program
 
       end subroutine fillLocalAuxVars
@@ -6767,7 +6808,7 @@ c     ---------------------------------------------------------------
 c     Finds hyper-resistivity coefficient (global on the grid)
 c     ---------------------------------------------------------------
 
-      use app_iosetup
+cc      use app_iosetup
 
       implicit none
 
@@ -6896,13 +6937,7 @@ c$$$        endif
         enddo
 
         if (itime == 0) then
-          maxv = maxval(h_res)
-#if defined(petsc)
-          call MPI_Reduce(maxv,maxvg,1,MPI_DOUBLE_PRECISION
-     .                   ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
-#else
-          maxvg = maxv
-#endif
+          maxvg = pmax(maxval(h_res))
           if (my_rank == 0) write (*,*) 'Hyperresistivity=',maxvg
         endif
 
@@ -6930,10 +6965,7 @@ c     Call variables
 
 c     Local variables
 
-      real(8) :: b2
-! Daniele, 02/07/2014
-      integer :: ig,jg,kg
-      real(8) :: rr,th,zz
+      real(8) :: b2,rr,th,zz
 
 c     Begin program
 

@@ -14,6 +14,8 @@ c----------------------------------------------------------------------
 
       use rw_bc, ONLY: rw_allocBCVariables
 
+      use re, ONLY: re_allocVariables,re_pkg
+
       implicit none
 
       INTERFACE
@@ -44,6 +46,8 @@ c Begin program
      .                                      ,efit_coords)
 
       call rw_allocBCVariables
+
+      if (re_pkg) call re_allocVariables(gv%gparams)
       
 c     End programs
 
@@ -61,6 +65,8 @@ c----------------------------------------------------------------------
 
       use rw_bc, ONLY: rw_deallocBCVariables
 
+      use re, ONLY: re_deallocVariables,re_pkg
+
       implicit none
 
 c Call variables
@@ -74,6 +80,8 @@ c Begin program
 #endif
 
       call rw_deallocBCVariables
+      
+      if (re_pkg) call re_deallocVariables
       
 c End programs
 

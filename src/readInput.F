@@ -16,9 +16,15 @@ c----------------------------------------------------------------------
 
       use PC_setup
 
-      use rw_bc
+      use local_BCS_variables, ONLY: normal_flow_bc,sheath_flow_bc
+     $                              ,v00_ExB_bc,res_wall_bc
 
-      use pixie3d_io
+      use rw_bc, ONLY: rw_fft_tupdate,rw_implicit_bc,rw_exp_ssp_bc
+     $                ,rw_exp_pc_bc,rw_exp_fix,tau_w,r_v,rw_bcs
+
+      use app_iosetup
+
+      use re, ONLY: re_diag
 
       implicit none
 
@@ -42,7 +48,8 @@ c Local variables
      .                ,pc_debug_it,pc_max_iter
       logical       :: zebra_relax,hall_new,lag_pinch_bc,debug
      .                ,mg_zebra_relax,restart,timecorr,fake_ve
-     $                ,zero_ExB_tang,regularize_A
+     $                ,zero_ExB_tang,regularize_A,zero_vpar_bc
+     $                ,sheath_bc
       real(8)       :: mgtol
 
 c Namelists
@@ -59,9 +66,10 @@ c Namelists
      .                   ,spitzer,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old,xport_order
-     .                   ,r_v,tau_w,zero_vpar_bc
+     .                   ,r_v,tau_w,normal_flow_bc
      .                   ,rw_fft_tupdate,rw_implicit_bc,rw_exp_ssp_bc
      .                   ,rw_exp_pc_bc,rw_exp_fix
+     .                   ,re_pkg,c_va,re_diag
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                   ,pc_as_solver,fpa,fpa_it
@@ -90,8 +98,8 @@ c Namelists
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
      .                   ,subtract_E0,e_cons_vstar,post_smooth_B
      .                   ,use_p_classic_eq,post_filter_hel
-     .                   ,binom_alph,v00_ExB_bc,sheath_bc
-     .                ,B_angle_threshold
+     .                   ,binom_alph,v00_ExB_bc,sheath_flow_bc
+     .                   ,B_angle_threshold
      .                ,prt_file,equ_file,map_file,dcon
      .                !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -100,7 +108,8 @@ c Namelists
      .                   ,mg_zebra_relax,pc_max_iter,timecorr,restart
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
-     .                   ,zero_ExB_tang,regularize_A!,fixed_Te,lagged_Te
+     .                   ,zero_ExB_tang,regularize_A,zero_vpar_bc
+     .                   ,sheath_bc
       
       !Problem setup
       namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
@@ -124,8 +133,9 @@ c Namelists
      .                   ,aa_dff,bb_dff,cc_dff
      .                   ,r_v,tau_w,zero_vpar_bc,rw_implicit_bc
      .                   ,rw_exp_ssp_bc,rw_exp_pc_bc,rw_exp_fix
-     .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_bc
+     .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_flow_bc
      .                   ,B_angle_threshold
+     .                   ,re_pkg,c_va,re_diag
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
@@ -500,8 +510,6 @@ c     #####################################################################
 
       heta     = 0d0           ! Coefficient for hyper-resistivity (if negative, it is determined by mesh)
 
-      B_angle_threshold = 5d-2 ! Ratio of |B^1|/|B| at the wall that allows the full Bohm flow to escape (sheath_bc)
-
       spitzer  = .false.       ! Whether we are using Spitzer resistivity
       chi_bgnskii = .false.    ! Whether to use Braginskii conductivities
       
@@ -517,13 +525,18 @@ c     #####################################################################
 
       tau_w    = 1d2           ! Resistive wall thin-shell time
       r_v      = 1.5           ! Radius of outer conducting shell
-      zero_vpar_bc   = .false. ! Whether we zero out parallel flow at bdry
-      sheath_bc      = .false. ! Whether we apply sheath BC in v_parallel
+      normal_flow_bc = .true.  ! Whether we zero out parallel flow at bdry
+      sheath_flow_bc = .false. ! Whether we apply sheath BC in v_parallel
+      B_angle_threshold = 5d-2 ! Ratio of |B^1|/|B| at the wall that allows
+                               ! the full Bohm flow to escape (sheath_flow_bc)
       rw_fft_tupdate = .false. ! Whether we integrate RW eqs in Fourier space
       rw_implicit_bc = .false. ! Whether we use implicit RW BCs
       rw_exp_ssp_bc  = .true.  ! Whether we use explicit SSP RW BCs
       rw_exp_pc_bc   = .false. ! Whether we use explicit predictor-corrector BCs
       rw_exp_fix     = .true.  ! Whether we use instability fix for small tau_w
+
+      re_pkg         = .false. ! Whether we activate the RE package
+      c_va           = 1d2     ! Ratio speed of light / Alfven speed
       
       !Nonlinear function parameters
       adiabatic  = .false.     ! Whether we use adiabatic EoS or not
@@ -707,6 +720,8 @@ c     #####################################################################
       timecorr = .true.
       restart  = .false.
       zero_ExB_tang = .true.
+      zero_vpar_bc = .false.
+      sheath_bc = .false.
 
       end subroutine set_defaults
 
@@ -717,8 +732,12 @@ c     #####################################################################
       implicit none
 
       integer :: i
+      real(8) :: kk,rr
+
+      !!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Legacy parameters checks!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!
       
-      !Check legacy parameters
       if (hall_new     )  ion_hall = .true.
 
       if (precon /= '' )  pc_type = precon
@@ -739,9 +758,15 @@ c     #####################################################################
 
       if (restart) ts_restart = restart
 
-      if (.not.zero_ExB_tang) zero_vpar_bc = .true.
+      if (.not.zero_ExB_tang) normal_flow_bc = .false.
+      if (zero_vpar_bc) normal_flow_bc = .false.
+
+      if (sheath_bc) sheath_flow_bc = .true.
       
-      !Time stepping
+      !!!!!!!!!!!!!!!!!!!!!!
+      !Time stepping checks!
+      !!!!!!!!!!!!!!!!!!!!!!
+
       if (sm_flag == 2) cnfactor = 0d0  !Force BDF2
 
       if (tst_flg) test = .true.
@@ -756,8 +781,14 @@ c     #####################################################################
         source = .false.  !To let equilibrium float
         pert = 0d0        !Zero out perturbations
         chk_src  = .true.
-        sheath_bc= .false.!Do not sheath BCs
+        sheath_flow_bc = .false.!Do not impose sheath flow BCs
       endif
+
+      if (ts_restart) dcon = .false.
+
+      !!!!!!!!!!!!!!!!!
+      !BC setup checks!
+      !!!!!!!!!!!!!!!!!
 
       !Face symmetric if "sym"
       where (bcs == 'sym') bcs = 'fsm'
@@ -778,36 +809,17 @@ c     #####################################################################
         res_wall_bc = res_wall_bc.or.rw_bcs(i)
       enddo
 
-      if (res_wall_bc) then
-c$$$        if (rw_implicit_bc) then
-c$$$          dt = min(tau_w/nxd,dt)
-c$$$        else
-c$$$          dt = min(0.5*tau_w/nxd,dt)
-c$$$        endif
+      if (res_wall_bc.and.(.not.rw_implicit_bc)) then
         dt = min(0.5*tau_w/nxd,dt)
         write (messg,*) " Adjusted dt for RW BC stability"
         call warning(messg)
       endif
 
-      if (sheath_bc) zero_vpar_bc = .true. !Consider full ExB flow
-      
-      !Adequate size for collapsed dimension
-      if (coords /= 'car') then
-        if (nxd == 1) then
-          xmax = LMIN_NEQ_ONE ; xmin = 0d0
-        endif
-        if (nyd == 1) then
-          ymax = LMIN_NEQ_ONE ; ymin = 0d0
-        endif
-        if (nzd == 1) then
-          zmax = LMIN_NEQ_ONE ; zmin = 0d0
-        endif
-      endif
+      if (sheath_flow_bc) normal_flow_bc = .false. !Consider full ExB flow
 
-      !Do NOT regularize A @ SP when plotting
-#if defined(plotting)
-      regularize_A = .false.
-#endif
+      !!!!!!!!!!!!!!!!!!!!!!
+      !Physics setup checks!
+      !!!!!!!!!!!!!!!!!!!!!!
 
       !Non-conservative EOM
       if (nc_eom_f) then
@@ -815,7 +827,6 @@ c$$$        endif
         nc_eom_gp  = .true.
       endif
 
-      !MHD
       if (chi_par == 0d0) chi_par = chi
 
       if (di == 0d0) then
@@ -849,8 +860,7 @@ c$$$      endif
 
       electron_hall = (di > 0d0).and.(.not.ion_hall)
 
-cc      if (bcs(1) == 'spt') vlap_etaj = .false.
-
+      !Setup for comparison with HiFi (S. Lukin)
       if (slava) then
         nu_is_rhonu = .true.
         heta_is_rhoheta = .true.
@@ -871,48 +881,53 @@ cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
       if (.not.solve_prs) use_p_diff = .false.
 
-      !PC
-      if (pc_type == 's3') pc_B_solve = .true.   !Invert B for large-flow PC
+      if (v_advect == 0) v_advect = advect
 
-      if (bcs(1) == 'spt') mg_oprol = 1
+      if (br_pert_freq /= 0d0) irrot_br_pert = .true.
+      if (br_pert_bc   /= 0d0) irrot_br_pert = .true.
 
-      if (test.and.
-     .    electron_hall.and.pc_type /='id'
-     .                 .and.pc_type /='s1'
-     .                 .and.pc_type /='s4') pc_type = 's4'!Exception for tests
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !Coordinate representation checks!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      
+cc      if (bcs(1) == 'spt') vlap_etaj = .false.
 
-      if (test.and.
-     .    ion_hall.and.pc_type /='id'
-     .            .and.pc_type /='s1'
-     .            .and.pc_type /='s2') pc_type = 's1'     !Exception for tests
-
-cc      if (pc_type == 's1' .and. (electron_hall) .and. (di > 0d0))
-cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when doing Hall
-
-      !Eigenvalue computation
-      if (eigen) then
-        vol_wgt = .false.
-        source  = .false.
-        cnfactor = 0d0
-        sm_flag  = 0
+      !Adequate size for collapsed dimension
+      if (coords /= 'car') then
+        if (nxd == 1) then
+          xmax = LMIN_NEQ_ONE ; xmin = 0d0
+        endif
+        if (nyd == 1) then
+          ymax = LMIN_NEQ_ONE ; ymin = 0d0
+        endif
+        if (nzd == 1) then
+          zmax = LMIN_NEQ_ONE ; zmin = 0d0
+        endif
       endif
 
-      !Miscellaneous
-      if (ts_restart) dcon = .false.
-
+      !Helical geometry checks
       if (coords == 'hel') then  !Special case for 2D helical geometry
         if (nh2 == 0) nh2 = nint(gparams(1))
-        nh1 = nh2                
+        nh1 = nh2
+        
+        kk = gparams(2)
+        rr = gparams(3)
+        if (abs(kk*rr-1d0*nint(kk*rr)) > 1d-13) then
+          call critical("readInput"
+     $                 ," Inconsistent helical input: k*R not integer")
+        endif
+
         if (.not.test)
      $     call warning("  Hardwired nh1 for this coordinate system")
       endif
 
+      !Cyl-tor geometries checks
       if (   coords == 'cyl'
      $   .or.coords == 'tor'
      $   .or.trim(equil) == '3dkai'
      $   .or.trim(equil) == 'ppn3d'
      $   .or.trim(equil) == 'p3nsl'
-     $   .or.trim(equil) == '3drfp') then               !Special case for cyl-tor geometries
+     $   .or.trim(equil) == '3drfp') then 
         if (nh2 == 0) nh2 = nint(gparams(1))
         if (nh3 == 0) nh3 = nint(gparams(2)*gparams(3))
         nh1 = nh2                
@@ -920,6 +935,10 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
      $     call warning("  Hardwired nh1 for this equilibrium")
       endif
 
+      !!!!!!!!!!!!!!!!!!!!
+      !Equilibrium checks!
+      !!!!!!!!!!!!!!!!!!!!
+      
       if (   trim(equil) == 'gstor'
      $   .or.trim(equil) == 'ohtor'
      $   .or.trim(equil) == 'stell') then
@@ -953,8 +972,13 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
      $               ,'No sinusoidal perturbation specified')
       endif
 
-      !Postprocessing stage
-#if !defined(vec_pot)
+      !!!!!!!!!!!!!!!!!!!!!!!
+      !Postprocessing checks!
+      !!!!!!!!!!!!!!!!!!!!!!!
+      
+#if defined(vec_pot)
+      post_divclean = .false.
+#else
       post_divclean = .not.((.not.pc_B_solve)
      .                .or.   pc_divclean
      .                .or.  (pc_type == 'id'.and.solenoidal)
@@ -963,8 +987,6 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
      .                .or.  (nyd==1.and.nzd==1)
      .                .or.  (cnfactor == 1d0))
       post_divclean = post_divclean.or.post_smooth_B
-#else
-      post_divclean = .false.
 #endif
 
       if (.not.postprocess)
@@ -981,12 +1003,14 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
       postprocess = .true.
 #endif
 
+      !!!!!!!!!!!!!!!
+      !Solver checks!
+      !!!!!!!!!!!!!!!
+
+      !Vector potential exception
 #if defined(vec_pot)
       rtol = rtol*5
 #endif
-
-      !Vector advection
-      if (v_advect == 0) v_advect = advect
 
       !Use PC as linear solver
       if (pc_as_solver) then
@@ -996,9 +1020,31 @@ cc         maxitnwt = 10
          rtol = 1d-1
       endif
 
-      !Magnetic perturbation
-      if (br_pert_freq /= 0d0) irrot_br_pert = .true.
-      if (br_pert_bc   /= 0d0) irrot_br_pert = .true.
+      !PC
+      if (pc_type == 's3') pc_B_solve = .true.   !Invert B for large-flow PC
+
+      if (bcs(1) == 'spt') mg_oprol = 1
+
+      if (test.and.
+     .    electron_hall.and.pc_type /='id'
+     .                 .and.pc_type /='s1'
+     .                 .and.pc_type /='s4') pc_type = 's4'!Exception for tests
+
+      if (test.and.
+     .    ion_hall.and.pc_type /='id'
+     .            .and.pc_type /='s1'
+     .            .and.pc_type /='s2') pc_type = 's1'     !Exception for tests
+
+cc      if (pc_type == 's1' .and. (electron_hall) .and. (di > 0d0))
+cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when doing Hall
+
+      !Eigenvalue computation
+      if (eigen) then
+        vol_wgt = .false.
+        source  = .false.
+        cnfactor = 0d0
+        sm_flag  = 0
+      endif
 
       !Parallelization
 #if defined(petsc)

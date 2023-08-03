@@ -8,8 +8,14 @@ c----------------------------------------------------------------------
 
       use auxPlotVariables
 
+      use equilibrium, ONLY: efit_coords
+
+      use app_iosetup, ONLY: equ_file
+      
       use rw_bc
 
+      use re
+      
       implicit none
 
 c Call variables
@@ -50,7 +56,11 @@ c Read coordinate map
 c Allocate BC variables
       
       call rw_allocBCVariables
- 
+
+c Allocate RE variables
+
+      if (re_pkg) call re_allocVariables(gv%gparams)
+      
 c End programs
 
       end subroutine allocateApplicationVariables
@@ -67,6 +77,8 @@ c----------------------------------------------------------------------
 
       use rw_bc
 
+      use re
+
       implicit none
 
 c Call variables
@@ -81,6 +93,11 @@ c Begin program
 
       call rw_deallocBCVariables
 
+      if (re_pkg) then
+        deallocate(nre,jre)
+        call re_deallocVariables
+      endif
+      
 c End programs
 
       end subroutine deallocateApplicationVariables

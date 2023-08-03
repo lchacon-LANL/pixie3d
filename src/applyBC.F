@@ -40,28 +40,28 @@ c End program
 
       end subroutine setAppBCs
 
-c destroyAppBCs
-c ########################################################################
-      subroutine destroyAppBCs
-c ------------------------------------------------------------------------
-c     Destroys variables for application BC treatment.
-c ------------------------------------------------------------------------
-
-      use local_BCS_variables
-
-      implicit none
-
-c Call variables
-
-c Local variables
-
-c Begin program
-
-      call deallocLocalAuxVars
-
-c End program
-
-      end subroutine destroyAppBCs
+c$$$c destroyAppBCs
+c$$$c ########################################################################
+c$$$      subroutine destroyAppBCs
+c$$$c ------------------------------------------------------------------------
+c$$$c     Destroys variables for application BC treatment.
+c$$$c ------------------------------------------------------------------------
+c$$$
+c$$$      use local_BCS_variables
+c$$$
+c$$$      implicit none
+c$$$
+c$$$c Call variables
+c$$$
+c$$$c Local variables
+c$$$
+c$$$c Begin program
+c$$$
+c$$$      call deallocLocalAuxVars
+c$$$
+c$$$c End program
+c$$$
+c$$$      end subroutine destroyAppBCs
 
 c applyDepVarBC
 c####################################################################
@@ -613,8 +613,8 @@ c       Velocity BC
           endif
 
           !Parallel flow
-          if (sheath_bc) then
-            v0 = v0 + sheath_flow_bc(gv%gparams,igr,bcnv,tmpe)
+          if (sheath_flow_bc) then
+            v0 = v0 + sheath_bc(gv%gparams,igr,bcnv,tmpe)
           endif
 
           call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vcnv,vcov,v0
@@ -823,8 +823,10 @@ c--------------------------------------------------------------------
 
       use var_setup
 
-      use ts_io, ONLY: ts_after_restart
+      use ts_io, ONLY: ts_after_restart,TS_chk_after_restart
 
+      use app_iosetup, ONLY: test
+      
       implicit none
 
 c Call variables
