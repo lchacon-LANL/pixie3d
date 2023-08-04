@@ -24,13 +24,19 @@ c----------------------------------------------------------------------
 
       use app_iosetup
 
+#if !defined(_equ)
       use re, ONLY: re_diag
+#endif
 
       implicit none
 
 c Call variables
 
 c Local variables
+
+#if defined(_equ)
+      logical :: re_diag
+#endif
 
       integer       :: dim(1),loc(1),ioerr,mgcf
       real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,pax,pay,paz,ptmp
