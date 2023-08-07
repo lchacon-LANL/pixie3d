@@ -18,6 +18,11 @@ c####################################################################
      .                             ,nc_eom_v,nc_eom_jxb,find_B
      .                             ,pinch_flow,sym_st,subtract_E0
      .                             ,form_ve,solenoidal,binom_alph,E0,B0
+     .                             ,B_angle_threshold
+
+        use xdraw_io
+
+        use app_iosetup
 
         integer :: order_bc=1
 
@@ -28,7 +33,7 @@ c####################################################################
      $            ,sheath_flow_bc = .false.  !Whether we are applying sheath BCs (in v_||)
 
         logical :: no_eq_bc,save_tn,no_tn_bc
-        
+
       contains
 
 c     defineDepVariables
@@ -1947,7 +1952,7 @@ c     #################################################################
       function sheath_bc(g_def,igrid,bcnv,tmpe) result(v0)
 
 c     -----------------------------------------------------------------
-c     Finds parallel Bohm flowboundary condition
+c     Finds parallel Bohm flow boundary condition
 c     (returns contravariant components).
 c     -----------------------------------------------------------------
 
@@ -1970,6 +1975,7 @@ c     Local variables
 
       real(8) :: bmag,bbcnv(3),bbcov(3),jac,bhat(3)
       real(8) :: u_bohm,te_up,ti_up,Z_i
+      real(8) :: wallratio,transitionFn,taper,mag,sheathcoefficient
 
 c     Begin program
 
@@ -1988,8 +1994,11 @@ c     Begin program
 
       v0 = 0d0
 
+      ! q_sheath = P_wall*U_wall, U_wall = alpha*U_bohm .
+      sheathcoefficient = 5d0
+
       Z_i = 1d0
-      
+
       !Compute value at face
       do k=0,nz+1
         do j=0,ny+1
@@ -2002,6 +2011,35 @@ c     Begin program
           bmag = sqrt(sum(bbcnv*bbcov)/jac)
 
           if (bmag > 0d0) then
+
+      ! Compute magnitude of the covariant basis vector
+           mag = sqrt(sum((0.5*(g_def%gmetric%grid(igrid)%cov(i,j,k,2,:)
+     .                +g_def%gmetric%grid(igrid)%cov(i+1,j,k,2,:)))**2))
+     
+      ! Ratio of the perpendicular field to the total field, at the wall
+            if (mag > 0d0 .and. jac > 0d0) then
+              wallratio = abs(bbcnv(1)/jac/mag/bmag)
+            else
+              wallratio = 0d0
+            end if
+
+      ! Check if this ratio passes the threshold for the minimum angle
+      ! (% of |B|) of B to the wall to enable the flow to escape
+            if (wallratio >= max(1d-5,B_angle_threshold)) then
+              transitionFn = 1d0
+            else
+              taper = wallratio/max(1d-5,B_angle_threshold)
+
+      ! This is a smooth transition function between 0 and 1, that will
+      ! taper the Bohm flow where the field is too parallel to the wall
+              if (taper <= 0d0) then
+                transitionFn = 0d0
+              else
+                transitionFn = 0.5 + 0.5*tanh(5d0*(2d0*taper - 1d0)
+     .                                       /sqrt(taper*(1d0 - taper)))
+              end if
+            end if
+
             !Compute B unit vector, pointing outwards
             bhat = bbcnv/bmag*sign(1d0,bbcnv(1))
 
@@ -2010,7 +2048,7 @@ c     Begin program
             ti_up = te_up*temp_ratio
             u_bohm = sqrt(Z_i*te_up + 3d0*ti_up)
 
-            v0(i+1,j,k,:) = u_bohm*bhat
+            v0(i+1,j,k,:) = u_bohm*bhat*transitionFn*sheathcoefficient
           endif
         enddo
       enddo

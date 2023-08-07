@@ -16,7 +16,7 @@ where:
 	-h:            gives this message
 	-d:            turn on debugging
 	-qos queue:    indicates quality of service queue (default standard)
-        -A:            selects account (default w21_magfusion)
+        -A:            selects account (default w23_magfusion)
         -env:          specifies environment [intel, gcc (default)] 
 	-wc time:      indicates wall-clock time (in minutes; default 16 hours)
         -omp_tasks:    number of OMP tasks per MPI task (default 1)
@@ -51,12 +51,12 @@ machinefile="machines.LINUX"
 restartfile=""
 code_ifile=pixie3d
 code_efile=pixie3d
-wtime=960
+wtime=360
 adiosfile="adios_config.xml"
 recursive=f
 create_dir=t
-account="w23_magfusion"
-qos="standard"
+account="m3016"
+qos="regular"
 np=""
 omp_tasks=1
 environment="gcc"
@@ -184,12 +184,12 @@ fi
 
 # Select environment
 
-if [ "$environment" = "gcc" ]
-then
-  load_mod="source ~/bin/load_gcc-12.1.0_chicoma"
-else
-  load_mod="source ~/bin/load_intel-19.0.4_badger"
-fi
+#if [ "$environment" = "gcc" ]
+#then
+#  load_mod="source ~/bin/load_gcc-12.1.0_chicoma"
+#else
+#  load_mod="source ~/bin/load_intel-19.0.4_badger"
+#fi
 
 # Copy necessary files to working directory
 
@@ -332,18 +332,21 @@ cat > go.sub <<QSUB
 #SBATCH --job-name $inputfile
 #  select account
 #SBATCH -A $account
-#SBATCH -p standard
+#SBATCH -C cpu
+#SBATCH -L scratch
 #  send email at beginning, end, and abort
 #SBATCH --mail-type=FAIL,BEGIN,END
-#SBATCH --mail-user=$USER@lanl.gov
+#SBATCH --mail-user=jmhamilton@lanl.gov
 #  forward current environment variables to the job
 #SBATCH --export=ALL 
 
 date
 
-$load_mod
+export OMP_NUM_THREADS=$omp_tasks
+export OMP_PLACES=threads
+export OMP_PROC_BIND=spread
 
-OMP_NUM_THREADS=$omp_tasks srun -n $((np/omp_tasks)) $executable $options -cpu_quota $((wtime*59)) -log_summary >> $inputfile.out
+srun -n $((np/omp_tasks)) -c $((omp_tasks*2)) $executable $options -cpu_quota $((wtime*58)) -log_summary >> $inputfile.out
 
 RETURN_VALUE=\$(<exit_code.txt)
 #RETURN_VALUE=\$?  #Exit code from last job

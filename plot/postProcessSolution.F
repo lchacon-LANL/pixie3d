@@ -44,7 +44,7 @@ c Local variables
 
       integer :: i,j,k,ig,jg,kg,ieq,bcs(6),igx,igy,igz,nx,ny,nz,ierr
       real(8) :: x1,y1,z1,ee(3),vr,vth,norm,lnorm
-     .          ,cov(3),cnv(3)
+     .          ,cov(3),cnv(3),gradp(3)
       logical :: cartsn,covariant,to_cartsn,to_cnv,tor
 
 c Begin program
@@ -359,7 +359,59 @@ c Pressure diagnostics
 
       p_tot = rho*tmp
 
-c JxB-g(P) diagnostice (cnv)
+
+c grad(P) diagnostic (relative to the magnetic field)
+
+      do k = kming,kmaxg
+        do j = jming,jmaxg
+          do i = iming,imaxg
+            gradp = grad(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,p_tot)
+
+            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .                                    ,ig,jg,kg,x1,y1,z1)
+
+            !grad(P)_parallel
+            norm = sqrt(vectorNorm(gv%gparams,i,j,k,igx,bcnv(i,j,k,:)
+     .                            ,.false.))
+
+            if (norm == 0d0) then
+              gppar(i,j,k) = 0d0
+            else
+              gppar(i,j,k) = scalarProduct(gv%gparams,i,j,k,igx
+     .                                   ,bcnv(i,j,k,:)
+     .                                   ,gradp(:))/norm
+            endif
+
+            !grad(P).grad(psi)/|grad(psi)|
+            cov = grad(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,Pflux)
+            norm = sqrt(vectorNorm(gv%gparams,i,j,k,igx,cov,.true.))
+            cnv = XformToCnv_ijk(gv%gparams,i,j,k,igx,cov)
+
+            if (norm == 0d0) then
+              gppsi(i,j,k) = 0d0
+            else
+              gppsi(i,j,k) = scalarProduct(gv%gparams,i,j,k,igx,cnv
+     .                                   ,gradp(:))/norm
+            endif
+
+            !grad(P).(b x grad(psi))/|(b x grad(psi))|  
+            cnv = crossProduct(gv%gparams,i,j,k,igx,bcov(i,j,k,:),cov
+     .                        ,.false.)
+            ! We now need grad(P) in cov:
+            norm = sqrt(vectorNorm(gv%gparams,i,j,k,igx,cnv,.false.))
+
+            if (norm == 0d0) then
+              gpperp(i,j,k) = 0d0 
+            else
+              gpperp(i,j,k) = scalarProduct(gv%gparams,i,j,k,igx
+     .                                    ,gradp(:),cnv)/norm
+            endif
+
+          enddo
+        enddo
+      enddo
+
+c JxB-g(P) diagnostic (cnv)
 
       do k = 1,nz
         do j = 1,ny
@@ -391,7 +443,7 @@ c JxB-g(P) diagnostice (cnv)
       if (car_diag_plots)
      .  call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,F1,F2,F3,'cov','car')
-      
+
 c Ohm's law diagnostic
 
 cc      write (*,*) 'Current',J0

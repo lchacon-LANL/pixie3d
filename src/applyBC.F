@@ -823,8 +823,9 @@ c--------------------------------------------------------------------
 
       use var_setup
 
+#if !defined(_equ)
       use ts_io, ONLY: ts_after_restart,TS_chk_after_restart
-
+#endif
       use app_iosetup, ONLY: test
       
       implicit none
@@ -1169,12 +1170,16 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
             bcnv_n = bcnv_0     !Set it to initial cond.
           elseif (save_tn) then
 #if defined(vec_pot)
+#if !defined(_equ)
             if (TS_chk_after_restart(1)) then
               call find_B(gv%gparams,igr,B0,acov_n,bcnv_n,.false.
      $                   ,bcond_b=vaux%vec_list(IBCNV)%bconds)
             else
               bcnv_n = bcnv
             endif
+#else
+            bcnv_n = bcnv
+#endif
 #else
             bcnv_n(:,:,:,1) = varray%array_var(IBX)%array
             bcnv_n(:,:,:,2) = varray%array_var(IBY)%array
