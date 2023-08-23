@@ -556,10 +556,10 @@ contains
    subroutine gauss_init()
       implicit none
 
-      call read_quad(xglg_18,wglg_18,"gl_general_18.txt")
-      call read_quad(xglg_36,wglg_36,"gl_general_36.txt")
-      call read_quad(xgls_18,wgls_18,"gl_standard_18.txt")
-      call read_quad(xgls_36,wgls_36,"gl_standard_36.txt")
+      call read_quad(xglg_18,wglg_18,"../../../src/gl_general_18.txt")
+      call read_quad(xglg_36,wglg_36,"../../../src/gl_general_36.txt")
+      call read_quad(xgls_18,wgls_18,"../../../src/gl_standard_18.txt")
+      call read_quad(xgls_36,wgls_36,"../../../src/gl_standard_36.txt")
 
    end subroutine gauss_init
 
