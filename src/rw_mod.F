@@ -930,6 +930,8 @@ c     B-component, outputs tangential external B-components
 c     -----------------------------------------------------------------
 
       use special_funcs
+
+      use rw_bim_mod, only: solve_toroidally_symmetric_bim_RZ
       
       implicit none
 
@@ -974,22 +976,22 @@ c     Global angular mesh and associated qtys
       i = nx ; k = 1
       do j=1,ny
         !Cell position at (nx+1/2) boundary in (R,Z) coords
-        ZZ(1,j,1) = 0.5*(g_def%gmetric%grid(igr)%car(i  ,j,k,3)
+        ZZ(1,j,1) = 0.5d0*(g_def%gmetric%grid(igr)%car(i  ,j,k,3)
      $                  +g_def%gmetric%grid(igr)%car(i+1,j,k,3))
-        xx = 0.5*(g_def%gmetric%grid(igr)%car(i  ,j,k,1)
+        xx = 0.5d0*(g_def%gmetric%grid(igr)%car(i  ,j,k,1)
      $           +g_def%gmetric%grid(igr)%car(i+1,j,k,1))
-        yy = 0.5*(g_def%gmetric%grid(igr)%car(i  ,j,k,2)
+        yy = 0.5d0*(g_def%gmetric%grid(igr)%car(i  ,j,k,2)
      $           +g_def%gmetric%grid(igr)%car(i+1,j,k,2))
         RR(1,j,1) = sqrt(xx*xx + yy*yy)
 
         !Cartesian normal vector at (nx+1/2) bdry at phi=0 poloidal plane
-        nn(1,j,1,:) = 0.25*(g_def%gmetric%grid(igr)%cov(i  ,j,k  ,1,:)
+        nn(1,j,1,:) = 0.25d0*(g_def%gmetric%grid(igr)%cov(i  ,j,k  ,1,:)
      $                     +g_def%gmetric%grid(igr)%cov(i+1,j,k  ,1,:)
      $                     +g_def%gmetric%grid(igr)%cov(i  ,j,k-1,1,:)
      $                     +g_def%gmetric%grid(igr)%cov(i+1,j,k-1,1,:))
 
         !Jacobian interpolated at (nx+1/2) bdry
-        JJ(1,j,1) = 0.5*(g_def%gmetric%grid(igr)%jac(i  ,j,k)
+        JJ(1,j,1) = 0.5d0*(g_def%gmetric%grid(igr)%jac(i  ,j,k)
      $                  +g_def%gmetric%grid(igr)%jac(i+1,j,k))
       enddo
 
@@ -1030,7 +1032,12 @@ c diag ****
 !<<< NEED TO PASS JACOBIAN Jg, NORMAL VECTOR ng AT BOUNDARY
 
       phi = 0d0
-      
+
+      call solve_toroidally_symmetric_bim_RZ( 
+     $   nyg, theta, Rg(1,:,1), Zg(1,:,1), Jg(1,:,1), ng(1,:,1,:),
+     $   Bng(1,:,1), phi
+     $   )
+
 c     Find EXTERNAL magnetic field components outside RW
 
       !Get LOCAL (cov) magnetic field components @ r=1 

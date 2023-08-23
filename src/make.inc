@@ -12,7 +12,7 @@ else
 endif
 SAMRAICODE   = $(EXEC).samrai.x
 
-MODS := io_mod.F90 mhd_mod.F BC_mod.F rw_mod.F PC_mod.F B_tools_mod.F re_mod.F
+MODS := io_mod.F90 mhd_mod.F BC_mod.F dtorh_utils.f90 dtorh.f90 toroidal_harmonics.f90 elliptic.f90 rw_bim_mod.F90 rw_mod.F PC_mod.F B_tools_mod.F re_mod.F
 
 COMMONDIR = ../common
 
