@@ -201,7 +201,7 @@ c     Exceptions for specific equilibria
           where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
         endif
 
-      case ('vmec','tor','stell','gstor','liu20')
+      case ('vmec','tor','stell','gstor','liu20','stm23')
 
         pinch_flow = .false.
 

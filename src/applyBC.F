@@ -422,7 +422,6 @@ c       Temperature BCs
           !Derived from pressure!
           !!!!!!!!!!!!!!!!!!!!!!!
 
-c$$$  
 c$$$          if (adiabatic.and.(.not.adiabatic_rho)) then
 c$$$          !Impose BCs on perturbation only
 c$$$            s0 = 0d0

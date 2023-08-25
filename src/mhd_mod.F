@@ -3620,6 +3620,8 @@ c$$$      endif
           endif
           deallocate(dum1,dum2)
         endif
+      else
+        heat_xport = 0d0 ; heat_xport0 = 0d0
       endif
 #endif
 
@@ -3639,6 +3641,8 @@ c$$$      endif
             enddo
           enddo
         enddo
+      else
+        heat_src = 0d0
       endif
       
 c     End program

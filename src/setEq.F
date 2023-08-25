@@ -1555,7 +1555,8 @@ c$$$            enddo
 c$$$          enddo
 c$$$        enddo
 
-      case ('rfp83','vela1','vela2','tbbr1','tbbr2','liu20','rsw11')
+      case ('rfp83','vela1','vela2','tbbr1','tbbr2','liu20','rsw11'
+     $     ,'stm23')
 
 c     Check coordinates
 
@@ -7462,14 +7463,14 @@ c     Begin program
 
           qprof = q0*(1d0+qa**p)**(1./p)
 
-        case ('liu20')
+        case ('liu20','stm23')
 
-          q0   = gv%gparams%params(6)
-          aa   = 1.0
+          q0 = gv%gparams%params(6)
+          qa = gv%gparams%params(7)
 
-          qa = (r/aa)**2
+          aa = 1.0
 
-          qprof = q0*(1d0+0.5*qa)
+          qprof = q0*(1d0+qa*(r/aa)**2)
 
         case('rsw11')
 
@@ -7543,7 +7544,7 @@ c     Begin program
             pprof =-4*s*(1-s**2)
           endif
 
-        case('rfp83','tbbr1','liu20','rsw11')
+        case('rfp83','tbbr1','liu20','rsw11','stn23')
 
           if (der == 0) then
             pprof = 1d0
