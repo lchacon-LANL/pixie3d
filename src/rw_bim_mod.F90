@@ -89,10 +89,10 @@ contains
          ct = cos(th)
 
          ! m = 0,n=0 mode
-         exact = sqrt(z0-ct)*p0(z0)
+         !exact = sqrt(z0-ct)*p0(z0)
 
          ! m = 1,n=0 mode
-         !exact = sqrt(z0-ct)*p1(z0)*exp(dcmplx(0,th))
+         exact = sqrt(z0-ct)*p1(z0)*exp(dcmplx(0,th))
 
          error = error + abs(exact - bd%phi(i))
          write(fh,"(6(es25.15e3))") bd%R(i), bd%Z(i), th, bd%Bn(i), bd%phi(i), exact
@@ -119,14 +119,14 @@ contains
          th = toroidal_theta(bd%R(i),bd%Z(i))
          
          ! m = 0,n=0 mode
-         ct = cos(th)
-         bd%Bn(i) = -sqrt(z0-ct)/(2*a*sinh(rho0))*&
-            (  (z0*ct-1)*p0(z0) + (z0-ct)*p1(z0) )
+         !ct = cos(th)
+         !bd%Bn(i) = -sqrt(z0-ct)/(2*a*sinh(rho0))*&
+            !(  (z0*ct-1)*p0(z0) + (z0-ct)*p1(z0) )
 
          ! m = 1,n=0 mode
-         !ct = cos(thetac(i))
-         !bd%Bn(i) = -exp(dcmplx(0,th)*sqrt(z0-ct)/(2*a*sinh(rho0))*&
-            !(  (3*z0*ct-2*z0**2-1)*p1(z0) + 3*(z0-ct)*p2(z0) )
+         ct = cos(th)
+         bd%Bn(i) = -exp(dcmplx(0,th))*sqrt(z0-ct)/(2*a*sinh(rho0))*&
+            (  (3*z0*ct-2*z0**2-1)*p1(z0) + 3*(z0-ct)*p2(z0) )
 
 
       end do
@@ -224,6 +224,7 @@ contains
       call compute_L_matrix(bd)
       call compute_K_matrix(bd)
       call compute_Kinv_matrix(bd)
+
       bd%KinvL = matmul(bd%Kinv,bd%L)
 
    end subroutine compute_KinvL_matrix
@@ -303,7 +304,7 @@ contains
 
       if (i==j) then
          Kij = integrate_toroidal(bd, i, j, SINGULAR, integrand_dgdn)
-         Kij = Kij - 0.5d0
+         Kij = Kij + 0.5d0
       else
          Kij = integrate_toroidal(bd, i, j, REGULAR, integrand_dgdn)
       end if
@@ -335,6 +336,22 @@ contains
 
       result = (Z-ZP)/(R*RP)
    end function evaldchidZ
+
+   function evaldchidRP(R,Z,RP,ZP) result(result)
+      implicit none
+      double precision, intent(in) :: R, Z, RP, ZP
+      double precision :: result
+
+      result = 1/R - (R*R + RP*RP + (Z-ZP)**2)/(2*R*RP**2)
+   end function evaldchidRP
+
+   function evaldchidZP(R,Z,RP,ZP) result(result)
+      implicit none
+      double precision, intent(in) :: R, Z, RP, ZP
+      double precision :: result
+
+      result = -(Z-ZP)/(R*RP)
+   end function evaldchidZP
 
    function evalmu(chi) result(result)
       implicit none
@@ -379,9 +396,9 @@ contains
       K = Kelliptic(mu)
 
       G = -mu*K/(2.d0*pi*sqrt(Ri*Rj))
-      !write(*,"(a9,8(es23.15))") "greens:", mu, chi, K, pi, Ri, Rj, Zi, Zj
    end function greens
 
+   ! derivative wrt Ri and evaluated at (Ri,Zi) and (Rj,Zj)
    function dgreensdR(Ri,Zi,Rj,Zj) result(dGdR)
       implicit none
       double precision, intent(in) :: Ri, Zi, Rj, Zj
@@ -392,15 +409,12 @@ contains
       K = Kelliptic(mu)
       dchidR = evaldchidR(Ri,Zi,Rj,Zj)
 
-      !dGdR = -greens(Ri,Zi,Rj,Zj)/(2*Ri) + mu**2/(8*pi*sqrt(Ri*Rj))*&
-         !(Eelliptic(mu)/(1-mu**2) - (1-mu)*Kelliptic(mu)) * &
-         !dchidR
-
       dGdR = -greens(Ri,Zi,Rj,Zj)/(2*Ri) + mu**3/(8*pi*sqrt(Ri*Rj))*&
          Eelliptic(mu)/(1-mu**2)*dchidR
 
    end function dgreensdR
 
+   ! derivative wrt Zi and evaluated at (Ri,Zi) and (Rj,Zj)
    function dgreensdZ(Ri,Zi,Rj,Zj) result(dGdZ)
       implicit none
       double precision, intent(in) :: Ri, Zi, Rj, Zj
@@ -411,13 +425,40 @@ contains
       K = Kelliptic(mu)
       dchidZ = evaldchidZ(Ri,Zi,Rj,Zj)
 
-      !dGdZ = mu**2/(8*pi*sqrt(Ri*Rj))*&
-         !(Eelliptic(mu)/(1-mu**2) - (1-mu)*Kelliptic(mu)) * &
-         !dchidZ
-
       dGdZ = mu**3/(8*pi*sqrt(Ri*Rj))*Eelliptic(mu)/(1-mu**2)*dchidZ
 
    end function dgreensdZ
+
+   ! derivative wrt Rj and evaluated at (Ri,Zi) and (Rj,Zj)
+   function dgreensdRP(Ri,Zi,Rj,Zj) result(dGdRP)
+      implicit none
+      double precision, intent(in) :: Ri, Zi, Rj, Zj
+      double precision :: chi, mu, K, dGdRP, dchidRP
+
+      chi = evalchi(Ri,Zi,Rj,Zj)
+      mu = evalmu(chi)
+      K = Kelliptic(mu)
+      dchidRP = evaldchidRP(Ri,Zi,Rj,Zj)
+
+      dGdRP = -greens(Ri,Zi,Rj,Zj)/(2*Rj) + mu**3/(8*pi*sqrt(Ri*Rj))*&
+         Eelliptic(mu)/(1-mu**2)*dchidRP
+
+   end function dgreensdRP
+
+   ! derivative wrt Zj and evaluated at (Ri,Zi) and (Rj,Zj)
+   function dgreensdZP(Ri,Zi,Rj,Zj) result(dGdZP)
+      implicit none
+      double precision, intent(in) :: Ri, Zi, Rj, Zj
+      double precision :: chi, mu, K, dGdZP, dchidZP
+
+      chi = evalchi(Ri,Zi,Rj,Zj)
+      mu = evalmu(chi)
+      K = Kelliptic(mu)
+      dchidZP = evaldchidZP(Ri,Zi,Rj,Zj)
+
+      dGdZP = mu**3/(8*pi*sqrt(Ri*Rj))*Eelliptic(mu)/(1-mu**2)*dchidZP
+
+   end function dgreensdZP
 
    ! INTEGRANDS
 
@@ -452,7 +493,7 @@ contains
       Ri = bd%R(i)
       Zi = bd%Z(i)
 
-      integrand = Jacj*nmagj*greens(Ri,Zi,Rj,Zj) / (bd%J(i)*bd%nmag(i))
+      integrand = greens(Ri,Zi,Rj,Zj)
 
    end function integrand_g
 
@@ -466,7 +507,7 @@ contains
       double precision :: integrand
 
       double precision :: Jacj, nmagi, nmagj, Ri, Zi, Rj, Zj
-      double precision :: dxlo, dxhi, nidoter, nidotez
+      double precision :: dxlo, dxhi, njdoter, njdotez
       integer :: lo, hi
 
       ! interpolant
@@ -486,14 +527,14 @@ contains
       !Jacj = bd%J(j)
       !nmagj = bd%nmag(j)
 
-      nidoter = bd%norm(i,1)/bd%nmag(i)
-      nidotez = bd%norm(i,3)/bd%nmag(i)
+      njdoter = bd%norm(lo,1)/bd%nmag(lo)*dxhi + bd%norm(hi,1)/bd%nmag(hi)*dxlo
+      njdotez = bd%norm(lo,3)/bd%nmag(lo)*dxhi + bd%norm(hi,3)/bd%nmag(hi)*dxlo
 
       Ri = bd%R(i)
       Zi = bd%Z(i)
 
       integrand = Jacj*nmagj*&
-         (nidoter*dgreensdR(Ri,Zi,Rj,Zj) + nidotez*dgreensdZ(Ri,Zi,Rj,Zj))
+         (njdoter*dgreensdRP(Ri,Zi,Rj,Zj) + njdotez*dgreensdZP(Ri,Zi,Rj,Zj))
 
    end function integrand_dgdn
 
@@ -545,7 +586,7 @@ contains
 
       error = abs((result18-result36)/result36)
       if (error > 1.d-3) then
-         print *, "error large in quadrature rule:"
+         print *, "error large in quadrature rule:", flavor
          print *, result18, result36, error
       end if
 
