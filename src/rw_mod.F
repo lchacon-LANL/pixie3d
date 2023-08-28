@@ -988,7 +988,7 @@ c     Global angular mesh and associated qtys
         !Cartesian J.n (n->normal vector pointing *inward*)
         ! at (nx+1/2) bdry at phi=0 poloidal plane
         Jn(1,j,1,:) =
-     $      -0.25d0*(g_def%gmetric%grid(igr)%cov(i  ,j,k  ,1,:)
+     $       0.25d0*(g_def%gmetric%grid(igr)%cov(i  ,j,k  ,1,:)
      $              *g_def%gmetric%grid(igr)%jac(i  ,j,k)
      $              +g_def%gmetric%grid(igr)%cov(i+1,j,k  ,1,:)
      $              *g_def%gmetric%grid(igr)%jac(i+1,j,k)
