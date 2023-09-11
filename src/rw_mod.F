@@ -953,7 +953,7 @@ c     Local variables
       real(8),allocatable,dimension(:,:,:,:) :: Jn,Jng
       real(8),allocatable,dimension(:,:,:)   :: Bn,Bng
      $                                         ,JJ,RR,ZZ
-     $                                         ,Jg,Rg,Zg
+     $                                         ,Rg,Zg
       real(8),allocatable,dimension(:)       :: phi,theta
 
 c     Begin program
@@ -968,7 +968,7 @@ c     Begin program
      $        ,ZZ(1,ny,1))
 
       allocate(phi(nyg),Bng(1,nyg,1),Rg(1,nyg,1),Zg(1,nyg,1)
-     $        ,Jg(1,nyg,1),Jng(1,nyg,1,3),theta(nyg))
+     $        ,Jng(1,nyg,1,3),theta(nyg))
       
 c     Global angular mesh and associated qtys
 
@@ -988,7 +988,7 @@ c     Global angular mesh and associated qtys
         !Cartesian J.n (n->normal vector pointing *inward*)
         ! at (nx+1/2) bdry at phi=0 poloidal plane
         Jn(1,j,1,:) =
-     $       0.25d0*(g_def%gmetric%grid(igr)%cov(i  ,j,k  ,1,:)
+     $      -0.25d0*(g_def%gmetric%grid(igr)%cov(i  ,j,k  ,1,:)
      $              *g_def%gmetric%grid(igr)%jac(i  ,j,k)
      $              +g_def%gmetric%grid(igr)%cov(i+1,j,k  ,1,:)
      $              *g_def%gmetric%grid(igr)%jac(i+1,j,k)
@@ -997,28 +997,28 @@ c     Global angular mesh and associated qtys
      $              +g_def%gmetric%grid(igr)%cov(i+1,j,k-1,1,:)
      $              *g_def%gmetric%grid(igr)%jac(i+1,j,k-1))
 
-c$$$        !Jacobian interpolated at (nx+1/2) bdry
-c$$$        JJ(1,j,1) = 0.5d0*(g_def%gmetric%grid(igr)%jac(i  ,j,k)
-c$$$     $                  +g_def%gmetric%grid(igr)%jac(i+1,j,k))
+        !Jacobian interpolated at (nx+1/2) bdry
+        JJ(1,j,1) = 0.5d0*(g_def%gmetric%grid(igr)%jac(i  ,j,k)
+     $                    +g_def%gmetric%grid(igr)%jac(i+1,j,k))
+
+        !SAM: set up your Bn here, and comment out the one below
+        !Bn(1,j,1) = JJ(1,j,1)*...
       enddo
 
-c     Bnormal at plasma wall (no need to divide by J*|n|)
+c     Bnormal at plasma wall (pointing inward; no need to divide by J*|n|)
 
-      Bn(1,:,1) = bcnvn_int(1:ny,1)
-c$$$     $           /(JJ(1,:,1)*sqrt(sum(nn(1,:,1,:)**2,2)))
+      Bn(1,:,1) =-bcnvn_int(1:ny,1)
 
       !Gather qtys in parallel along boundary
 #if defined(petsc)
       call find_global_nobc(Bn,Bng,mpi_comm=g_def%MPI_COMM_Y)
       call find_global_nobc(RR,Rg ,mpi_comm=g_def%MPI_COMM_Y)
       call find_global_nobc(ZZ,Zg ,mpi_comm=g_def%MPI_COMM_Y)
-c$$$      call find_global_nobc(JJ,Jg ,mpi_comm=g_def%MPI_COMM_Y)
       call find_global_nobc(Jn,Jng,mpi_comm=g_def%MPI_COMM_Y)
 #else
       call find_global_nobc(Bn,Bng)
       call find_global_nobc(RR,Rg )
       call find_global_nobc(ZZ,Zg )
-c$$$      call find_global_nobc(JJ,Jg )
       call find_global_nobc(Jn,Jng)
 #endif
       
@@ -1041,9 +1041,7 @@ c diag ****
       phi = 0d0
 
       call solve_toroidally_symmetric_bim_RZ( 
-     $   nyg, theta, Rg(1,:,1), Zg(1,:,1), Jg(1,:,1), Jng(1,:,1,:),
-     $   Bng(1,:,1), phi
-     $   )
+     $  nyg, theta, Rg(1,:,1), Zg(1,:,1), Jng(1,:,1,:), Bng(1,:,1), phi)
 
 c     Find EXTERNAL magnetic field components outside RW
 
@@ -1062,7 +1060,7 @@ c     Find EXTERNAL magnetic field components outside RW
 
       deallocate(Bn,JJ,Jn,RR,ZZ)
       
-      deallocate(phi,Bng,Jg,Jng,Rg,Zg)
+      deallocate(phi,Bng,Jng,Rg,Zg)
 
       stop
       
