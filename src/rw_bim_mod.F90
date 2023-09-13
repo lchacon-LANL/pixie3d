@@ -17,20 +17,21 @@ module rw_bim_mod
    type :: bim_data_t
       integer :: n
       double precision :: dxi
-      double precision, allocatable, dimension(:) :: R, Z, xi, J, Bn, phi, nmag
-      double precision, allocatable, dimension(:,:) :: norm, L, K, Kinv, KinvL
+      double precision, allocatable, dimension(:) :: R, Z, xi, Bn, phi
+      double precision, allocatable, dimension(:,:) :: Jnorm, L, K, Kinv, KinvL
    end type bim_data_t
 
    ! for verification tests
    double precision, parameter :: r0 = 1.d0 ! actual minor radius we want
-   !double precision, parameter :: Rmaj = 5.d2 ! actual major radius we want
-   double precision, parameter :: Rmaj = 1.d1 ! actual major radius we want
+   double precision, parameter :: Rmaj = 5.d2 ! actual major radius we want
+   !double precision, parameter :: Rmaj = 1.d1 ! actual major radius we want
+   ! radius of focal ring of torus
    double precision, parameter :: a = sqrt((Rmaj+r0)*(Rmaj-r0))
    ! Segura & Gil CPC Volume 124, Issue 1, 15 January 2000, Pages 104-122, Eq. 19
    double precision, parameter :: rho0 = acosh(Rmaj/r0) ! toroidal "radial inverse" coordinate for rho0
    double precision, parameter :: z0 = cosh(rho0)
 
-   public :: rw_bim_mod_init, solve_toroidally_symmetric_bim_RZ
+   public :: rw_bim_mod_init, solve_toroidally_symmetric_bim_RZ, get_Bn_analytic
 
 contains
 
@@ -39,12 +40,12 @@ contains
       call gauss_init()
    end subroutine rw_bim_mod_init
 
-   subroutine solve_toroidally_symmetric_bim_RZ(n,xi,R,Z,J,norm,Bn,phi)
+   subroutine solve_toroidally_symmetric_bim_RZ(n,xi,R,Z,Jnorm,Bn,phi)
       implicit none
       ! pass
       integer, intent(in) :: n
-      double precision, intent(in), dimension(n) :: xi, R, Z, J, Bn
-      double precision, intent(in), dimension(n,3) :: norm
+      double precision, intent(in), dimension(n) :: xi, R, Z, Bn
+      double precision, intent(in), dimension(n,3) :: Jnorm
       double precision, intent(out), dimension(n) :: phi
       ! local
       integer :: i
@@ -53,7 +54,9 @@ contains
       call rw_bim_mod_init()
 
       print *, "bim allocating"
-      call allocate_and_store_bim_data(bd,n,xi,R,Z,J,Bn,norm,phi)
+      call allocate_and_store_bim_data(bd,n,xi,R,Z,Bn,Jnorm,phi)
+
+      !call correct_allR(bd%R)
 
       print *, "setting BCs"
       call set_BCs(bd)
@@ -61,11 +64,11 @@ contains
       print *, "bim computing matrix"
       call compute_KinvL_matrix(bd)
 
-      print *, "bim setting initial Bn condition"
-      call set_Bn_initial_condition(bd)
+      !print *, "bim setting initial Bn condition"
+      !call set_Bn_initial_condition(bd)
 
       print *, "bim solving system"
-      bd%phi(1:bd%n) = matmul(bd%KinvL,bd%Bn(1:bd%n))
+      bd%phi(1:bd%n) = matmul(bd%Kinv,matmul(bd%L,bd%Bn(1:bd%n)))
 
       print *, "bim computing error"
       call compute_error(bd)
@@ -80,22 +83,24 @@ contains
       ! pass
       type(bim_data_t) :: bd
       integer :: i, fh
-      double precision :: ct, th, exact, error
+      double precision :: ct, th, jacobian, hrho, exact, error
 
       error = 0.d0
       open(newunit=fh,file="solution.txt",action="write")
       do i = 1, bd%n
          th = toroidal_theta(bd%R(i),bd%Z(i))
          ct = cos(th)
+         jacobian = abs(a**3*sinh(rho0)/(ct-z0)**3)
+         hrho = a/(z0-cos(th))
 
          ! m = 0,n=0 mode
-         !exact = sqrt(z0-ct)*p0(z0)
+         exact = sqrt(z0-ct)*p0(z0)
 
          ! m = 1,n=0 mode
-         exact = sqrt(z0-ct)*p1(z0)*exp(dcmplx(0,th))
+         !exact = sqrt(z0-ct)*p1(z0)*exp(dcmplx(0,th))
 
          error = error + abs(exact - bd%phi(i))
-         write(fh,"(6(es25.15e3))") bd%R(i), bd%Z(i), th, bd%Bn(i), bd%phi(i), exact
+         write(fh,"(10(es25.15e3))") bd%R(i), bd%Z(i), bd%Jnorm(i,1), bd%Jnorm(i,3), jacobian, hrho, th, bd%Bn(i), bd%phi(i), exact
       end do
       close(fh)
 
@@ -106,32 +111,87 @@ contains
    end subroutine compute_error
 
    subroutine set_Bn_initial_condition(bd)
-      use toroidal_harmonics, only: p0, p1, p2
       implicit none
       ! pass
       type(bim_data_t) :: bd
       ! local
       integer :: i
-      double precision :: ct, th
 
       do i = 1,bd%n
 
-         th = toroidal_theta(bd%R(i),bd%Z(i))
+         bd%Bn(i) = get_Bn_analytic(bd%R(i),bd%Z(i))
          
-         ! m = 0,n=0 mode
-         !ct = cos(th)
-         !bd%Bn(i) = -sqrt(z0-ct)/(2*a*sinh(rho0))*&
-            !(  (z0*ct-1)*p0(z0) + (z0-ct)*p1(z0) )
-
-         ! m = 1,n=0 mode
-         ct = cos(th)
-         bd%Bn(i) = -exp(dcmplx(0,th))*sqrt(z0-ct)/(2*a*sinh(rho0))*&
-            (  (3*z0*ct-2*z0**2-1)*p1(z0) + 3*(z0-ct)*p2(z0) )
-
-
       end do
 
    end subroutine set_Bn_initial_condition
+
+   function evaldRdrho(th) result(dRdrho)
+      implicit none
+      double precision, intent(in) :: th
+      double precision :: dRdrho
+
+      dRdrho = a*(1-cos(th)*z0)/(cos(th)-z0)**2
+
+   end function evaldRdrho
+
+   function evaldZdrho(th) result(dZdrho)
+      implicit none
+      double precision, intent(in) :: th
+      double precision :: dZdrho
+
+      dZdrho = -a*sin(th)*sinh(rho0)/(z0-cos(th))**2
+
+   end function evaldZdrho
+
+   function evaldRdtheta(th) result(dRdtheta)
+      implicit none
+      double precision, intent(in) :: th
+      double precision :: dRdtheta
+
+      dRdtheta = -a*sinh(rho0)*sin(th)/(z0-cos(th))**2
+
+   end function evaldRdtheta
+
+   function evaldZdtheta(th) result(dZdtheta)
+      implicit none
+      double precision, intent(in) :: th
+      double precision :: dZdtheta
+
+      dZdtheta = a*(z0*cos(th)-1)/(z0-cos(th))**2
+
+   end function evaldZdtheta
+
+   function get_Bn_analytic(Rin,Z) result(b)
+      use toroidal_harmonics, only: p0, p1, p2
+      implicit none
+      double precision, intent(in) :: Rin, Z
+      double precision :: R, b, ct, th, hrho, jacobian, n(2), norm
+
+      !R = correct_one_R(Rin)
+      R = Rin
+      th = toroidal_theta(R, Z)
+      ct = cos(th)
+      jacobian = abs(a**3*sinh(rho0)/(ct-z0)**3)
+      hrho = a/(z0-cos(th))
+
+      n(1) = evaldZdtheta(th)
+      n(2) = evaldRdtheta(th)
+
+      norm = sqrt(dot_product(n,n))
+
+      ! m = 0,n=0 mode
+      b = -sqrt(z0-ct)/(2*a*sinh(rho0))*&
+         (  (z0*ct-1)*p0(z0) + (z0-ct)*p1(z0) )
+
+      ! m = 1,n=0 mode
+      !b = -exp(dcmplx(0,th))*sqrt(z0-ct)/(2*a*sinh(rho0))*&
+      !(  (3*z0*ct-2*z0**2-1)*p1(z0) + 3*(z0-ct)*p2(z0) )
+
+      ! unit e_n.B = B^n/(J*|n|) where J is jacobian and |n| is magnitude of normal vector
+      !b = b/(jacobian*norm)
+      !b = b/jacobian
+
+   end function get_Bn_analytic
 
    !> compute toroidal polar coordinate theta (also called sigma)
    !> from cylindrical R and Z assuming phi = 0
@@ -145,13 +205,31 @@ contains
       theta = merge(theta, 2*pi-theta, Z < 0.d0)
    end function toroidal_theta
 
-   subroutine allocate_and_store_bim_data(bd,n,xi,R,Z,J,Bn,norm,phi)
+   subroutine correct_allR(R)
+      implicit none
+      double precision, intent(inout) :: R(:)
+      integer :: i
+
+      do i = 1, size(R)
+         R(i) = correct_one_R(R(i))
+      end do
+   end subroutine correct_allR
+
+   function correct_one_R(Rin) result(Rout)
+      implicit none
+      double precision, intent(in) :: Rin
+      double precision :: Rout
+      Rout = Rin-1.65d0+Rmaj
+   end function correct_one_R
+
+
+   subroutine allocate_and_store_bim_data(bd,n,xi,R,Z,Bn,Jnorm,phi)
       implicit none
       type(bim_data_t) :: bd
       ! pass
       integer :: n
-      double precision, dimension(n), intent(in) :: xi, R, Z, J, Bn
-      double precision, dimension(n,3), intent(in) :: norm
+      double precision, dimension(n), intent(in) :: xi, R, Z, Bn
+      double precision, dimension(n,3), intent(in) :: Jnorm
       double precision, dimension(n), intent(in) :: phi
       ! local
       integer :: i
@@ -164,24 +242,16 @@ contains
       bd%R(1:n) = R
       allocate(bd%Z(0:n+1))
       bd%Z(1:n) = Z
-      allocate(bd%J(0:n+1))
-      bd%J(1:n) = J
       allocate(bd%Bn(0:n+1))
       bd%Bn(1:n) = Bn
       allocate(bd%phi(0:n+1))
-      allocate(bd%norm(0:n+1,3))
-      bd%norm(1:n,:) = norm
+      allocate(bd%Jnorm(0:n+1,3))
+      bd%Jnorm(1:n,:) = Jnorm
       ! matrices
       allocate(bd%L(n,n))
       allocate(bd%K(n,n))
       allocate(bd%Kinv(n,n))
       allocate(bd%KinvL(n,n))
-
-      ! compute normal vector magnitudes
-      allocate(bd%nmag(0:n+1))
-      do i = 1, n
-         bd%nmag(i) = sqrt(bd%norm(i,1)**2 + bd%norm(i,3)**2)
-      end do
 
       ! compute mesh spacing
       bd%dxi = xi(2) - xi(1)
@@ -198,18 +268,14 @@ contains
       bd%xi(0) = bd%xi(1) - bd%dxi
       bd%R(0) = bd%R(n)
       bd%Z(0) = bd%Z(n)
-      bd%J(0) = bd%J(n)
       bd%Bn(0) = bd%Bn(n)
-      bd%norm(0,:) = bd%norm(n,:)
-      bd%nmag(0) = bd%nmag(n)
+      bd%Jnorm(0,:) = bd%Jnorm(n,:)
       ! hi side
       bd%xi(bd%n+1) = bd%xi(n) + bd%dxi
       bd%R(n+1) = bd%R(1)
       bd%Z(n+1) = bd%Z(1)
-      bd%J(n+1) = bd%J(1)
       bd%Bn(n+1) = bd%Bn(1)
-      bd%norm(n+1,:) = bd%norm(1,:)
-      bd%nmag(n+1) = bd%nmag(1)
+      bd%Jnorm(n+1,:) = bd%Jnorm(1,:)
 
    end subroutine set_BCs
 
@@ -288,11 +354,7 @@ contains
       integer, intent(in) :: i, j
       double precision :: Lij, delta
 
-      if (i==j) then
-         Lij = integrate_toroidal(bd, i, j, SINGULAR, integrand_g)
-      else
-         Lij = integrate_toroidal(bd, i, j, REGULAR, integrand_g)
-      end if
+      Lij = -integrate_toroidal(bd, i, j, SINGULAR, integrand_g)
 
    end function L_matrix_element
 
@@ -302,23 +364,20 @@ contains
       integer, intent(in) :: i, j
       double precision :: Kij, delta
 
-      if (i==j) then
-         Kij = integrate_toroidal(bd, i, j, SINGULAR, integrand_dgdn)
-         Kij = Kij + 0.5d0
-      else
-         Kij = integrate_toroidal(bd, i, j, REGULAR, integrand_dgdn)
-      end if
+      Kij = -integrate_toroidal(bd, i, j, SINGULAR, integrand_dgdn)
+
+      if (i==j) Kij = Kij + 0.5d0
 
    end function K_matrix_element
 
    ! TOROIDAL TORSOINAL GREEN'S FUNCTION AND DERIVATIVE
 
-   function evalchi(R,Z,RP,ZP) result(result)
+   function evalchi(Ri,Zi,Rj,Zj) result(result)
       implicit none
-      double precision, intent(in) :: R, Z, RP, ZP
+      double precision, intent(in) :: Ri, Zi, Rj, Zj
       double precision :: result
 
-      result = (R*R + RP*RP + (Z-ZP)**2)/(2*R*RP)
+      result = (Ri*Ri + Rj*Rj + (Zi-Zj)**2)/(2*Ri*Rj)
    end function evalchi
 
    function evaldchidR(R,Z,RP,ZP) result(result)
@@ -337,21 +396,21 @@ contains
       result = (Z-ZP)/(R*RP)
    end function evaldchidZ
 
-   function evaldchidRP(R,Z,RP,ZP) result(result)
+   function evaldchidRj(Ri,Zi,Rj,Zj) result(result)
       implicit none
-      double precision, intent(in) :: R, Z, RP, ZP
+      double precision, intent(in) :: Ri, Zi, Rj, Zj
       double precision :: result
 
-      result = 1/R - (R*R + RP*RP + (Z-ZP)**2)/(2*R*RP**2)
-   end function evaldchidRP
+      result = 1/Ri - (Ri*Ri + Rj*Rj + (Zi-Zj)**2)/(2*Ri*Rj**2)
+   end function evaldchidRj
 
-   function evaldchidZP(R,Z,RP,ZP) result(result)
+   function evaldchidZj(Ri,Zi,Rj,Zj) result(result)
       implicit none
-      double precision, intent(in) :: R, Z, RP, ZP
+      double precision, intent(in) :: Ri, Zi, Rj, Zj
       double precision :: result
 
-      result = -(Z-ZP)/(R*RP)
-   end function evaldchidZP
+      result = (Zj-Zi)/(Ri*Rj)
+   end function evaldchidZj
 
    function evalmu(chi) result(result)
       implicit none
@@ -398,67 +457,36 @@ contains
       G = -mu*K/(2.d0*pi*sqrt(Ri*Rj))
    end function greens
 
-   ! derivative wrt Ri and evaluated at (Ri,Zi) and (Rj,Zj)
-   function dgreensdR(Ri,Zi,Rj,Zj) result(dGdR)
-      implicit none
-      double precision, intent(in) :: Ri, Zi, Rj, Zj
-      double precision :: chi, mu, K, dGdR, dchidR
-
-      chi = evalchi(Ri,Zi,Rj,Zj)
-      mu = evalmu(chi)
-      K = Kelliptic(mu)
-      dchidR = evaldchidR(Ri,Zi,Rj,Zj)
-
-      dGdR = -greens(Ri,Zi,Rj,Zj)/(2*Ri) + mu**3/(8*pi*sqrt(Ri*Rj))*&
-         Eelliptic(mu)/(1-mu**2)*dchidR
-
-   end function dgreensdR
-
-   ! derivative wrt Zi and evaluated at (Ri,Zi) and (Rj,Zj)
-   function dgreensdZ(Ri,Zi,Rj,Zj) result(dGdZ)
-      implicit none
-      double precision, intent(in) :: Ri, Zi, Rj, Zj
-      double precision :: chi, mu, K, dGdZ, dchidZ
-
-      chi = evalchi(Ri,Zi,Rj,Zj)
-      mu = evalmu(chi)
-      K = Kelliptic(mu)
-      dchidZ = evaldchidZ(Ri,Zi,Rj,Zj)
-
-      dGdZ = mu**3/(8*pi*sqrt(Ri*Rj))*Eelliptic(mu)/(1-mu**2)*dchidZ
-
-   end function dgreensdZ
-
    ! derivative wrt Rj and evaluated at (Ri,Zi) and (Rj,Zj)
-   function dgreensdRP(Ri,Zi,Rj,Zj) result(dGdRP)
+   function dgreensdRj(Ri,Zi,Rj,Zj) result(dGdRj)
       implicit none
       double precision, intent(in) :: Ri, Zi, Rj, Zj
-      double precision :: chi, mu, K, dGdRP, dchidRP
+      double precision :: chi, mu, K, dGdRj, dchidRj
 
       chi = evalchi(Ri,Zi,Rj,Zj)
       mu = evalmu(chi)
       K = Kelliptic(mu)
-      dchidRP = evaldchidRP(Ri,Zi,Rj,Zj)
+      dchidRj = evaldchidRj(Ri,Zi,Rj,Zj)
 
-      dGdRP = -greens(Ri,Zi,Rj,Zj)/(2*Rj) + mu**3/(8*pi*sqrt(Ri*Rj))*&
-         Eelliptic(mu)/(1-mu**2)*dchidRP
+      dGdRj = -greens(Ri,Zi,Rj,Zj)/(2*Rj) + mu**3/(8*pi*sqrt(Ri*Rj))*&
+         Eelliptic(mu)/(1-mu**2)*dchidRj
 
-   end function dgreensdRP
+   end function dgreensdRj
 
    ! derivative wrt Zj and evaluated at (Ri,Zi) and (Rj,Zj)
-   function dgreensdZP(Ri,Zi,Rj,Zj) result(dGdZP)
+   function dgreensdZj(Ri,Zi,Rj,Zj) result(dGdZj)
       implicit none
       double precision, intent(in) :: Ri, Zi, Rj, Zj
-      double precision :: chi, mu, K, dGdZP, dchidZP
+      double precision :: chi, mu, K, dGdZj, dchidZj
 
       chi = evalchi(Ri,Zi,Rj,Zj)
       mu = evalmu(chi)
       K = Kelliptic(mu)
-      dchidZP = evaldchidZP(Ri,Zi,Rj,Zj)
+      dchidZj = evaldchidZj(Ri,Zi,Rj,Zj)
 
-      dGdZP = mu**3/(8*pi*sqrt(Ri*Rj))*Eelliptic(mu)/(1-mu**2)*dchidZP
+      dGdZj = mu**3/(8*pi*sqrt(Ri*Rj))*Eelliptic(mu)/(1-mu**2)*dchidZj
 
-   end function dgreensdZP
+   end function dgreensdZj
 
    ! INTEGRANDS
 
@@ -470,7 +498,7 @@ contains
       double precision, intent(in) :: xi_j
       ! internal
       double precision :: integrand
-      double precision :: dxlo, dxhi, Jacj, nmagi, nmagj, Ri, Zi, Rj, Zj
+      double precision :: dxlo, dxhi, Ri, Zi, Rj, Zj
       integer :: lo, hi
 
       ! interpolant
@@ -482,13 +510,8 @@ contains
       dxhi = min(max(0.d0,dxhi),1.d0)
 
       ! interpolation
-      Jacj = bd%J(lo)*dxhi + bd%J(hi)*dxlo
-      nmagj = bd%nmag(lo)*dxhi + bd%nmag(hi)*dxlo
       Rj = bd%R(lo)*dxhi + bd%R(hi)*dxlo
       Zj = bd%Z(lo)*dxhi + bd%Z(hi)*dxlo
-      ! no interpolation
-      !Jacj = bd%J(j)
-      !nmagj = bd%nmag(j)
 
       Ri = bd%R(i)
       Zi = bd%Z(i)
@@ -506,8 +529,9 @@ contains
       ! internal
       double precision :: integrand
 
-      double precision :: Jacj, nmagi, nmagj, Ri, Zi, Rj, Zj
-      double precision :: dxlo, dxhi, njdoter, njdotez
+      double precision :: normlo(3), normhi(3), norm(3), Ri, Zi, Rj, Zj
+      double precision :: Jnorm(3)
+      double precision :: dxlo, dxhi, Jnlo, Jnhi
       integer :: lo, hi
 
       ! interpolant
@@ -519,22 +543,14 @@ contains
       dxhi = min(max(0.d0,dxhi),1.d0)
 
       ! interpolation
-      Jacj = bd%J(lo)*dxhi + bd%J(hi)*dxlo
-      nmagj = bd%nmag(lo)*dxhi + bd%nmag(hi)*dxlo
+      Jnorm(:) = bd%Jnorm(lo,:)*dxhi + bd%Jnorm(hi,:)*dxlo
       Rj = bd%R(lo)*dxhi + bd%R(hi)*dxlo
       Zj = bd%Z(lo)*dxhi + bd%Z(hi)*dxlo
-      ! no interpolation
-      !Jacj = bd%J(j)
-      !nmagj = bd%nmag(j)
-
-      njdoter = bd%norm(lo,1)/bd%nmag(lo)*dxhi + bd%norm(hi,1)/bd%nmag(hi)*dxlo
-      njdotez = bd%norm(lo,3)/bd%nmag(lo)*dxhi + bd%norm(hi,3)/bd%nmag(hi)*dxlo
 
       Ri = bd%R(i)
       Zi = bd%Z(i)
 
-      integrand = Jacj*nmagj*&
-         (njdoter*dgreensdRP(Ri,Zi,Rj,Zj) + njdotez*dgreensdZP(Ri,Zi,Rj,Zj))
+      integrand = (Jnorm(1)*dgreensdRj(Ri,Zi,Rj,Zj) + Jnorm(3)*dgreensdZj(Ri,Zi,Rj,Zj))
 
    end function integrand_dgdn
 
@@ -587,7 +603,9 @@ contains
       error = abs((result18-result36)/result36)
       if (error > 1.d-3) then
          print *, "error large in quadrature rule:", flavor
-         print *, result18, result36, error
+         !print *, result18, result36, error
+         write(*,"(a8,es12.3,a6,i4,a6,i4)") &
+            "error = ", error, "  i = ", i, "  j = ", j
       end if
 
       result = result36

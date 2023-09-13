@@ -931,7 +931,10 @@ c     -----------------------------------------------------------------
 
       use special_funcs
 
-      use rw_bim_mod, only: solve_toroidally_symmetric_bim_RZ
+      use rw_bim_mod, only: solve_toroidally_symmetric_bim_RZ,
+     $   get_Bn_analytic
+
+      use toroidal_harmonics, only: p0, p1, p2
       
       implicit none
 
@@ -1002,12 +1005,12 @@ c     Global angular mesh and associated qtys
      $                    +g_def%gmetric%grid(igr)%jac(i+1,j,k))
 
         !SAM: set up your Bn here, and comment out the one below
-        !Bn(1,j,1) = JJ(1,j,1)*...
+        Bn(1,j,1) = -JJ(1,j,1)*get_Bn_analytic(RR(1,j,1),ZZ(1,j,1))
       enddo
 
 c     Bnormal at plasma wall (pointing inward; no need to divide by J*|n|)
 
-      Bn(1,:,1) =-bcnvn_int(1:ny,1)
+      !Bn(1,:,1) =-bcnvn_int(1:ny,1)
 
       !Gather qtys in parallel along boundary
 #if defined(petsc)
@@ -1063,9 +1066,9 @@ c     Find EXTERNAL magnetic field components outside RW
       deallocate(phi,Bng,Jng,Rg,Zg)
 
       stop
-      
+
       end subroutine vacuum_tor_symm
-      
+
 c     rw_A_BCs
 c     ##################################################################
       subroutine rw_A_BCs(g_def,acov_n,bcnv_n,acov,acnv,bcnd_a,bcnd_b
