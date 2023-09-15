@@ -1,6 +1,8 @@
 module rw_bim_mod
    use math, only: pi, ellipticK, ellipticE
    use elliptic, only: ceik, ceie
+   use grid_def_st
+   use grid_mpi, ONLY: find_global_nobc
    implicit none
    private
 
@@ -32,51 +34,146 @@ module rw_bim_mod
    double precision, parameter :: rho0 = acosh(Rmaj/r0) ! toroidal "radial inverse" coordinate for rho0
    double precision, parameter :: z0 = cosh(rho0)
 
-   public :: rw_bim_mod_init, solve_toroidally_symmetric_bim_RZ, get_Bn_analytic
+   logical :: bim_dump
+   
+   type(bim_data_t) :: bd
+
+   public :: rw_bim_symm_init, rw_bim_symm_solve
 
 contains
 
-   subroutine rw_bim_mod_init()
-      implicit none
-      call gauss_init()
-   end subroutine rw_bim_mod_init
+   subroutine rw_bim_symm_init(g_def,dump,test)
+     implicit none
+     
+     type(grid_mg_def),pointer :: g_def
+     logical :: dump,test
 
-   subroutine solve_toroidally_symmetric_bim_RZ(n,xi,R,Z,Jnorm,Bn,phi)
+     integer :: i,j,k,nx,ny,nz,nyg,igr
+     real(8) :: xx,yy
+
+     real(8),allocatable,dimension(:,:,:,:) :: Jn,Jng
+     real(8),allocatable,dimension(:,:,:)   :: Bn,JJ,RR,ZZ,Bng,Rg,Zg
+     real(8),allocatable,dimension(:)       :: phi,theta
+
+     bim_dump = dump
+     
+     call gauss_init()
+
+     igr = 1
+
+     !Global angular mesh and associated qtys
+     nx = g_def%nxv(igr) 
+     ny = g_def%nyv(igr)
+     nz = g_def%nzv(igr)
+
+     nyg = g_def%nygl(igr)
+
+     allocate(JJ(1,ny,1),Jn(1,ny,1,3),RR(1,ny,1),ZZ(1,ny,1))
+
+     allocate(Rg(1,nyg,1),Zg(1,nyg,1),Jng(1,nyg,1,3),theta(nyg))
+
+     if (test) allocate(Bn(1,ny,1),Bng(1,nyg,1))
+     
+     theta = g_def%yg(1:nyg)
+
+     i = nx ; k = 1
+     do j=1,ny
+        !Cell position at (nx+1/2) boundary in (R,Z) coords
+        ZZ(1,j,1) = 0.5d0*(g_def%gmetric%grid(igr)%car(i  ,j,k,3) &
+                          +g_def%gmetric%grid(igr)%car(i+1,j,k,3))
+        xx = 0.5d0*(g_def%gmetric%grid(igr)%car(i  ,j,k,1)        &
+                   +g_def%gmetric%grid(igr)%car(i+1,j,k,1))
+        yy = 0.5d0*(g_def%gmetric%grid(igr)%car(i  ,j,k,2)        &
+                   +g_def%gmetric%grid(igr)%car(i+1,j,k,2))
+        RR(1,j,1) = sqrt(xx*xx + yy*yy)
+
+        !Cartesian J.n (n->normal vector pointing *inward*)
+        ! at (nx+1/2) bdry at phi=0 poloidal plane
+        Jn(1,j,1,:) =                                           &
+            -0.25d0*(g_def%gmetric%grid(igr)%cov(i  ,j,k  ,1,:) &
+                    *g_def%gmetric%grid(igr)%jac(i  ,j,k)       &
+                    +g_def%gmetric%grid(igr)%cov(i+1,j,k  ,1,:) &
+                    *g_def%gmetric%grid(igr)%jac(i+1,j,k)       &
+                    +g_def%gmetric%grid(igr)%cov(i  ,j,k-1,1,:) &
+                    *g_def%gmetric%grid(igr)%jac(i  ,j,k-1)     &
+                    +g_def%gmetric%grid(igr)%cov(i+1,j,k-1,1,:) &
+                    *g_def%gmetric%grid(igr)%jac(i+1,j,k-1))
+
+        !Jacobian interpolated at (nx+1/2) bdry
+        JJ(1,j,1) = 0.5d0*(g_def%gmetric%grid(igr)%jac(i  ,j,k) &
+                          +g_def%gmetric%grid(igr)%jac(i+1,j,k))
+
+        if (test) Bn(1,j,1) = -JJ(1,j,1)*get_Bn_analytic(RR(1,j,1),ZZ(1,j,1))
+     enddo
+
+      !Gather qtys in parallel along boundary
+#if defined(petsc)
+      if (test) call find_global_nobc(Bn,Bng,mpi_comm=g_def%MPI_COMM_Y)
+      call find_global_nobc(RR,Rg ,mpi_comm=g_def%MPI_COMM_Y)
+      call find_global_nobc(ZZ,Zg ,mpi_comm=g_def%MPI_COMM_Y)
+      call find_global_nobc(Jn,Jng,mpi_comm=g_def%MPI_COMM_Y)
+#else
+      if (test) call find_global_nobc(Bn,Bng)
+      call find_global_nobc(RR,Rg )
+      call find_global_nobc(ZZ,Zg )
+      call find_global_nobc(Jn,Jng)
+#endif
+
+     if (dump) write(*,*) " BIM: setting BCs"
+
+     if (dump) write(*,*) " BIM: allocating vars"
+     call setup_bim_data(bd,nyg,theta,Rg(1,:,1),Zg(1,:,1),Jng(1,:,1,:))
+
+     !call correct_allR(bd%R)
+
+     if (dump) write(*,*) " BIM: setting BCs"
+     if (test) bd%Bn(1:bd%n) = Bn(1,:,1)
+     call set_BCs(bd)
+
+     if (dump) write(*,*) " BIM: computing matrix"
+     call compute_KinvL_matrix(bd)
+
+     if (test) then
+        if (dump) then
+           write (*,*) "BIM DIAG ","theta ","Bng ","Rg ","Zg ","|J.ng|"
+           do i=1,nyg
+              write (*,*) "BIM DIAG",theta(i),Bng(1,i,1),Rg(1,i,1),Zg(1,i,1) &
+                                    ,sqrt(sum(Jng(1,i,1,:)**2))
+           enddo
+        endif
+
+        bd%Bn(1:bd%n) = Bng(1,:,1)
+        call rw_bim_symm_solve(Bng(1,:,1),bd%phi(1:bd%n))
+
+        if (dump) write(*,*) "BIM: computing error"
+        call compute_error(bd)
+     endif
+     
+     deallocate(JJ,Jn,RR,ZZ,Jng,Rg,Zg)
+
+     if (test) then
+        deallocate(Bn,Bng)
+        stop
+     endif
+     
+   end subroutine rw_bim_symm_init
+
+   subroutine rw_bim_symm_solve(Bn,phi)
       implicit none
       ! pass
-      integer, intent(in) :: n
-      double precision, intent(in), dimension(n) :: xi, R, Z, Bn
-      double precision, intent(in), dimension(n,3) :: Jnorm
-      double precision, intent(out), dimension(n) :: phi
+        
+      double precision, intent(in), dimension(:) :: Bn
+      double precision, intent(out), dimension(size(Bn)) :: phi
       ! local
-      integer :: i
-      type(bim_data_t) :: bd
 
-      call rw_bim_mod_init()
+      bd%Bn(1:bd%n) = Bn
 
-      print *, "bim allocating"
-      call allocate_and_store_bim_data(bd,n,xi,R,Z,Bn,Jnorm,phi)
-
-      !call correct_allR(bd%R)
-
-      print *, "setting BCs"
-      call set_BCs(bd)
-
-      print *, "bim computing matrix"
-      call compute_KinvL_matrix(bd)
-
-      !print *, "bim setting initial Bn condition"
-      !call set_Bn_initial_condition(bd)
-
-      print *, "bim solving system"
+      if (bim_dump) write(*,*) "BIM: solving system"
       bd%phi(1:bd%n) = matmul(bd%Kinv,matmul(bd%L,bd%Bn(1:bd%n)))
-
-      print *, "bim computing error"
-      call compute_error(bd)
 
       phi = bd%phi(1:bd%n)
 
-   end subroutine solve_toroidally_symmetric_bim_RZ
+   end subroutine rw_bim_symm_solve
 
    subroutine compute_error(bd)
       use toroidal_harmonics, only: p0, p1, p2
@@ -218,14 +315,13 @@ contains
    end function correct_one_R
 
 
-   subroutine allocate_and_store_bim_data(bd,n,xi,R,Z,Bn,Jnorm,phi)
+   subroutine setup_bim_data(bd,n,xi,R,Z,Jnorm)
       implicit none
       type(bim_data_t) :: bd
       ! pass
       integer :: n
-      double precision, dimension(n), intent(in) :: xi, R, Z, Bn
+      double precision, dimension(n), intent(in) :: xi, R, Z
       double precision, dimension(n,3), intent(in) :: Jnorm
-      double precision, dimension(n), intent(in) :: phi
       ! local
       integer :: i
       double precision :: dxlast
@@ -238,20 +334,25 @@ contains
       allocate(bd%Z(0:n+1))
       bd%Z(1:n) = Z
       allocate(bd%Bn(0:n+1))
-      bd%Bn(1:n) = Bn
+      bd%Bn = 0d0
       allocate(bd%phi(0:n+1))
+      bd%phi = 0d0
       allocate(bd%Jnorm(0:n+1,3))
       bd%Jnorm(1:n,:) = Jnorm
       ! matrices
       allocate(bd%L(n,n))
+      bd%L = 0d0
       allocate(bd%K(n,n))
+      bd%K = 0d0
       allocate(bd%Kinv(n,n))
+      bd%Kinv = 0d0
       allocate(bd%KinvL(n,n))
+      bd%KinvL = 0d0
 
       ! compute mesh spacing
       bd%dxi = xi(2) - xi(1)
 
-   end subroutine allocate_and_store_bim_data
+   end subroutine setup_bim_data
 
    subroutine set_BCs(bd)
       implicit none

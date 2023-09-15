@@ -8,6 +8,8 @@ c ####################################################################
 
         use app_iosetup, ONLY: test,critical
         
+        use rw_bim_mod, only: rw_bim_symm_init
+
         !Resistive wall vars
         logical :: rw_bcs(6)      = .false.
      $            ,rw_fft_tupdate = .false. ! Advance Fourier RW modes in time
@@ -44,7 +46,7 @@ c     Local variables
 
         integer :: alloc_stat
 
-        integer :: nx,ny,nz
+        integer :: nx,ny,nz,nzg
       
 c     Begin program
 
@@ -52,10 +54,24 @@ c     Begin program
         ny = gv%gparams%nyv(1)
         nz = gv%gparams%nzv(1)
 
+        nzg = gv%gparams%nzgl(1)
+
         allocate(E_bc(0:nx+1,0:ny+1,0:nz+1,3))
 
         E_bc = 0d0
 
+        select case(coords)
+        case('tor','sha','sh2')
+          if (nzd == 1) then
+            call rw_bim_symm_init(gv%gparams
+     $                           ,(my_rank==0.and.ilevel>0)
+     $                           ,test)
+          else
+            call critical('rw_alloc'
+     $      ,'VACUUM B-field response not implemented for non-symm tor')
+          endif
+        end select
+      
 c     End program
 
       end subroutine rw_allocBCVariables
@@ -929,13 +945,8 @@ c     Performs RW BC in toroidal geometry. Inputs normal internal
 c     B-component, outputs tangential external B-components
 c     -----------------------------------------------------------------
 
-      use special_funcs
+      use rw_bim_mod, only: rw_bim_symm_solve
 
-      use rw_bim_mod, only: solve_toroidally_symmetric_bim_RZ,
-     $   get_Bn_analytic
-
-      use toroidal_harmonics, only: p0, p1, p2
-      
       implicit none
 
 c     Call variables
@@ -947,17 +958,14 @@ c     Call variables
       real(8) :: bcnvn_int(0:,0:),bcov_ext(0:,0:,:)
 
       logical :: dbg
-      
+
+      real(8),allocatable,dimension(:,:,:) :: Bn,Bng
+      real(8),allocatable,dimension(:)     :: phi
+      real(8),allocatable,dimension(:)     :: theta
+
 c     Local variables
       
       integer :: jgl,jglp,jglm,i,j,k,nx,ny,nz,nyg
-      real(8) :: xx,yy
-
-      real(8),allocatable,dimension(:,:,:,:) :: Jn,Jng
-      real(8),allocatable,dimension(:,:,:)   :: Bn,Bng
-     $                                         ,JJ,RR,ZZ
-     $                                         ,Rg,Zg
-      real(8),allocatable,dimension(:)       :: phi,theta
 
 c     Begin program
 
@@ -967,81 +975,25 @@ c     Begin program
 
       nyg = g_def%nygl(igr)
 
-      allocate(Bn(1,ny,1),JJ(1,ny,1),Jn(1,ny,1,3),RR(1,ny,1)
-     $        ,ZZ(1,ny,1))
-
-      allocate(phi(nyg),Bng(1,nyg,1),Rg(1,nyg,1),Zg(1,nyg,1)
-     $        ,Jng(1,nyg,1,3),theta(nyg))
+      allocate(Bn(1,ny,1),phi(nyg),Bng(1,nyg,1),theta(nyg))
       
-c     Global angular mesh and associated qtys
-
       theta = g_def%yg(1:nyg)
 
-      i = nx ; k = 1
-      do j=1,ny
-        !Cell position at (nx+1/2) boundary in (R,Z) coords
-        ZZ(1,j,1) = 0.5d0*(g_def%gmetric%grid(igr)%car(i  ,j,k,3)
-     $                    +g_def%gmetric%grid(igr)%car(i+1,j,k,3))
-        xx = 0.5d0*(g_def%gmetric%grid(igr)%car(i  ,j,k,1)
-     $             +g_def%gmetric%grid(igr)%car(i+1,j,k,1))
-        yy = 0.5d0*(g_def%gmetric%grid(igr)%car(i  ,j,k,2)
-     $             +g_def%gmetric%grid(igr)%car(i+1,j,k,2))
-        RR(1,j,1) = sqrt(xx*xx + yy*yy)
+c     Bnormal at plasma wall (pointing inward)
 
-        !Cartesian J.n (n->normal vector pointing *inward*)
-        ! at (nx+1/2) bdry at phi=0 poloidal plane
-        Jn(1,j,1,:) =
-     $      -0.25d0*(g_def%gmetric%grid(igr)%cov(i  ,j,k  ,1,:)
-     $              *g_def%gmetric%grid(igr)%jac(i  ,j,k)
-     $              +g_def%gmetric%grid(igr)%cov(i+1,j,k  ,1,:)
-     $              *g_def%gmetric%grid(igr)%jac(i+1,j,k)
-     $              +g_def%gmetric%grid(igr)%cov(i  ,j,k-1,1,:)
-     $              *g_def%gmetric%grid(igr)%jac(i  ,j,k-1)
-     $              +g_def%gmetric%grid(igr)%cov(i+1,j,k-1,1,:)
-     $              *g_def%gmetric%grid(igr)%jac(i+1,j,k-1))
+      Bn(1,:,1) =-bcnvn_int(1:ny,1)
 
-        !Jacobian interpolated at (nx+1/2) bdry
-        JJ(1,j,1) = 0.5d0*(g_def%gmetric%grid(igr)%jac(i  ,j,k)
-     $                    +g_def%gmetric%grid(igr)%jac(i+1,j,k))
-
-        !SAM: set up your Bn here, and comment out the one below
-        Bn(1,j,1) = -JJ(1,j,1)*get_Bn_analytic(RR(1,j,1),ZZ(1,j,1))
-      enddo
-
-c     Bnormal at plasma wall (pointing inward; no need to divide by J*|n|)
-
-      !Bn(1,:,1) =-bcnvn_int(1:ny,1)
-
-      !Gather qtys in parallel along boundary
 #if defined(petsc)
       call find_global_nobc(Bn,Bng,mpi_comm=g_def%MPI_COMM_Y)
-      call find_global_nobc(RR,Rg ,mpi_comm=g_def%MPI_COMM_Y)
-      call find_global_nobc(ZZ,Zg ,mpi_comm=g_def%MPI_COMM_Y)
-      call find_global_nobc(Jn,Jng,mpi_comm=g_def%MPI_COMM_Y)
 #else
       call find_global_nobc(Bn,Bng)
-      call find_global_nobc(RR,Rg )
-      call find_global_nobc(ZZ,Zg )
-      call find_global_nobc(Jn,Jng)
 #endif
       
 c     Find VACUUM potential solution Phi outside of resistive wall
 
-c diag ****
-      if (my_rank == 0) then
-        write (*,*) "BIM DIAG ","theta ","Bng ","Rg ","Zg ","|J.ng|"
-        do i=1,nyd
-          write (*,*) "BIM DIAG",theta(i),Bng(1,i,1),Rg(1,i,1),Zg(1,i,1)
-     $                          ,sqrt(sum(Jng(1,i,1,:)**2))
-        enddo
-      endif
-c diag ****
-      
-      !BIM solve
       phi = 0d0
 
-      call solve_toroidally_symmetric_bim_RZ( 
-     $  nyg, theta, Rg(1,:,1), Zg(1,:,1), Jng(1,:,1,:), Bng(1,:,1), phi)
+      call rw_bim_symm_solve(Bng(1,:,1),phi)
 
 c     Find EXTERNAL magnetic field components outside RW
 
@@ -1058,11 +1010,7 @@ c     Find EXTERNAL magnetic field components outside RW
         bcov_ext(j,:,3) = 0d0 !From toroidal symmetry
       enddo
 
-      deallocate(Bn,JJ,Jn,RR,ZZ)
-      
-      deallocate(phi,Bng,Jng,Rg,Zg)
-
-      stop
+      deallocate(Bn,Bng,phi,theta)
 
       end subroutine vacuum_tor_symm
 
