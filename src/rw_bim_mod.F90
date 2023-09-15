@@ -23,8 +23,9 @@ module rw_bim_mod
 
    ! for verification tests
    double precision, parameter :: r0 = 1.d0 ! actual minor radius we want
-   double precision, parameter :: Rmaj = 5.d2 ! actual major radius we want
+   !double precision, parameter :: Rmaj = 5.d2 ! actual major radius we want
    !double precision, parameter :: Rmaj = 1.d1 ! actual major radius we want
+   double precision, parameter :: Rmaj = 1.65d0 ! actual major radius we want
    ! radius of focal ring of torus
    double precision, parameter :: a = sqrt((Rmaj+r0)*(Rmaj-r0))
    ! Segura & Gil CPC Volume 124, Issue 1, 15 January 2000, Pages 104-122, Eq. 19
@@ -94,10 +95,10 @@ contains
          hrho = a/(z0-cos(th))
 
          ! m = 0,n=0 mode
-         exact = sqrt(z0-ct)*p0(z0)
+         !exact = sqrt(z0-ct)*p0(z0)
 
          ! m = 1,n=0 mode
-         !exact = sqrt(z0-ct)*p1(z0)*exp(dcmplx(0,th))
+         exact = sqrt(z0-ct)*p1(z0)*exp(dcmplx(0,th))
 
          error = error + abs(exact - bd%phi(i))
          write(fh,"(10(es25.15e3))") bd%R(i), bd%Z(i), bd%Jnorm(i,1), bd%Jnorm(i,3), jacobian, hrho, th, bd%Bn(i), bd%phi(i), exact
@@ -167,25 +168,19 @@ contains
       double precision, intent(in) :: Rin, Z
       double precision :: R, b, ct, th, hrho, jacobian, n(2), norm
 
-      !R = correct_one_R(Rin)
       R = Rin
       th = toroidal_theta(R, Z)
       ct = cos(th)
       jacobian = abs(a**3*sinh(rho0)/(ct-z0)**3)
       hrho = a/(z0-cos(th))
 
-      n(1) = evaldZdtheta(th)
-      n(2) = evaldRdtheta(th)
-
-      norm = sqrt(dot_product(n,n))
-
       ! m = 0,n=0 mode
-      b = -sqrt(z0-ct)/(2*a*sinh(rho0))*&
-         (  (z0*ct-1)*p0(z0) + (z0-ct)*p1(z0) )
+      !b = -sqrt(z0-ct)/(2*a*sinh(rho0))*&
+         !(  (z0*ct-1)*p0(z0) + (z0-ct)*p1(z0) )
 
       ! m = 1,n=0 mode
-      !b = -exp(dcmplx(0,th))*sqrt(z0-ct)/(2*a*sinh(rho0))*&
-      !(  (3*z0*ct-2*z0**2-1)*p1(z0) + 3*(z0-ct)*p2(z0) )
+      b = -exp(dcmplx(0,th))*sqrt(z0-ct)/(2*a*sinh(rho0))*&
+      (  (3*z0*ct-2*z0**2-1)*p1(z0) + 3*(z0-ct)*p2(z0) )
 
       ! unit e_n.B = B^n/(J*|n|) where J is jacobian and |n| is magnitude of normal vector
       !b = b/(jacobian*norm)
@@ -200,8 +195,8 @@ contains
       double precision, intent(in) :: R,Z
       double precision :: theta
       
-      !theta = acos(z0 - a*sinh(rho0)/R)
-      theta = acos(z0 - a*sinh(rho0)/(R-1.65d0+Rmaj))
+      theta = acos(z0 - a*sinh(rho0)/R)
+      !theta = acos(z0 - a*sinh(rho0)/(R-1.65d0+Rmaj))
       theta = merge(theta, 2*pi-theta, Z < 0.d0)
    end function toroidal_theta
 
@@ -352,9 +347,11 @@ contains
       implicit none
       type(bim_data_t) :: bd
       integer, intent(in) :: i, j
+      integer :: flavor
       double precision :: Lij, delta
 
-      Lij = -integrate_toroidal(bd, i, j, SINGULAR, integrand_g)
+      flavor = merge(SINGULAR,REGULAR,i==j)
+      Lij = -integrate_toroidal(bd, i, j, flavor, integrand_g)
 
    end function L_matrix_element
 
@@ -362,9 +359,11 @@ contains
       implicit none
       type(bim_data_t) :: bd
       integer, intent(in) :: i, j
+      integer :: flavor
       double precision :: Kij, delta
 
-      Kij = -integrate_toroidal(bd, i, j, SINGULAR, integrand_dgdn)
+      flavor = merge(SINGULAR,REGULAR,i==j)
+      Kij = -integrate_toroidal(bd, i, j, flavor, integrand_dgdn)
 
       if (i==j) Kij = Kij + 0.5d0
 
@@ -488,6 +487,26 @@ contains
 
    end function dgreensdZj
 
+   ! PARABOLIC INTERPOLANT
+   function interpolate(x,q,x_want) result(q_want)
+      implicit none
+      double precision, intent(in) :: x(3), q(3), x_want
+      double precision :: q_want, dx, dqdx, d2qdx2, a, b, dp, dm, dc
+      integer :: i = 2
+      dx = x(i) - x(i-1)
+
+      dp = q(i+1)-q(i)
+      dm = q(i)-q(i-1)
+      dc = 0.5d0*(q(i+1)-q(i-1))
+
+      dqdx = dc/dx
+      d2qdx2 = (q(i+1) - 2*q(i) + q(i-1))/dx**2
+
+      ! taylor series expansion
+      q_want = q(i) + dqdx*(x_want-x(i)) + 0.5d0*d2qdx2*(x_want-x(i))**2
+
+   end function interpolate
+
    ! INTEGRANDS
 
    function integrand_g(bd,i,j,xi_j) result(integrand)
@@ -498,20 +517,11 @@ contains
       double precision, intent(in) :: xi_j
       ! internal
       double precision :: integrand
-      double precision :: dxlo, dxhi, Ri, Zi, Rj, Zj
-      integer :: lo, hi
-
-      ! interpolant
-      lo = merge(j-1,j,xi_j < bd%xi(j))
-      hi = merge(j,j+1,xi_j < bd%xi(j))
-      dxlo = (xi_j - bd%xi(lo))/bd%dxi
-      dxhi = (bd%xi(hi) - xi_j)/bd%dxi
-      dxlo = min(max(0.d0,dxlo),1.d0)
-      dxhi = min(max(0.d0,dxhi),1.d0)
+      double precision :: Ri, Zi, Rj, Zj
 
       ! interpolation
-      Rj = bd%R(lo)*dxhi + bd%R(hi)*dxlo
-      Zj = bd%Z(lo)*dxhi + bd%Z(hi)*dxlo
+      Rj = interpolate(bd%xi(j-1:j+1),bd%R(j-1:j+1),xi_j)
+      Zj = interpolate(bd%xi(j-1:j+1),bd%Z(j-1:j+1),xi_j)
 
       Ri = bd%R(i)
       Zi = bd%Z(i)
@@ -531,21 +541,16 @@ contains
 
       double precision :: normlo(3), normhi(3), norm(3), Ri, Zi, Rj, Zj
       double precision :: Jnorm(3)
-      double precision :: dxlo, dxhi, Jnlo, Jnhi
-      integer :: lo, hi
-
-      ! interpolant
-      lo = merge(j-1,j,xi_j < bd%xi(j))
-      hi = merge(j,j+1,xi_j < bd%xi(j))
-      dxlo = (xi_j - bd%xi(lo))/bd%dxi
-      dxhi = (bd%xi(hi) - xi_j)/bd%dxi
-      dxlo = min(max(0.d0,dxlo),1.d0)
-      dxhi = min(max(0.d0,dxhi),1.d0)
+      integer :: k
 
       ! interpolation
-      Jnorm(:) = bd%Jnorm(lo,:)*dxhi + bd%Jnorm(hi,:)*dxlo
-      Rj = bd%R(lo)*dxhi + bd%R(hi)*dxlo
-      Zj = bd%Z(lo)*dxhi + bd%Z(hi)*dxlo
+      Rj = interpolate(bd%xi(j-1:j+1),bd%R(j-1:j+1),xi_j)
+      Zj = interpolate(bd%xi(j-1:j+1),bd%Z(j-1:j+1),xi_j)
+
+      ! interpolation
+      do k = 1, 3
+         Jnorm(k) = interpolate(bd%xi(j-1:j+1),bd%Jnorm(j-1:j+1,k),xi_j)
+      end do
 
       Ri = bd%R(i)
       Zi = bd%Z(i)
