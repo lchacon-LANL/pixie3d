@@ -1037,10 +1037,7 @@ c diag ****
       endif
 c diag ****
       
-!<<< HERE GOES INTERFACE TO BIM COMPUTATION; INPUTS Bng, RETURNS PHI
-!<<< NEED TO PASS (Rg,Zg) COORDINATES OF BOUNDARY CONTOUR
-!<<< NEED TO PASS J*ng AT BOUNDARY
-
+      !BIM solve
       phi = 0d0
 
       call solve_toroidally_symmetric_bim_RZ( 

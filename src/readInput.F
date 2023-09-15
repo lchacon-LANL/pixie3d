@@ -221,7 +221,9 @@ c Find alpha_p=T_t/T_e; T_t=T_i+T_e
 
 c Initialize grid packing structure
 
-      call init_grid_pack_config(gp1,gp2,gp3)
+      call init_grid_pack_config(gp1) 
+      call init_grid_pack_config(gp2) 
+      call init_grid_pack_config(gp3)
 
 c Initialize MG parameters
 
