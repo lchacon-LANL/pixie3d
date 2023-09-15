@@ -24,15 +24,7 @@ module rw_bim_mod
    end type bim_data_t
 
    ! for verification tests
-   double precision, parameter :: r0 = 1.d0 ! actual minor radius we want
-   !double precision, parameter :: Rmaj = 5.d2 ! actual major radius we want
-   !double precision, parameter :: Rmaj = 1.d1 ! actual major radius we want
-   double precision, parameter :: Rmaj = 1.65d0 ! actual major radius we want
-   ! radius of focal ring of torus
-   double precision, parameter :: a = sqrt((Rmaj+r0)*(Rmaj-r0))
-   ! Segura & Gil CPC Volume 124, Issue 1, 15 January 2000, Pages 104-122, Eq. 19
-   double precision, parameter :: rho0 = acosh(Rmaj/r0) ! toroidal "radial inverse" coordinate for rho0
-   double precision, parameter :: z0 = cosh(rho0)
+   double precision :: r0,Rmaj,a,rho0,z0
 
    logical :: bim_dump
    
@@ -61,6 +53,14 @@ contains
 
      igr = 1
 
+     if (test) then
+        r0   = 1d0                       ! Minor radius
+        Rmaj = g_def%params(1)           ! Major radius (from input deck)
+        a    = sqrt((Rmaj+r0)*(Rmaj-r0)) ! Radius of focal ring of torus
+        rho0 = acosh(Rmaj/r0)            ! Segura & Gil CPC 124(1) 2000, Pages 104-122, Eq. 19
+        z0   = cosh(rho0)
+     endif
+     
      !Global angular mesh and associated qtys
      nx = g_def%nxv(igr) 
      ny = g_def%nyv(igr)
@@ -123,8 +123,6 @@ contains
 
      if (dump) write(*,*) " BIM: allocating vars"
      call setup_bim_data(bd,nyg,theta,Rg(1,:,1),Zg(1,:,1),Jng(1,:,1,:))
-
-     !call correct_allR(bd%R)
 
      if (dump) write(*,*) " BIM: setting BCs"
      if (test) bd%Bn(1:bd%n) = Bn(1,:,1)
@@ -294,26 +292,25 @@ contains
       double precision :: theta
       
       theta = acos(z0 - a*sinh(rho0)/R)
-      !theta = acos(z0 - a*sinh(rho0)/(R-1.65d0+Rmaj))
       theta = merge(theta, 2*pi-theta, Z < 0.d0)
    end function toroidal_theta
 
-   subroutine correct_allR(R)
-      implicit none
-      double precision, intent(inout) :: R(:)
-      integer :: i
-
-      do i = 1, size(R)
-         R(i) = correct_one_R(R(i))
-      end do
-   end subroutine correct_allR
-
-   function correct_one_R(Rin) result(Rout)
-      implicit none
-      double precision, intent(in) :: Rin
-      double precision :: Rout
-      Rout = Rin-1.65d0+Rmaj
-   end function correct_one_R
+!!$   subroutine correct_allR(R)
+!!$      implicit none
+!!$      double precision, intent(inout) :: R(:)
+!!$      integer :: i
+!!$
+!!$      do i = 1, size(R)
+!!$         R(i) = correct_one_R(R(i))
+!!$      end do
+!!$   end subroutine correct_allR
+!!$
+!!$   function correct_one_R(Rin) result(Rout)
+!!$      implicit none
+!!$      double precision, intent(in) :: Rin
+!!$      double precision :: Rout
+!!$      Rout = Rin-1.65d0+Rmaj
+!!$   end function correct_one_R
 
 
    subroutine setup_bim_data(bd,n,xi,R,Z,Jnorm)

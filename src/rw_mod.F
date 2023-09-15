@@ -65,10 +65,10 @@ c     Begin program
           if (nzd == 1) then
             call rw_bim_symm_init(gv%gparams
      $                           ,(my_rank==0.and.ilevel>0)
-     $                           ,test)
+     $                           ,(test.and.coords=="tor"))
           else
             call critical('rw_alloc'
-     $      ,'VACUUM B-field response not implemented for non-symm tor')
+     $      ,'VACUUM RW response not implemented for non-symm tor geom')
           endif
         end select
       

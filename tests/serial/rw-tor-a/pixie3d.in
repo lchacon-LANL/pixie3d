@@ -26,7 +26,6 @@
     gstor_I_drive = t
     coords   = 'tor'
     gparams  = 1.65d0,1d0,1d0,2d0,0d0,1.5151d0,0.01d0,0.d0
-!    gparams  = 10d0,1d0,1d0,2d0,0d0,1.5151d0,0.01d0,0.d0
 
     nh2      = 1
     nh3      = 1
