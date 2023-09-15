@@ -202,6 +202,7 @@ contains
       end do
       close(fh)
 
+      write(*,*) "BIM error:",bd%n, error/bd%n
       open(newunit=fh,file="error.txt")
       write(fh,*) bd%n, error/bd%n
       close(fh)
