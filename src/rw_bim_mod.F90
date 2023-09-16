@@ -2,7 +2,7 @@ module rw_bim_mod
    use math, only: pi, ellipticK, ellipticE
    use elliptic, only: ceik, ceie
    use grid_def_st
-   use grid_mpi, ONLY: find_global_nobc
+   use grid_mpi, only: find_global_nobc,mpi_comm_rank,mpierr
    implicit none
    private
 
@@ -40,18 +40,28 @@ contains
      type(grid_mg_def),pointer :: g_def
      logical :: dump,test
 
-     integer :: i,j,k,nx,ny,nz,nyg,igr
+     integer :: i,j,k,nx,ny,nz,nyg,igr,my_rank_y
      real(8) :: xx,yy
 
      real(8),allocatable,dimension(:,:,:,:) :: Jn,Jng
      real(8),allocatable,dimension(:,:,:)   :: Bn,JJ,RR,ZZ,Bng,Rg,Zg
      real(8),allocatable,dimension(:)       :: phi,theta
 
-     bim_dump = dump
-     
-     call gauss_init()
-
      igr = 1
+
+     !Select only mpi ranks at r=1 boundary
+     if (g_def%ihi(igr) /= g_def%nxgl(igr)) return
+
+#if defined(petsc)
+     call MPI_Comm_rank(g_def%MPI_COMM_Y,my_rank_y,mpierr)
+#else
+     my_rank_y = 0
+#endif
+
+     bim_dump = (my_rank_y==0.and.dump)
+
+     !This setup needs to be hardwired as parameters
+     call gauss_init()
 
      if (test) then
         r0   = 1d0                       ! Minor radius
@@ -119,20 +129,21 @@ contains
       call find_global_nobc(Jn,Jng)
 #endif
 
-     if (dump) write(*,*) " BIM: setting BCs"
+     if (bim_dump) write(*,*) " BIM: setting BCs"
 
-     if (dump) write(*,*) " BIM: allocating vars"
+     if (bim_dump) write(*,*) " BIM: allocating vars"
      call setup_bim_data(bd,nyg,theta,Rg(1,:,1),Zg(1,:,1),Jng(1,:,1,:))
 
-     if (dump) write(*,*) " BIM: setting BCs"
+     if (bim_dump) write(*,*) " BIM: setting BCs"
      if (test) bd%Bn(1:bd%n) = Bn(1,:,1)
      call set_BCs(bd)
 
-     if (dump) write(*,*) " BIM: computing matrix"
+     if (bim_dump) write(*,*) " BIM: computing matrix"
      call compute_KinvL_matrix(bd)
 
+     !Compute analytical test
      if (test) then
-        if (dump) then
+        if (bim_dump) then
            write (*,*) "BIM DIAG ","theta ","Bng ","Rg ","Zg ","|J.ng|"
            do i=1,nyg
               write (*,*) "BIM DIAG",theta(i),Bng(1,i,1),Rg(1,i,1),Zg(1,i,1) &
@@ -143,16 +154,15 @@ contains
         bd%Bn(1:bd%n) = Bng(1,:,1)
         call rw_bim_symm_solve(Bng(1,:,1),bd%phi(1:bd%n))
 
-        if (dump) write(*,*) "BIM: computing error"
-        call compute_error(bd)
+        if (bim_dump) then
+           write(*,*) "BIM: computing error"
+           call compute_error(bd)
+        endif
      endif
      
      deallocate(JJ,Jn,RR,ZZ,Jng,Rg,Zg)
 
-     if (test) then
-        deallocate(Bn,Bng)
-        stop
-     endif
+     if (test) deallocate(Bn,Bng)
      
    end subroutine rw_bim_symm_init
 
@@ -207,20 +217,20 @@ contains
 
    end subroutine compute_error
 
-   subroutine set_Bn_initial_condition(bd)
-      implicit none
-      ! pass
-      type(bim_data_t) :: bd
-      ! local
-      integer :: i
-
-      do i = 1,bd%n
-
-         bd%Bn(i) = get_Bn_analytic(bd%R(i),bd%Z(i))
-         
-      end do
-
-   end subroutine set_Bn_initial_condition
+!!$   subroutine set_Bn_initial_condition(bd)
+!!$      implicit none
+!!$      ! pass
+!!$      type(bim_data_t) :: bd
+!!$      ! local
+!!$      integer :: i
+!!$
+!!$      do i = 1,bd%n
+!!$
+!!$         bd%Bn(i) = get_Bn_analytic(bd%R(i),bd%Z(i))
+!!$         
+!!$      end do
+!!$
+!!$   end subroutine set_Bn_initial_condition
 
    function evaldRdrho(th) result(dRdrho)
       implicit none

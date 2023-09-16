@@ -63,9 +63,9 @@ c     Begin program
         select case(coords)
         case('tor','sha','sh2')
           if (nzd == 1) then
-            call rw_bim_symm_init(gv%gparams
-     $                           ,(my_rank==0.and.ilevel>0)
+            call rw_bim_symm_init(gv%gparams,(ilevel>0)
      $                           ,(test.and.coords=="tor"))
+            if (test.and.coords=="tor") stop
           else
             call critical('rw_alloc'
      $      ,'VACUUM RW response not implemented for non-symm tor geom')
