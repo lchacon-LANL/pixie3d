@@ -2,7 +2,11 @@ module rw_bim_mod
    use math, only: pi, ellipticK, ellipticE
    use elliptic, only: ceik, ceie
    use grid_def_st
+#if defined(petsc)
    use grid_mpi, only: find_global_nobc,mpi_comm_rank,mpierr
+#else
+   use grid_mpi, only: find_global_nobc 
+#endif
    implicit none
    private
 
@@ -136,6 +140,7 @@ contains
      !Select only mpi ranks at r=1 boundary
      if (g_def%ihi(igr) /= g_def%nxgl(igr)) return
 
+     !Find local rank (for IO)
 #if defined(petsc)
      call MPI_Comm_rank(g_def%MPI_COMM_Y,my_rank_y,mpierr)
 #else
