@@ -10,12 +10,6 @@ module rw_bim_mod
       REGULAR = 0, &
       SINGULAR = REGULAR + 1
 
-   double precision, target :: &
-      xglg_18(18), wglg_18(18), &
-      xglg_36(36), wglg_36(36), &
-      xgls_18(18), wgls_18(18), &
-      xgls_36(36), wgls_36(36)
-
    type :: bim_data_t
       integer :: n
       double precision :: dxi
@@ -29,6 +23,96 @@ module rw_bim_mod
    logical :: bim_dump
    
    type(bim_data_t) :: bd
+
+   ! general gauss-legendre quadrature rule for singular integrands
+   ! containing one or more singular and/or hypersingular terms
+   ! A*P_n(x) + B*P_n(x)*ln(|x-x0|) + C*P_n(x)/(x0-x) + D*P_n(x)/(x0-x)^2
+   ! nodes
+   double precision, parameter :: &
+      xglg_18(18) = (/&
+      -9.915651684209309e-01,&
+      -9.558239495713978e-01,&
+      -8.926024664975557e-01,&
+      -8.037049589725231e-01,&
+      -6.916870430603532e-01,&
+      -5.597708310739475e-01,&
+      -4.117511614628426e-01,&
+      -2.518862256915055e-01,&
+      -8.477501304173529e-02,&
+       8.477501304173529e-02,&
+       2.518862256915055e-01,&
+       4.117511614628426e-01,&
+       5.597708310739475e-01,&
+       6.916870430603532e-01,&
+       8.037049589725231e-01,&
+       8.926024664975557e-01,&
+       9.558239495713978e-01,&
+       9.915651684209309e-01 /)
+   ! weights
+   double precision, parameter :: &
+      wglg_18(18) = (/&
+      -5.069710800869371e+02,&
+       1.385924948889776e+03,&
+      -1.729512527512267e+03,&
+       1.400159558133540e+03,&
+      -7.916434221273678e+02,&
+       3.122202458902182e+02,&
+      -8.069146562278169e+01,&
+       1.189080097391863e+01,&
+      -3.770585380920011e-01,&
+      -3.770585379486420e-01,&
+       1.189080097108004e+01,&
+      -8.069146560534483e+01,&
+       3.122202458286709e+02,&
+      -7.916434219820235e+02,&
+       1.400159557890686e+03,&
+      -1.729512527224754e+03,&
+       1.385924948665997e+03,&
+      -5.069710800063730e+02 /)
+
+   ! standard gauss-legendre quadrature rule
+   ! nodes
+   double precision, parameter :: &
+      xgls_18(18) = (/ &
+      -9.915651684209309e-01,&
+      -9.558239495713978e-01,&
+      -8.926024664975557e-01,&
+      -8.037049589725231e-01,&
+      -6.916870430603532e-01,&
+      -5.597708310739475e-01,&
+      -4.117511614628426e-01,&
+      -2.518862256915055e-01,&
+      -8.477501304173529e-02,&
+       8.477501304173529e-02,&
+       2.518862256915055e-01,&
+       4.117511614628426e-01,&
+       5.597708310739475e-01,&
+       6.916870430603532e-01,&
+       8.037049589725231e-01,&
+       8.926024664975557e-01,&
+       9.558239495713978e-01,&
+       9.915651684209309e-01 /)
+   ! weights
+   double precision, parameter :: &
+      wgls_18(18) = (/ &
+      2.161601352648413e-02,&
+      4.971454889496922e-02,&
+      7.642573025488925e-02,&
+      1.009420441062870e-01,&
+      1.225552067114784e-01,&
+      1.406429146706506e-01,&
+      1.546846751262652e-01,&
+      1.642764837458327e-01,&
+      1.691423829631436e-01,&
+      1.691423829631436e-01,&
+      1.642764837458327e-01,&
+      1.546846751262652e-01,&
+      1.406429146706506e-01,&
+      1.225552067114784e-01,&
+      1.009420441062870e-01,&
+      7.642573025488925e-02,&
+      4.971454889496922e-02,&
+      2.161601352648413e-02/)
 
    public :: rw_bim_symm_init, rw_bim_symm_solve
 
@@ -59,9 +143,6 @@ contains
 #endif
 
      bim_dump = (my_rank_y==0.and.dump)
-
-     !This setup needs to be hardwired as parameters
-     call gauss_init()
 
      if (test) then
         r0   = 1d0                       ! Minor radius
@@ -677,8 +758,8 @@ contains
       integer, intent(in) :: i, j, flavor
       double precision, external :: integrand
       ! internal
-      double precision :: xi_j, t0, g1, result18, result36, result, error
-      double precision, pointer :: x(:), w(:)
+      double precision :: xi_j, t0, g1, result, error
+      double precision :: x(18), w(18)
       integer :: k
 
       ! compute integral transform
@@ -688,53 +769,18 @@ contains
 
       select case(flavor)
       case(REGULAR)
-         x=>xgls_18; w=>wgls_18
+         x = xgls_18; w = wgls_18
       case(SINGULAR)
-         x=>xglg_18; w=>wglg_18
+         x = xglg_18; w = wglg_18
       end select
 
-      result18 = 0.d0
+      result = 0.d0
       do k = 1, size(x)
          xi_j = t0 + x(k)/g1
-         result18 = result18 + w(k) * integrand(bd, i, j, xi_j) / g1
+         result = result + w(k) * integrand(bd, i, j, xi_j) / g1
       end do
-      nullify(x); nullify(w)
-
-      select case(flavor)
-      case(REGULAR)
-         x=>xgls_36; w=>wgls_36
-      case(SINGULAR)
-         x=>xglg_36; w=>wglg_36
-      end select
-
-      result36 = 0.d0
-      do k = 1, size(x)
-         xi_j = t0 + x(k)/g1
-         result36 = result36 + w(k) * integrand(bd, i, j, xi_j) / g1
-      end do
-      nullify(x); nullify(w)
-
-      error = abs((result18-result36)/result36)
-      if (error > 1.d-3) then
-         print *, "error large in quadrature rule:", flavor
-         !print *, result18, result36, error
-         write(*,"(a8,es12.3,a6,i4,a6,i4)") &
-            "error = ", error, "  i = ", i, "  j = ", j
-      end if
-
-      result = result36
 
    end function integrate_toroidal
-
-   subroutine gauss_init()
-      implicit none
-
-      call read_quad(xglg_18,wglg_18,"../../../src/gl_general_18.txt")
-      call read_quad(xglg_36,wglg_36,"../../../src/gl_general_36.txt")
-      call read_quad(xgls_18,wgls_18,"../../../src/gl_standard_18.txt")
-      call read_quad(xgls_36,wgls_36,"../../../src/gl_standard_36.txt")
-
-   end subroutine gauss_init
 
    subroutine read_quad(x,w,fn)
       implicit none
