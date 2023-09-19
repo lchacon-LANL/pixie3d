@@ -1,6 +1,6 @@
 module rw_bim_mod
    use math, only: pi, ellipticK, ellipticE
-   use elliptic, only: ceik, ceie
+   use elliptic
    use grid_def_st
 #if defined(petsc)
    use grid_mpi, only: find_global_nobc,mpi_comm_rank,mpierr
@@ -28,7 +28,7 @@ module rw_bim_mod
    
    type(bim_data_t) :: bd
 
-   ! general gauss-legendre quadrature rule for singular integrands
+   ! general 18-point gauss-legendre quadrature rule for singular integrands
    ! containing one or more singular and/or hypersingular terms
    ! A*P_n(x) + B*P_n(x)*ln(|x-x0|) + C*P_n(x)/(x0-x) + D*P_n(x)/(x0-x)^2
    ! nodes
@@ -74,7 +74,91 @@ module rw_bim_mod
        1.385924948665997e+03,&
       -5.069710800063730e+02 /)
 
-   ! standard gauss-legendre quadrature rule
+   ! general 36-point gauss-legendre quadrature rule for singular integrands
+   ! containing one or more singular and/or hypersingular terms
+   ! A*P_n(x) + B*P_n(x)*ln(|x-x0|) + C*P_n(x)/(x0-x) + D*P_n(x)/(x0-x)^2
+   ! nodes
+   double precision, parameter :: &
+      xglg_36(36) = (/&
+      -9.978304624840858e-01,&
+      -9.885864789022123e-01,&
+      -9.720276910496980e-01,&
+      -9.482729843995076e-01,&
+      -9.174977745156591e-01,&
+      -8.799298008903971e-01,&
+      -8.358471669924753e-01,&
+      -7.855762301322066e-01,&
+      -7.294891715935566e-01,&
+      -6.680012365855210e-01,&
+      -6.015676581359806e-01,&
+      -5.306802859262452e-01,&
+      -4.558639444334203e-01,&
+      -3.776725471196892e-01,&
+      -2.966849953440283e-01,&
+      -2.135008923168656e-01,&
+      -1.287361038093848e-01,&
+      -4.301819847370861e-02,&
+       4.301819847370861e-02,&
+       1.287361038093848e-01,&
+       2.135008923168656e-01,&
+       2.966849953440283e-01,&
+       3.776725471196892e-01,&
+       4.558639444334203e-01,&
+       5.306802859262452e-01,&
+       6.015676581359806e-01,&
+       6.680012365855210e-01,&
+       7.294891715935566e-01,&
+       7.855762301322066e-01,&
+       8.358471669924753e-01,&
+       8.799298008903971e-01,&
+       9.174977745156591e-01,&
+       9.482729843995076e-01,&
+       9.720276910496980e-01,&
+       9.885864789022123e-01,&
+       9.978304624840858e-01 /)
+
+    ! weights
+    double precision, parameter :: &
+       wglg_36(36) = (/&
+       -2.370763065337607e+00,&
+       -8.181667077901314e-02,&
+        2.140169556187191e+00,&
+        2.520675380752111e+00,&
+        7.085661950016020e-01,&
+       -1.819271801993064e+00,&
+       -2.808185557676485e+00,&
+       -1.118150194369488e+00,&
+        1.974290056523884e+00,&
+        3.424527802095672e+00,&
+        1.141420230715159e+00,&
+       -3.075465301896946e+00,&
+       -3.763159219147007e+00,&
+        2.186818189824050e+00,&
+        6.420761841181085e+00,&
+       -6.870579144433949e+00,&
+        2.522531789704407e+00,&
+       -1.323700863509908e-01,&
+       -1.323700863457605e-01,&
+        2.522531789647625e+00,&
+       -6.870579144301985e+00,&
+        6.420761841105238e+00,&
+        2.186818189748193e+00,&
+       -3.763159219113578e+00,&
+       -3.075465301826242e+00,&
+        1.141420230784354e+00,&
+        3.424527801980273e+00,&
+        1.974290056459363e+00,&
+       -1.118150194342107e+00,&
+       -2.808185557623396e+00,&
+       -1.819271801932196e+00,&
+        7.085661950133750e-01,&
+        2.520675380642497e+00,&
+        2.140169556134462e+00,&
+       -8.181667067939005e-02,&
+       -2.370763065351329e+00 /)
+
+
+   ! standard 18-point gauss-legendre quadrature rule
    ! nodes
    double precision, parameter :: &
       xgls_18(18) = (/ &
@@ -117,6 +201,87 @@ module rw_bim_mod
       7.642573025488925e-02,&
       4.971454889496922e-02,&
       2.161601352648413e-02/)
+
+   ! standard 36-point gauss-legendre quadrature rule
+   ! nodes
+   double precision, parameter :: &
+      xgls_36(36) = (/ &
+      -9.97830462484085801e-01,&
+      -9.88586478902212296e-01,&
+      -9.72027691049697995e-01,&
+      -9.48272984399507579e-01,&
+      -9.17497774515659059e-01,&
+      -8.79929800890397074e-01,&
+      -8.35847166992475299e-01,&
+      -7.85576230132206565e-01,&
+      -7.29489171593556640e-01,&
+      -6.68001236585521019e-01,&
+      -6.01567658135980565e-01,&
+      -5.30680285926245165e-01,&
+      -4.55863944433420265e-01,&
+      -3.77672547119689228e-01,&
+      -2.96684995344028257e-01,&
+      -2.13500892316865587e-01,&
+      -1.28736103809384800e-01,&
+      -4.30181984737086076e-02,&
+       4.30181984737086076e-02,&
+       1.28736103809384800e-01,&
+       2.13500892316865587e-01,&
+       2.96684995344028257e-01,&
+       3.77672547119689228e-01,&
+       4.55863944433420265e-01,&
+       5.30680285926245165e-01,&
+       6.01567658135980565e-01,&
+       6.68001236585521019e-01,&
+       7.29489171593556640e-01,&
+       7.85576230132206565e-01,&
+       8.35847166992475299e-01,&
+       8.79929800890397074e-01,&
+       9.17497774515659059e-01,&
+       9.48272984399507579e-01,&
+       9.72027691049697995e-01,&
+       9.88586478902212296e-01,&
+       9.97830462484085801e-01 /)
+
+    ! weights
+    double precision, parameter :: &
+       wgls_36(36) = (/ &
+       5.56571966424778374e-03,&
+       1.29159472840641044e-02,&
+       2.01815152977351739e-02,&
+       2.72986214985683553e-02,&
+       3.42138107703074817e-02,&
+       4.08757509236452321e-02,&
+       4.72350834902660471e-02,&
+       5.32447139777596778e-02,&
+       5.88601442453245485e-02,&
+       6.40397973550154292e-02,&
+       6.87453238357362967e-02,&
+       7.29418850056530038e-02,&
+       7.65984106458706265e-02,&
+       7.96878289120715594e-02,&
+       8.21872667043396510e-02,&
+       8.40782189796617924e-02,&
+       8.53466857393384987e-02,&
+       8.59832756703946266e-02,&
+       8.59832756703946266e-02,&
+       8.53466857393384987e-02,&
+       8.40782189796617924e-02,&
+       8.21872667043396510e-02,&
+       7.96878289120715594e-02,&
+       7.65984106458706265e-02,&
+       7.29418850056530038e-02,&
+       6.87453238357362967e-02,&
+       6.40397973550154292e-02,&
+       5.88601442453245485e-02,&
+       5.32447139777596778e-02,&
+       4.72350834902660471e-02,&
+       4.08757509236452321e-02,&
+       3.42138107703074817e-02,&
+       2.72986214985683553e-02,&
+       2.01815152977351739e-02,&
+       1.29159472840641044e-02,&
+       5.56571966424778374e-03 /)
 
    public :: rw_bim_symm_init, rw_bim_symm_solve
 
@@ -225,7 +390,7 @@ contains
      call set_BCs(bd)
 
      if (bim_dump) write(*,*) " BIM: computing matrix"
-     call compute_KinvL_matrix(bd)
+     call compute_KinvL_matrix(bd,test)
 
      !Compute analytical test
      if (test) then
@@ -242,7 +407,7 @@ contains
 
         if (bim_dump) then
            write(*,*) "BIM: computing error"
-           call compute_error(bd)
+           call compute_error(bd,test)
         endif
      endif
      
@@ -269,37 +434,46 @@ contains
 
    end subroutine rw_bim_symm_solve
 
-   subroutine compute_error(bd)
+   subroutine compute_error(bd,test)
       use toroidal_harmonics, only: p0, p1, p2
       implicit none
       ! pass
       type(bim_data_t) :: bd
+      logical, intent(in) :: test
       integer :: i, fh
       double precision :: ct, th, jacobian, hrho, exact, error
 
       error = 0.d0
-      open(newunit=fh,file="solution.txt",action="write")
+      open(newunit=fh,file="rw_bim_solution.txt",action="write")
       do i = 1, bd%n
          th = toroidal_theta(bd%R(i),bd%Z(i))
          ct = cos(th)
          jacobian = abs(a**3*sinh(rho0)/(ct-z0)**3)
          hrho = a/(z0-cos(th))
 
-         ! m = 0,n=0 mode
-         !exact = sqrt(z0-ct)*p0(z0)
+         if (test) then
+            ! m = 0,n=0 mode
+            !exact = sqrt(z0-ct)*p0(z0)
 
-         ! m = 1,n=0 mode
-         exact = sqrt(z0-ct)*p1(z0)*exp(dcmplx(0,th))
+            ! m = 1,n=0 mode
+            exact = sqrt(z0-ct)*p1(z0)*exp(dcmplx(0,th))
 
-         error = error + abs(exact - bd%phi(i))
-         write(fh,"(10(es25.15e3))") bd%R(i), bd%Z(i), bd%Jnorm(i,1), bd%Jnorm(i,3), jacobian, hrho, th, bd%Bn(i), bd%phi(i), exact
+            error = error + abs(exact - bd%phi(i))
+            write(fh,"(10(es25.15e3))") bd%R(i), bd%Z(i), bd%Jnorm(i,1), bd%Jnorm(i,3), &
+               jacobian, hrho, th, bd%Bn(i), bd%phi(i), exact
+         else
+            write(fh,"(9(es25.15e3))") bd%R(i), bd%Z(i), bd%Jnorm(i,1), bd%Jnorm(i,3), &
+               jacobian, hrho, th, bd%Bn(i), bd%phi(i)
+         end if
       end do
       close(fh)
 
-      write(*,*) "BIM error:",bd%n, error/bd%n
-      open(newunit=fh,file="error.txt")
-      write(fh,*) bd%n, error/bd%n
-      close(fh)
+      if (test) then
+         write(*,*) "BIM error:",bd%n, error/bd%n
+         open(newunit=fh,file="error.txt")
+         write(fh,*) bd%n, error/bd%n
+         close(fh)
+      end if
 
    end subroutine compute_error
 
@@ -473,12 +647,13 @@ contains
    ! MATRIX CONSTRUCTION
    !--------------------------------------------------------
 
-   subroutine compute_KinvL_matrix(bd)
+   subroutine compute_KinvL_matrix(bd,test)
       implicit none
       type(bim_data_t) :: bd
+      logical, intent(in) :: test
 
-      call compute_L_matrix(bd)
-      call compute_K_matrix(bd)
+      call compute_L_matrix(bd,test)
+      call compute_K_matrix(bd,test)
       call compute_Kinv_matrix(bd)
 
       bd%KinvL = matmul(bd%Kinv,bd%L)
@@ -512,53 +687,57 @@ contains
 
    end subroutine compute_Kinv_matrix
 
-   subroutine compute_L_matrix(bd)
+   subroutine compute_L_matrix(bd,test)
       implicit none
       type(bim_data_t) :: bd
+      logical, intent(in) :: test
       integer :: i, j
 
       do i = 1, bd%n
          do j = 1, bd%n
-            bd%L(i,j) = L_matrix_element(bd,i,j)
+            bd%L(i,j) = L_matrix_element(bd,i,j,test)
          end do
       end do
 
    end subroutine compute_L_matrix
 
-   subroutine compute_K_matrix(bd)
+   subroutine compute_K_matrix(bd,test)
       implicit none
       type(bim_data_t) :: bd
+      logical, intent(in) :: test
       integer :: i, j
 
       do i = 1, bd%n
          do j = 1, bd%n
-            bd%K(i,j) = K_matrix_element(bd,i,j)
+            bd%K(i,j) = K_matrix_element(bd,i,j,test)
          end do
       end do
 
    end subroutine compute_K_matrix
 
-   function L_matrix_element(bd,i,j) result(Lij)
+   function L_matrix_element(bd,i,j,test) result(Lij)
       implicit none
       type(bim_data_t) :: bd
       integer, intent(in) :: i, j
+      logical, intent(in) :: test
       integer :: flavor
       double precision :: Lij, delta
 
       flavor = merge(SINGULAR,REGULAR,i==j)
-      Lij = -integrate_toroidal(bd, i, j, flavor, integrand_g)
+      Lij = -integrate_toroidal(bd, i, j, flavor, integrand_g, test)
 
    end function L_matrix_element
 
-   function K_matrix_element(bd,i,j) result(Kij)
+   function K_matrix_element(bd,i,j,test) result(Kij)
       implicit none
       type(bim_data_t) :: bd
       integer, intent(in) :: i, j
+      logical, intent(in) :: test
       integer :: flavor
       double precision :: Kij, delta
 
       flavor = merge(SINGULAR,REGULAR,i==j)
-      Kij = -integrate_toroidal(bd, i, j, flavor, integrand_dgdn)
+      Kij = -integrate_toroidal(bd, i, j, flavor, integrand_dgdn, test)
 
       if (i==j) Kij = Kij + 0.5d0
 
@@ -756,15 +935,18 @@ contains
 
    ! SPECIAL GAUSSIAN QUADRATURE
 
-   function integrate_toroidal(bd, i, j, flavor, integrand) result(result)
+   function integrate_toroidal(bd, i, j, flavor, integrand, test) result(result)
       implicit none
       ! pass
       type(bim_data_t), intent(in) :: bd
       integer, intent(in) :: i, j, flavor
       double precision, external :: integrand
+      logical, intent(in) :: test
       ! internal
       double precision :: xi_j, t0, g1, result, error
-      double precision :: x(18), w(18)
+      double precision :: x18(18), w18(18)
+      double precision :: x36(36), w36(36)
+      double precision :: result18, result36
       integer :: k
 
       ! compute integral transform
@@ -772,31 +954,41 @@ contains
       t0 = bd%xi(j)
       g1 = 2.d0/(bd%dxi)
 
+      ! select appropriate nodes and weights
       select case(flavor)
       case(REGULAR)
-         x = xgls_18; w = wgls_18
+         x18 = xgls_18; w18 = wgls_18
+         x36 = xgls_36; w36 = wgls_36
       case(SINGULAR)
-         x = xglg_18; w = wglg_18
+         x18 = xglg_18; w18 = wglg_18
+         x36 = xglg_36; w36 = wglg_36
       end select
 
-      result = 0.d0
-      do k = 1, size(x)
-         xi_j = t0 + x(k)/g1
-         result = result + w(k) * integrand(bd, i, j, xi_j) / g1
+      ! 18-point quadrature
+      result18 = 0.d0
+      do k = 1, size(x18)
+         xi_j = t0 + x18(k)/g1
+         result18 = result18 + w18(k) * integrand(bd, i, j, xi_j) / g1
       end do
 
-   end function integrate_toroidal
+      ! 36-point quadrature
+      result36 = 0.d0
+      do k = 1, size(x36)
+         xi_j = t0 + x36(k)/g1
+         result36 = result36 + w36(k) * integrand(bd, i, j, xi_j) / g1
+      end do
 
-   subroutine read_quad(x,w,fn)
-      implicit none
-      double precision :: x(:), w(:)
-      character(len=*) :: fn
-      integer :: i, fh
-      open(file=fn,newunit=fh,action="read")
-         do i = 1, size(x)
-            read(fh,*) x(i), w(i)
-         end do
-      close(fh)
-   end subroutine read_quad
+      ! compute error and return result of 36-point quadrature
+      result = result36
+
+      if (test) then
+         error = (result18-result36)/result36
+         if (error > 1.d-3) then
+            print *, "error large in quadrature rule:"
+            print *, result18, result36, error
+         end if
+      end if
+
+   end function integrate_toroidal
 
 end module rw_bim_mod
