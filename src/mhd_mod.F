@@ -193,7 +193,7 @@ c ######################################################################
      .            ,spitzer   =.false.     !Whether we are using Spitzer resistivity
      .            ,chi_bgnskii =.false.   !Whether we are using Braginskii conductivities
 
-        real(8) :: B_angle_threshold
+        real(8) :: B_angle_threshold, brem_rad, min_sheath_flow
 
       contains
 
@@ -3306,7 +3306,7 @@ c     End program
 
 c     ext_heat_src
 c     ###################################################################
-      function ext_heat_src(g_def,i,j,k,igr) result(ehs)
+      function ext_heat_src(g_def,i,j,k,igr,rho,tmpe) result(ehs)
 
 c     -------------------------------------------------------------------
 c     Provides external heat source
@@ -3319,12 +3319,12 @@ c     Call variables
         type(grid_mg_def),pointer :: g_def
 
         integer :: i,j,k,igr
-        real(8) :: ehs
+        real(8) :: ehs,rho,tmpe
 
 c     Local variables
 
         integer :: nx,ny,nz,ig,jg,kg
-        real(8) :: x1,x2,x3
+        real(8) :: x1,x2,x3,Zave
 
 c     Begin program
 
@@ -3336,6 +3336,9 @@ c     Begin program
 #else
         ehs = 0d0
 #endif
+!     Bremsstrahlung radiation sink
+        Zave = 1. ! average charge state
+        ehs = ehs - brem_rad*Zave**3*rho**2*sqrt(tmpe)
 
 c     End program
 
@@ -3635,7 +3638,7 @@ c$$$      endif
 
               !External heat source
               heat_src(i,j,k) = heat_src(i,j,k)
-     .                        + ext_heat_src(gv%gparams,i,j,k,igr)
+     .        +ext_heat_src(gv%gparams,i,j,k,igr,rho(i,j,k),tmpe(i,j,k))
             enddo
           enddo
         enddo

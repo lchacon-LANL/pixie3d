@@ -1,0 +1,115 @@
+#!/bin/bash
+#SBATCH -t 14:30:00
+#SBATCH --qos=standard
+#SBATCH --nodes=41
+#SBATCH --ntasks-per-node=4
+#SBATCH -A w21_magfusion
+#SBATCH --mail-type=FAIL,BEGIN,END
+#SBATCH --mail-user=giannis_kx@lanl.gov
+#SBATCH --export=ALL
+
+date 
+module purge
+module load gcc/9.3.0
+module load python/3.6-anaconda-5.0.1
+module load openmpi/3.1.6
+module load hdf5-parallel
+
+export OMP_NUM_THREADS=8
+
+files=`python make_plots.py`
+IFS='*'
+read -a ADDR <<< "$files"
+
+srun -N 1 -r 0 -n 4 -c 8 nemato.mpi.x ${ADDR[0]} ${ADDR[1]} ${ADDR[2]} ${ADDR[3]} ${ADDR[4]} &> out1.err & 
+srun -N 1 -r 1 -n 4 -c 8 nemato.mpi.x ${ADDR[5]} ${ADDR[6]} ${ADDR[7]} ${ADDR[8]} ${ADDR[9]} &> out2.err &
+srun -N 1 -r 2 -n 4 -c 8 nemato.mpi.x ${ADDR[10]} ${ADDR[11]} ${ADDR[12]} ${ADDR[13]} ${ADDR[14]} &> out3.err &
+srun -N 1 -r 3 -n 4 -c 8 nemato.mpi.x ${ADDR[15]} ${ADDR[16]} ${ADDR[17]} ${ADDR[18]} ${ADDR[19]} &> out4.err &
+srun -N 1 -r 4 -n 4 -c 8 nemato.mpi.x ${ADDR[20]} ${ADDR[21]} ${ADDR[22]} ${ADDR[23]} ${ADDR[24]} &> out5.err &
+srun -N 1 -r 5 -n 4 -c 8 nemato.mpi.x ${ADDR[25]} ${ADDR[26]} ${ADDR[27]} ${ADDR[28]} ${ADDR[29]} &> out6.err &
+srun -N 1 -r 6 -n 4 -c 8 nemato.mpi.x ${ADDR[30]} ${ADDR[31]} ${ADDR[32]} ${ADDR[33]} ${ADDR[34]} &> out7.err &
+srun -N 1 -r 7 -n 4 -c 8 nemato.mpi.x ${ADDR[35]} ${ADDR[36]} ${ADDR[37]} ${ADDR[38]} ${ADDR[39]} &> out8.err &
+srun -N 1 -r 8 -n 4 -c 8 nemato.mpi.x ${ADDR[40]} ${ADDR[41]} ${ADDR[42]} ${ADDR[43]} ${ADDR[44]} &> out9.err &
+srun -N 1 -r 9 -n 4 -c 8 nemato.mpi.x ${ADDR[45]} ${ADDR[46]} ${ADDR[47]} ${ADDR[48]} ${ADDR[49]} &> out10.err &
+srun -N 1 -r 10 -n 4 -c 8 nemato.mpi.x ${ADDR[50]} ${ADDR[51]} ${ADDR[52]} ${ADDR[53]} ${ADDR[54]} &> out11.err &
+srun -N 1 -r 11 -n 4 -c 8 nemato.mpi.x ${ADDR[55]} ${ADDR[56]} ${ADDR[57]} ${ADDR[58]} ${ADDR[59]} &> out12.err &
+srun -N 1 -r 12 -n 4 -c 8 nemato.mpi.x ${ADDR[60]} ${ADDR[61]} ${ADDR[62]} ${ADDR[63]} ${ADDR[64]} &> out13.err &  
+srun -N 1 -r 13 -n 4 -c 8 nemato.mpi.x ${ADDR[65]} ${ADDR[66]} ${ADDR[67]} ${ADDR[68]} ${ADDR[69]} &> out14.err &
+srun -N 1 -r 14 -n 4 -c 8 nemato.mpi.x ${ADDR[70]} ${ADDR[71]} ${ADDR[72]} ${ADDR[73]} ${ADDR[74]} &> out15.err &
+srun -N 1 -r 15 -n 4 -c 8 nemato.mpi.x ${ADDR[75]} ${ADDR[76]} ${ADDR[77]} ${ADDR[78]} ${ADDR[79]} &> out16.err &
+srun -N 1 -r 16 -n 4 -c 8 nemato.mpi.x ${ADDR[80]} ${ADDR[81]} ${ADDR[82]} ${ADDR[83]} ${ADDR[84]} &> out17.err &
+srun -N 1 -r 17 -n 4 -c 8 nemato.mpi.x ${ADDR[85]} ${ADDR[86]} ${ADDR[87]} ${ADDR[88]} ${ADDR[89]} &> out18.err &
+srun -N 1 -r 18 -n 4 -c 8 nemato.mpi.x ${ADDR[90]} ${ADDR[91]} ${ADDR[92]} ${ADDR[93]} ${ADDR[94]} &> out19.err &
+srun -N 1 -r 19 -n 4 -c 8 nemato.mpi.x ${ADDR[95]} ${ADDR[96]} ${ADDR[97]} ${ADDR[98]} ${ADDR[99]} &> out20.err &
+srun -N 1 -r 20 -n 4 -c 8 nemato.mpi.x ${ADDR[100]} ${ADDR[101]} ${ADDR[102]} ${ADDR[103]} ${ADDR[104]} &> out21.err &
+srun -N 1 -r 21 -n 4 -c 8 nemato.mpi.x ${ADDR[105]} ${ADDR[106]} ${ADDR[107]} ${ADDR[108]} ${ADDR[109]} &> out22.err &
+srun -N 1 -r 22 -n 4 -c 8 nemato.mpi.x ${ADDR[110]} ${ADDR[111]} ${ADDR[112]} ${ADDR[113]} ${ADDR[114]} &> out23.err &
+srun -N 1 -r 23 -n 4 -c 8 nemato.mpi.x ${ADDR[115]} ${ADDR[116]} ${ADDR[117]} ${ADDR[118]} ${ADDR[119]} &> out24.err &
+srun -N 1 -r 24 -n 4 -c 8 nemato.mpi.x ${ADDR[120]} ${ADDR[121]} ${ADDR[122]} ${ADDR[123]} ${ADDR[124]} &> out25.err &
+srun -N 1 -r 25 -n 4 -c 8 nemato.mpi.x ${ADDR[125]} ${ADDR[126]} ${ADDR[127]} ${ADDR[128]} ${ADDR[129]} &> out26.err &
+srun -N 1 -r 26 -n 4 -c 8 nemato.mpi.x ${ADDR[130]} ${ADDR[131]} ${ADDR[132]} ${ADDR[133]} ${ADDR[134]}  &> out27.err &
+srun -N 1 -r 27 -n 4 -c 8 nemato.mpi.x ${ADDR[135]} ${ADDR[136]} ${ADDR[137]} ${ADDR[138]} ${ADDR[139]} &> out28.err &
+srun -N 1 -r 28 -n 4 -c 8 nemato.mpi.x ${ADDR[140]} ${ADDR[141]} ${ADDR[142]} ${ADDR[143]} ${ADDR[144]} &> out29.err &
+srun -N 1 -r 29 -n 4 -c 8 nemato.mpi.x ${ADDR[145]} ${ADDR[146]} ${ADDR[147]} ${ADDR[148]} ${ADDR[149]} &> out30.err &
+srun -N 1 -r 30 -n 4 -c 8 nemato.mpi.x ${ADDR[150]} ${ADDR[151]} ${ADDR[152]} ${ADDR[153]} ${ADDR[154]} &> out31.err &
+srun -N 1 -r 31 -n 4 -c 8 nemato.mpi.x ${ADDR[155]} ${ADDR[156]} ${ADDR[157]} ${ADDR[158]} ${ADDR[159]} &> out32.err &
+srun -N 1 -r 32 -n 4 -c 8 nemato.mpi.x ${ADDR[160]} ${ADDR[161]} ${ADDR[162]} ${ADDR[163]} ${ADDR[164]} &> out33.err &
+srun -N 1 -r 33 -n 4 -c 8 nemato.mpi.x ${ADDR[165]} ${ADDR[166]} ${ADDR[167]} ${ADDR[168]} ${ADDR[169]} &> out34.err &
+srun -N 1 -r 34 -n 4 -c 8 nemato.mpi.x ${ADDR[170]} ${ADDR[171]} ${ADDR[172]} ${ADDR[173]} ${ADDR[174]} &> out35.err &
+srun -N 1 -r 35 -n 4 -c 8 nemato.mpi.x ${ADDR[175]} ${ADDR[176]} ${ADDR[177]} ${ADDR[178]} ${ADDR[179]} &> out36.err &
+srun -N 1 -r 36 -n 4 -c 8 nemato.mpi.x ${ADDR[180]} ${ADDR[181]} ${ADDR[182]} ${ADDR[183]} ${ADDR[184]} &> out37.err &
+srun -N 1 -r 37 -n 4 -c 8 nemato.mpi.x ${ADDR[185]} ${ADDR[186]} ${ADDR[187]} ${ADDR[188]} ${ADDR[189]} &> out38.err &
+srun -N 1 -r 38 -n 4 -c 8 nemato.mpi.x ${ADDR[190]} ${ADDR[191]} ${ADDR[192]} ${ADDR[193]} ${ADDR[194]} &> out39.err &
+srun -N 1 -r 39 -n 4 -c 8 nemato.mpi.x ${ADDR[195]} ${ADDR[196]} ${ADDR[197]} ${ADDR[198]} ${ADDR[199]} &> out40.err &
+srun -N 1 -r 40 -n 4 -c 8 nemato.mpi.x ${ADDR[200]} ${ADDR[201]} ${ADDR[202]} ${ADDR[203]} ${ADDR[204]} &> out41.err &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[205]} ${ADDR[206]} ${ADDR[207]} ${ADDR[208]} ${ADDR[209]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[210]} ${ADDR[211]} ${ADDR[212]} ${ADDR[213]} ${ADDR[214]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[215]} ${ADDR[216]} ${ADDR[217]} ${ADDR[218]} ${ADDR[219]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[220]} ${ADDR[221]} ${ADDR[222]} ${ADDR[223]} ${ADDR[224]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[225]} ${ADDR[226]} ${ADDR[227]} ${ADDR[228]} ${ADDR[229]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[230]} ${ADDR[231]} ${ADDR[232]} ${ADDR[233]} ${ADDR[234]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[235]} ${ADDR[236]} ${ADDR[237]} ${ADDR[238]} ${ADDR[239]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[240]} ${ADDR[241]} ${ADDR[242]} ${ADDR[243]} ${ADDR[244]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[245]} ${ADDR[246]} ${ADDR[247]} ${ADDR[248]} ${ADDR[249]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[250]} ${ADDR[251]} ${ADDR[252]} ${ADDR[253]} ${ADDR[254]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[255]} ${ADDR[256]} ${ADDR[257]} ${ADDR[258]} ${ADDR[259]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[260]} ${ADDR[261]} ${ADDR[262]} ${ADDR[263]} ${ADDR[264]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[265]} ${ADDR[266]} ${ADDR[267]} ${ADDR[268]} ${ADDR[269]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[270]} ${ADDR[271]} ${ADDR[272]} ${ADDR[273]} ${ADDR[274]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[275]} ${ADDR[276]} ${ADDR[277]} ${ADDR[278]} ${ADDR[279]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[280]} ${ADDR[281]} ${ADDR[282]} ${ADDR[283]} ${ADDR[284]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[285]} ${ADDR[286]} ${ADDR[287]} ${ADDR[288]} ${ADDR[289]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[290]} ${ADDR[291]} ${ADDR[292]} ${ADDR[293]} ${ADDR[294]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[295]} ${ADDR[296]} ${ADDR[297]} ${ADDR[298]} ${ADDR[299]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[300]} ${ADDR[301]} ${ADDR[302]} ${ADDR[303]} ${ADDR[304]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[305]} ${ADDR[306]} ${ADDR[307]} ${ADDR[308]} ${ADDR[309]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[310]} ${ADDR[311]} ${ADDR[312]} ${ADDR[313]} ${ADDR[314]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[315]} ${ADDR[316]} ${ADDR[317]} ${ADDR[318]} ${ADDR[319]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[320]} ${ADDR[321]} ${ADDR[322]} ${ADDR[323]} ${ADDR[324]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[325]} ${ADDR[326]} ${ADDR[327]} ${ADDR[328]} ${ADDR[329]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[330]} ${ADDR[331]} ${ADDR[332]} ${ADDR[333]} ${ADDR[334]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[335]} ${ADDR[336]} ${ADDR[337]} ${ADDR[338]} ${ADDR[339]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[340]} ${ADDR[341]} ${ADDR[342]} ${ADDR[343]} ${ADDR[344]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[345]} ${ADDR[346]} ${ADDR[347]} ${ADDR[348]} ${ADDR[349]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[350]} ${ADDR[351]} ${ADDR[352]} ${ADDR[353]} ${ADDR[354]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[355]} ${ADDR[356]} ${ADDR[357]} ${ADDR[358]} ${ADDR[359]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[360]} ${ADDR[361]} ${ADDR[362]} ${ADDR[363]} ${ADDR[364]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[365]} ${ADDR[366]} ${ADDR[367]} ${ADDR[368]} ${ADDR[369]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[370]} ${ADDR[371]} ${ADDR[372]} ${ADDR[373]} ${ADDR[374]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[375]} ${ADDR[376]} ${ADDR[377]} ${ADDR[378]} ${ADDR[379]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[380]} ${ADDR[381]} ${ADDR[382]} ${ADDR[383]} ${ADDR[384]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[385]} ${ADDR[386]} ${ADDR[387]} ${ADDR[388]} ${ADDR[389]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[390]} ${ADDR[391]} ${ADDR[392]} ${ADDR[393]} ${ADDR[394]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[395]} ${ADDR[396]} ${ADDR[397]} ${ADDR[398]} ${ADDR[399]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[400]} ${ADDR[401]} ${ADDR[402]} ${ADDR[403]} ${ADDR[404]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[405]} ${ADDR[406]} ${ADDR[407]} ${ADDR[408]} ${ADDR[409]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[410]} ${ADDR[411]} ${ADDR[412]} ${ADDR[413]} ${ADDR[414]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[415]} ${ADDR[416]} ${ADDR[417]} ${ADDR[418]} ${ADDR[419]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[420]} ${ADDR[421]} ${ADDR[422]} ${ADDR[423]} ${ADDR[424]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[425]} ${ADDR[426]} ${ADDR[427]} ${ADDR[428]} ${ADDR[429]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[430]} ${ADDR[431]} ${ADDR[432]} ${ADDR[433]} ${ADDR[434]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[435]} ${ADDR[436]} ${ADDR[437]} ${ADDR[438]} ${ADDR[439]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[440]} ${ADDR[441]} ${ADDR[442]} ${ADDR[443]} ${ADDR[444]} &
+#srun -N 1  --ntasks=4 --cpu_bind=cores nemato.mpi.x ${ADDR[445]} ${ADDR[446]} &
+IFS=''
+wait  

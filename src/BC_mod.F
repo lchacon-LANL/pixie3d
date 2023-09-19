@@ -18,7 +18,7 @@ c####################################################################
      .                             ,nc_eom_v,nc_eom_jxb,find_B
      .                             ,pinch_flow,sym_st,subtract_E0
      .                             ,form_ve,solenoidal,binom_alph,E0,B0
-     .                             ,B_angle_threshold
+     .                             ,B_angle_threshold,min_sheath_flow
 
         use xdraw_io
 
@@ -223,7 +223,7 @@ c     Exceptions for specific equilibria
         where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = EQU
         
         if (sheath_flow_bc) then !Needed when restarting from "clean" equ.
-          where (abs(bbcs(:,IPRS)) == EQU) bbcs(:,IPRS) = NEU
+          where (abs(bbcs(:,IPRS)) == EQU) bbcs(:,IPRS) = EQU !NEU
         else
           where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
         endif
@@ -1972,7 +1972,7 @@ c     Local variables
       integer :: i,j,k,ig,jg,kg,ord,nx,ny,nz,ibc
 
       real(8) :: bmag,bbcnv(3),bbcov(3),jac,bhat(3)
-      real(8) :: u_bohm,te_up,ti_up,Z_i
+      real(8) :: u_bohm,te_up,ti_up,Z_i,min_flow
       real(8) :: wallratio,transitionFn,taper,mag,sheathcoefficient
 
 c     Begin program
@@ -1993,7 +1993,7 @@ c     Begin program
       v0 = 0d0
 
       ! q_sheath = P_wall*U_wall, U_wall = alpha*U_bohm .
-      sheathcoefficient = 5d0
+      sheathcoefficient = 5d0 ! Approximate value via kinetic calculation
 
       Z_i = 1d0
 
@@ -2015,7 +2015,7 @@ c     Begin program
      .                +g_def%gmetric%grid(igrid)%cov(i+1,j,k,2,:)))**2))
      
       ! Ratio of the perpendicular field to the total field, at the wall
-            if (mag > 0d0 .and. jac > 0d0) then
+            if (mag > 0d0 .and. abs(jac) > 0d0) then
               wallratio = abs(bbcnv(1)/jac/mag/bmag)
             else
               wallratio = 0d0
@@ -2047,6 +2047,11 @@ c     Begin program
             u_bohm = sqrt(Z_i*te_up + 3d0*ti_up)
 
             v0(i+1,j,k,:) = u_bohm*bhat*transitionFn*sheathcoefficient
+
+            ! Add a minimum radial outflow using the critical angle
+            min_flow = min_sheath_flow*B_angle_threshold
+     .                                  *u_bohm*sheathcoefficient
+            v0(i+1,j,k,1) = v0(i+1,j,k,1) + min_flow
           endif
         enddo
       enddo

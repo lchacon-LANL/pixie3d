@@ -24,7 +24,7 @@
     coords   = 'hel'
 
     dlambda  = 0.6
-    gparams  = 1d0,-0.3,3.333333,2d0,0d0
+    gparams  = 1d0,-0.3,3.333333333333333,2d0,0d0
 
     gamma    = 2d0
 

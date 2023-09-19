@@ -528,7 +528,7 @@ c Heat source diagnostics
 
               !External heat source
               heat_src(i,j,k) = heat_src(i,j,k)
-     .                        + ext_heat_src(gv%gparams,i,j,k,igx)
+     .        +ext_heat_src(gv%gparams,i,j,k,igx,rho(i,j,k),tmpe(i,j,k))
             enddo
           enddo
         enddo

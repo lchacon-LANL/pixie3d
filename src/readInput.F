@@ -105,7 +105,7 @@ c Namelists
      .                   ,subtract_E0,e_cons_vstar,post_smooth_B
      .                   ,use_p_classic_eq,post_filter_hel
      .                   ,binom_alph,v00_ExB_bc,sheath_flow_bc
-     .                   ,B_angle_threshold
+     .                   ,B_angle_threshold,brem_rad,min_sheath_flow
      .                ,prt_file,equ_file,map_file,dcon
      .                !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -140,7 +140,7 @@ c Namelists
      .                   ,r_v,tau_w,zero_vpar_bc,rw_implicit_bc
      .                   ,rw_exp_ssp_bc,rw_exp_pc_bc,rw_exp_fix
      .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_flow_bc
-     .                   ,B_angle_threshold
+     .                   ,B_angle_threshold,brem_rad,min_sheath_flow
      .                   ,re_pkg,c_va,re_diag
 
       !Spatial discretization
@@ -535,6 +535,9 @@ c     #####################################################################
       sheath_flow_bc = .false. ! Whether we apply sheath BC in v_parallel
       B_angle_threshold = 5d-2 ! Ratio of |B^1|/|B| at the wall that allows
                                ! the full Bohm flow to escape (sheath_flow_bc)
+      brem_rad = 0d0           ! Bremsstrahlung radiation sink coeffcient
+      min_sheath_flow = 0d0    ! Coefficient of minimum sheath outflow (sheath_bc = true)
+
       rw_fft_tupdate = .false. ! Whether we integrate RW eqs in Fourier space
       rw_implicit_bc = .false. ! Whether we use implicit RW BCs
       rw_exp_ssp_bc  = .true.  ! Whether we use explicit SSP RW BCs
