@@ -386,7 +386,7 @@ contains
      call setup_bim_data(bd,nyg,theta,Rg(1,:,1),Zg(1,:,1),Jng(1,:,1,:))
 
      if (bim_dump) write(*,*) " BIM: setting BCs"
-     if (test) bd%Bn(1:bd%n) = Bn(1,:,1)
+     if (test) bd%Bn(1:bd%n) = Bng(1,:,1)
      call set_BCs(bd)
 
      if (bim_dump) write(*,*) " BIM: computing matrix"
@@ -407,7 +407,7 @@ contains
 
         if (bim_dump) then
            write(*,*) "BIM: computing error"
-           call compute_error(bd,test)
+           call compute_error(bd)
         endif
      endif
      
@@ -434,12 +434,11 @@ contains
 
    end subroutine rw_bim_symm_solve
 
-   subroutine compute_error(bd,test)
+   subroutine compute_error(bd)
       use toroidal_harmonics, only: p0, p1, p2
       implicit none
       ! pass
       type(bim_data_t) :: bd
-      logical, intent(in) :: test
       integer :: i, fh
       double precision :: ct, th, jacobian, hrho, exact, error
 
@@ -451,29 +450,22 @@ contains
          jacobian = abs(a**3*sinh(rho0)/(ct-z0)**3)
          hrho = a/(z0-cos(th))
 
-         if (test) then
-            ! m = 0,n=0 mode
-            !exact = sqrt(z0-ct)*p0(z0)
+         ! m = 0,n=0 mode
+         !exact = sqrt(z0-ct)*p0(z0)
 
-            ! m = 1,n=0 mode
-            exact = sqrt(z0-ct)*p1(z0)*exp(dcmplx(0,th))
+         ! m = 1,n=0 mode
+         exact = sqrt(z0-ct)*p1(z0)*exp(dcmplx(0,th))
 
-            error = error + abs(exact - bd%phi(i))
-            write(fh,"(10(es25.15e3))") bd%R(i), bd%Z(i), bd%Jnorm(i,1), bd%Jnorm(i,3), &
-               jacobian, hrho, th, bd%Bn(i), bd%phi(i), exact
-         else
-            write(fh,"(9(es25.15e3))") bd%R(i), bd%Z(i), bd%Jnorm(i,1), bd%Jnorm(i,3), &
-               jacobian, hrho, th, bd%Bn(i), bd%phi(i)
-         end if
+         error = error + abs(exact - bd%phi(i))
+         write(fh,"(10(es25.15e3))") bd%R(i), bd%Z(i), bd%Jnorm(i,1), bd%Jnorm(i,3), &
+            jacobian, hrho, th, bd%Bn(i), bd%phi(i), exact
       end do
       close(fh)
 
-      if (test) then
-         write(*,*) "BIM error:",bd%n, error/bd%n
-         open(newunit=fh,file="error.txt")
-         write(fh,*) bd%n, error/bd%n
-         close(fh)
-      end if
+      write(*,*) "BIM error:",bd%n, error/bd%n
+      open(newunit=fh,file="error.txt")
+      write(fh,*) bd%n, error/bd%n
+      close(fh)
 
    end subroutine compute_error
 
