@@ -67,7 +67,7 @@ c Namelists
      .                   ,efit_coords,gstor_I_drive
      .                ,ilevel,debug,test
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
-     .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
+     .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0,n_0
      .                   ,aa_nu,bb_nu,cc_nu,heta,irrot_br_pert,eig_is_T
      .                   ,spitzer,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
@@ -141,7 +141,7 @@ c Namelists
      .                   ,rw_exp_ssp_bc,rw_exp_pc_bc,rw_exp_fix
      .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_flow_bc
      .                   ,B_angle_threshold,brem_rad,min_sheath_flow
-     .                   ,re_pkg,c_va,re_diag
+     .                   ,re_pkg,c_va,re_diag,n_0
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
@@ -221,7 +221,9 @@ c Find alpha_p=T_t/T_e; T_t=T_i+T_e
 
 c Initialize grid packing structure
 
-      call init_grid_pack_config(gp1,gp2,gp3)
+      call init_grid_pack_config(gp1)
+      call init_grid_pack_config(gp2)
+      call init_grid_pack_config(gp3)
 
 c Initialize MG parameters
 
@@ -486,6 +488,8 @@ c     #####################################################################
       vol_wgt  = .true.        ! Whether residual is volume weighed or not
 
       !Physics parameters
+      n_0      = 1d20          ! Number density, SI units (m^(-3))
+
       nu       = 1d-3          ! Reynolds number
       eta      = 1d-3          ! Lundquist number
       dd       = 1d-3          ! Particle diffusion
@@ -535,7 +539,7 @@ c     #####################################################################
       sheath_flow_bc = .false. ! Whether we apply sheath BC in v_parallel
       B_angle_threshold = 5d-2 ! Ratio of |B^1|/|B| at the wall that allows
                                ! the full Bohm flow to escape (sheath_flow_bc)
-      brem_rad = 0d0           ! Bremsstrahlung radiation sink coeffcient
+      brem_rad = 0d0           ! Bremsstrahlung radiation sink coefficient
       min_sheath_flow = 0d0    ! Coefficient of minimum sheath outflow (sheath_bc = true)
 
       rw_fft_tupdate = .false. ! Whether we integrate RW eqs in Fourier space

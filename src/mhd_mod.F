@@ -1,3 +1,116 @@
+c module units
+c ######################################################################
+      module units
+
+      use math, ONLY: pi
+      use grid, ONLY: my_rank
+      
+      !Physical constants
+      real(8),parameter ::  mu_0     = (4*pi)*1d-7 !Magnetic permeability (SI units)
+     &                     ,eps_0    = 8.8542d-12  !Permittivity of free space
+     &                     ,kb       = 1.6022d-19  !J/eV
+     &                     ,mi       = 1.6726d-27  !kg
+     &                     ,me       = 9.1094d-31  !kg
+     &                     ,qe       = 1.6022d-19  !C
+     &                     ,Zi       = 1d0         !Ion Z
+     &                     ,mi_mp    = 1d0         !Ion mass wrt proton mass
+     &                     ,log_lamb = 1d1         !Coulomb log
+      
+      real(8) :: v_A
+     $          ,t_A
+     $          ,T_max
+     $          ,tau_e
+     $          ,tau_i
+     $          ,omega_ce
+     $          ,omega_ci
+     $          ,resvty
+     $          ,n0_cgs
+     $          ,B0_cgs
+     $          ,chi_par_e
+     $          ,chi_perp_i
+     $          ,chi_perp_e
+     $          ,brem_rad
+     $          ,n_0      = 1d20     !Number density (SI units, m^(-3))
+      
+      contains
+
+c     phys_params
+c     ###############################################################
+      subroutine phys_params(L_0,BB0,p_0)
+
+c     ---------------------------------------------------------------
+c     Computes physical parameters (in SI units)
+c     ---------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        real(8) :: L_0,BB0,p_0
+
+c     Local variables
+
+        real(8) :: iLL,ip0,iB0
+        
+c     Begin program
+
+        iLL = 1d0/L_0
+        iB0 = 1d0/BB0
+        ip0 = mu_0*iB0*iB0 !(B0^2/mu_0)^(-1)
+
+        n0_cgs = n_0*1d-6  !1/cm^3
+        B0_cgs = BB0*1d4   !Gauss
+        
+        v_A = BB0/sqrt(mi*n_0*mu_0)  !m/s
+        t_A = L_0/v_A                !s
+        T_max = 0.5*p_0/(kb*ip0*n_0) !eV
+
+        tau_e = 3.44d5*(T_max**1.5)/(n0_cgs*log_lamb) !s (cgs)
+        tau_i = 2.08d7*(T_max**1.5)/(Zi**4*n0_cgs*log_lamb)*sqrt(mi_mp) !s (cgs)
+        omega_ce = qe   *BB0/me !1/s (SI)
+        omega_ci = qe*Zi*BB0/mi !1/s (SI)
+
+        chi_par_e  = 3.2*kb*T_max*tau_e/(me*v_A)*iLL              !electrons
+        chi_perp_e = 4.7*kb*T_max/(me*omega_ce**2*tau_e*v_A)*iLL  !electrons
+        chi_perp_i = 2.0*kb*T_max/(mi*omega_ci**2*tau_i*v_A)*iLL  !ions
+        resvty     = me/(n_0*qe*qe*tau_e*v_A*mu_0)*iLL
+
+        brem_rad = (1.47275d-24*n_0*iB0)**2*(Zi**3)*L_0*sqrt(mi_mp) !Bremsstrahlung
+
+        write (*,*) brem_rad,n_0,iB0,Zi,L_0,mi_mp
+        
+        if (my_rank == 0) then
+          write (*,'(a)') " Normalization constants:"
+          write (*,*)
+          write (*,'(a,1pe14.7,a)') " L_0 = ",L_0," m"
+          write (*,'(a,1pe14.7,a)') " n_0 = ",n_0," 1/m^3"
+          write (*,'(a,1pe14.7,a)') " B_0 = ",BB0," T"
+          write (*,'(a,1pe14.7,a)') " p_0 = ",p_0," N/m^2"
+          write (*,'(a,1pe14.7,a)') " v_A = ",v_A," m/s"
+          write (*,'(a,1pe14.7,a)') " t_A = ",t_A," s"
+          write (*,'(a,1pe14.7,a)') " Te max= ",T_max*1d-3," keV "
+          write (*,*)
+          write (*,'(a)') " Normalized parameters:"
+          write (*,*)
+          write (*,'(a,1pe14.7)') " beta       = ",p_0
+          write (*,'(a,1pe14.7)') " chi_par e  = ",chi_par_e
+!!          write (*,'(a,1pe14.7)') " chi_perp e = ",chi_perp_e
+          write (*,'(a,1pe14.7)') " chi_perp i = ",chi_perp_i
+          write (*,'(a,1pe14.7)') " eta        = ",resvty
+          write (*,'(a,1pe14.7)') " Brem_rad   = ",brem_rad
+          write (*,*)
+          write (*,'(a)') " Other relevant parameters:"
+          write (*,*)
+          write (*,'(a,1pe14.7,a)') " tau_ee   =",tau_e," s^(-1)"
+          write (*,'(a,1pe14.7,a)') " tau_ii   =",tau_i," s^(-1)"
+          write (*,'(a,1pe14.7,a)') " omega_ci =",omega_ci," rad/s"
+          write (*,'(a,1pe14.7,a)') " omega_ce =",omega_ce," rad/s"
+        endif
+
+      end subroutine phys_params
+      
+      end module units
+
 c module app_iosetup
 c ######################################################################
       module app_iosetup
@@ -178,6 +291,8 @@ c ######################################################################
 
         use problem_def
 
+        use units
+
         integer :: xport_order=2
         
         real(8) :: nu,eta,dd,chi,chi_par,gamma,di,de,a_p,temp_ratio
@@ -193,7 +308,7 @@ c ######################################################################
      .            ,spitzer   =.false.     !Whether we are using Spitzer resistivity
      .            ,chi_bgnskii =.false.   !Whether we are using Braginskii conductivities
 
-        real(8) :: B_angle_threshold, brem_rad, min_sheath_flow
+        real(8) :: B_angle_threshold, min_sheath_flow
 
       contains
 
@@ -3336,9 +3451,9 @@ c     Begin program
 #else
         ehs = 0d0
 #endif
-!     Bremsstrahlung radiation sink
-        Zave = 1. ! average charge state
-        ehs = ehs - brem_rad*Zave**3*rho**2*sqrt(tmpe)
+c     Bremsstrahlung radiation sink
+
+        ehs = ehs - brem_rad*rho**2*sqrt(tmpe)
 
 c     End program
 

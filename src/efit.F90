@@ -8,6 +8,8 @@
 
       use local_BCS_variables, ONLY: default_B_BCs,default_A_BCs,bcond,setMGBC,order_bc
 
+      use units
+      
       IMPLICIT NONE
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !     WRITTEN 10/19/18 BY L. CHACON AS PART OF THE PIXIE3D PROJECT (c)
@@ -41,15 +43,6 @@
 
       logical :: short_efit_file=.true.,efit_dbg=.false.
 
-      !Physical constants
-      real(8),parameter ::  mu_0 = (4*pi)*1d-7 &!Magnetic permeability (SI units)
-                           ,eps_0= 8.8542d-12  &!Permittivity of free space
-                           ,n_0  = 1d20        &!m^-3
-                           ,kb   = 1.6022d-19  &!J/eV
-                           ,mi   = 1.6726d-27  &!kg
-                           ,me   = 9.1094d-31  &!kg
-                           ,qe   = 1.6022d-19   !C
-      
       CONTAINS
 
 !     find_RZ
@@ -872,9 +865,6 @@
         real(8)  :: db2val,dbvalu
         external :: db2val,dbvalu
 
-        real(8) :: Zi,mi_mp,log_lamb,v_A,t_A,T_max,tau_e,tau_i,omega_ce,omega_ci &
-                  ,n0_cgs,B0_cgs
-        
 !     Begin program
 
         if (my_rank == 0) then
@@ -993,49 +983,8 @@
 
 !     Find normalization constants
 
-        n0_cgs = n_0*1d-6  !1/cm^3
-        B0_cgs = BB0*1d4   !Gauss
-        Zi = 1d0
-        mi_mp = 1d0
-        log_lamb = 1d1
+        call phys_params(1d0/iLL,BB0,max_prs)
         
-        v_A = BB0/sqrt(mi*n_0*mu_0)  !m/s
-        t_A = 1d0/(v_A*iLL) !s
-        T_max = 0.5*max_prs/(kb*ip0*n_0) !eV
-!!$        tau_e = (4*pi*eps_0)**(2)*3*sqrt(me)*(kb*T_max)**1.5/(4*sqrt(2*pi)*n_0*log_lamb*qe**4) !s (SI)
-!!$        write (*,*) tau_e/(3.44d5*(T_max**1.5)/(n0_cgs*log_lamb))
-        tau_e = 3.44d5*(T_max**1.5)/(n0_cgs*log_lamb) !s (cgs)
-        tau_i = 2.08d7*(T_max**1.5)/(Zi**4*n0_cgs*log_lamb)*sqrt(mi_mp) !s (cgs)
-        omega_ce = qe*BB0/me    !1/s (SI)
-        omega_ci = qe*Zi*BB0/mi !1/s (SI)
-        
-        if (my_rank == 0) then
-          write (*,'(a)') " Normalization constants:"
-          write (*,*)
-          write (*,'(a,1pe14.7,a)') " L_0 = ",1d0/iLL," m"
-          write (*,'(a,1pe14.7,a)') " n_0 = ",n_0," 1/m^3"
-          write (*,'(a,1pe14.7,a)') " B_0 = ",BB0," T"
-          write (*,'(a,1pe14.7,a)') " p_0 = ",1d0/ip0," N/m^2"
-          write (*,'(a,1pe14.7,a)') " v_A = ",v_A," m/s"
-          write (*,'(a,1pe14.7,a)') " t_A = ",t_A," s"
-          write (*,'(a,1pe14.7,a)') " Te max= ",T_max*1d-3," keV "
-          write (*,*)
-          write (*,'(a)') " Normalized parameters:"
-          write (*,*)
-          write (*,'(a,1pe14.7)') " beta       = ",max_prs
-          write (*,'(a,1pe14.7)') " chi_par e  = ",3.2*kb*T_max*tau_e/(me*v_A)*iLL  !electrons
-!!          write (*,'(a,1pe14.7)') " chi_perp e = ",4.7*kb*T_max/(me*omega_ce**2*tau_e*v_A)*iLL  !e
-          write (*,'(a,1pe14.7)') " chi_perp i = ",2.0*kb*T_max/(mi*omega_ci**2*tau_i*v_A)*iLL  !ions
-          write (*,'(a,1pe14.7)') " eta        = ",me/(n_0*qe*qe*tau_e*v_A*mu_0)*iLL
-          write (*,*)
-          write (*,'(a)') " Other relevant parameters:"
-          write (*,*)
-          write (*,'(a,1pe14.7,a)') " tau_ee   =",tau_e," s^(-1)"
-          write (*,'(a,1pe14.7,a)') " tau_ii   =",tau_i," s^(-1)"
-          write (*,'(a,1pe14.7,a)') " omega_ci =",omega_ci," rad/s"
-          write (*,'(a,1pe14.7,a)') " omega_ce =",omega_ce," rad/s"
-        endif
-
 !     Check EFIT qtys
 
         call efit_chk(.false.)
