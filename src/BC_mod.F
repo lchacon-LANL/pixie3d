@@ -1858,7 +1858,7 @@ c     #################################################################
       subroutine J_pinch_bc(g_def,igrid,bcnv,prs,eta,E_0,j0,dbcnv)
 
 c     -----------------------------------------------------------------
-c     Finds current boundary condition when Eo is imposed at boundary
+c     Finds current boundary condition when E_0 is imposed at boundary
 c     (returns covariant current).
 c     -----------------------------------------------------------------
 
@@ -1924,7 +1924,7 @@ c$$$          bbcov = matmul(gsub,bbcnv)
           Jb2 = dot_product(bbcov,bbcnv)
           b2  = Jb2/jach
 
-          if (b2 > 0d0) then
+          if (b2 > 0d0.and.eta(i+1,j,k)*eta(i,j,k) > 0d0) then
 c$$$            ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
             ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
@@ -1937,6 +1937,8 @@ c$$$            ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
             if (PRESENT(dbcnv)) bbcnv = dbcnv(i,j,k,:)
 
             j0(i+1,j,k,:) = alpha*bbcnv + cross_product(bbcov,grad_p)/b2
+          else
+            j0(i+1,j,k,:) = 0d0
           endif
         enddo
       enddo

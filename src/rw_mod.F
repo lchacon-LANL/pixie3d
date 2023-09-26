@@ -8,6 +8,8 @@ c ####################################################################
 
         use app_iosetup, ONLY: test,critical
         
+        use rw_bim_mod, only: rw_bim_symm_init
+
         !Resistive wall vars
         logical :: rw_bcs(6)      = .false.
      $            ,rw_fft_tupdate = .false. ! Advance Fourier RW modes in time
@@ -44,7 +46,7 @@ c     Local variables
 
         integer :: alloc_stat
 
-        integer :: nx,ny,nz
+        integer :: nx,ny,nz,nzg
       
 c     Begin program
 
@@ -52,10 +54,24 @@ c     Begin program
         ny = gv%gparams%nyv(1)
         nz = gv%gparams%nzv(1)
 
+        nzg = gv%gparams%nzgl(1)
+
         allocate(E_bc(0:nx+1,0:ny+1,0:nz+1,3))
 
         E_bc = 0d0
 
+        select case(coords)
+        case('tor','sha','sh2')
+          if (nzd == 1) then
+            call rw_bim_symm_init(gv%gparams,(ilevel>0)
+     $                           ,(test.and.coords=="tor"))
+            if (test.and.coords=="tor") stop
+          else
+            call critical('rw_alloc'
+     $      ,'VACUUM RW response not implemented for non-symm tor geom')
+          endif
+        end select
+      
 c     End program
 
       end subroutine rw_allocBCVariables
@@ -184,10 +200,16 @@ c     Compute EXTERNAL tangential B-field components @ RW (VACUUM response)
        call vacuum_hel(g_def,igr,bcnv1int,bcnv1intm,bcovext
      $                ,new_time,debug)
 c$$$      case('cyl')
-c$$$      case('tor')
+      case('tor','sha','sh2')
+        if (nzd == 1) then
+          call vacuum_tor_symm(g_def,igr,bcnv1int,bcovext,dbg)
+        else
+          call critical('rw-bc'
+     $      ,'VACUUM B-field response not implemented for non-symm tor')
+        endif
       case default
         call critical('rw_bc'
-     .       ,'VACUUM B-field response not implemented for '//coords)
+     .      ,'VACUUM B-field response not implemented for '//coords)
       end select
 
 c     Find electric field components @ r=1 (store in (nx+1))
@@ -914,6 +936,84 @@ c$$$      deallocate(phir_m_np,phii_m_np)
       
       end subroutine vacuum_cyl
 
+c     vacuum_tor_symm
+c     ####################################################################
+      subroutine vacuum_tor_symm(g_def,igr,bcnvn_int,bcov_ext,dbg)
+      
+c     -----------------------------------------------------------------
+c     Performs RW BC in toroidal geometry. Inputs normal internal
+c     B-component, outputs tangential external B-components
+c     -----------------------------------------------------------------
+
+      use rw_bim_mod, only: rw_bim_symm_solve
+
+      implicit none
+
+c     Call variables
+        
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: igr
+      
+      real(8) :: bcnvn_int(0:,0:),bcov_ext(0:,0:,:)
+
+      logical :: dbg
+
+      real(8),allocatable,dimension(:,:,:) :: Bn,Bng
+      real(8),allocatable,dimension(:)     :: phi
+      real(8),allocatable,dimension(:)     :: theta
+
+c     Local variables
+      
+      integer :: jgl,jglp,jglm,i,j,k,nx,ny,nz,nyg
+
+c     Begin program
+
+      nx = g_def%nxv(igr) 
+      ny = g_def%nyv(igr)
+      nz = g_def%nzv(igr)
+
+      nyg = g_def%nygl(igr)
+
+      allocate(Bn(1,ny,1),phi(nyg),Bng(1,nyg,1),theta(nyg))
+      
+      theta = g_def%yg(1:nyg)
+
+c     Bnormal at plasma wall (pointing inward)
+
+      Bn(1,:,1) =-bcnvn_int(1:ny,1)
+
+#if defined(petsc)
+      call find_global_nobc(Bn,Bng,mpi_comm=g_def%MPI_COMM_Y)
+#else
+      call find_global_nobc(Bn,Bng)
+#endif
+      
+c     Find VACUUM potential solution Phi outside of resistive wall
+
+      phi = 0d0
+
+      call rw_bim_symm_solve(Bng(1,:,1),phi)
+
+c     Find EXTERNAL magnetic field components outside RW
+
+      !Get LOCAL (cov) magnetic field components @ r=1 
+      do j = 0,ny+1
+        jgl = j + g_def%jlo(1) - 1
+        jglp = jgl + 1
+        jglm = jgl - 1
+        if (jglp > nyg) jglp = jglp - nyg
+        if (jglm < 1  ) jglm = nyg + jglm
+        bcov_ext(j,:,1) = 0d0 !Not needed
+        bcov_ext(j,:,2) = (phi  (jglp)-phi  (jglm))
+     $                   /(theta(jglp)-theta(jglm))
+        bcov_ext(j,:,3) = 0d0 !From toroidal symmetry
+      enddo
+
+      deallocate(Bn,Bng,phi,theta)
+
+      end subroutine vacuum_tor_symm
+
 c     rw_A_BCs
 c     ##################################################################
       subroutine rw_A_BCs(g_def,acov_n,bcnv_n,acov,acnv,bcnd_a,bcnd_b
@@ -990,7 +1090,7 @@ c     ##################################################################
       call find_B(gv%gparams,igr,B0,acov,bcnv,.false.
      $           ,bcond_a=bcnd_a,bcond_b=bcnd_b)
 
-      !Find RW E-field 
+      !Find RW E-field
       call rw_Ebc(gv%gparams,igr,bcnv_n,Erw,bcnvp=bcnv
      $           ,dbg=(ilevel>0))
 
