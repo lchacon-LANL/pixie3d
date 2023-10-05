@@ -77,7 +77,7 @@ c     Begin program
 
         brem_rad = (1.47275d-24*n_0*iB0)**2*(Zi**3)*L_0*sqrt(mi_mp) !Bremsstrahlung
 
-        write (*,*) brem_rad,n_0,iB0,Zi,L_0,mi_mp
+c$$$        write (*,*) brem_rad,n_0,iB0,Zi,L_0,mi_mp
         
         if (my_rank == 0) then
           write (*,'(a)') " Normalization constants:"
