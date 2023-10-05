@@ -295,6 +295,7 @@ c     Warnings
       if (gamma == 1d0) call info('  Using isothermal EOS (gamma = 1)')
       if (spitzer) call info('  Using Spitzer resistivity')
       if (chi_bgnskii) call info('  Using Braginskii transport coeffs')
+      if (brem_rad_sink) call info('  Using Bremsstrahlung energy sink')
 
       if (use_p_eom)
      .     call info('  Using grad(p) instead of grad(nT) in EOM')
