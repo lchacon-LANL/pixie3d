@@ -30,6 +30,7 @@ c ######################################################################
      $          ,chi_perp_i
      $          ,chi_perp_e
      $          ,brem_rad
+     $          ,ionization          !13.6eV Assumes Hydrogen
      $          ,n_0      = 1d20     !Number density (SI units, m^(-3))
       
       contains
@@ -64,6 +65,8 @@ c     Begin program
         v_A = BB0/sqrt(mi*n_0*mu_0)  !m/s
         t_A = L_0/v_A                !s
         T_max = 0.5*p_0/(kb*ip0*n_0) !eV
+
+        ionization = 13.6*n_0*kb*ip0 !Ionization energy of Hydrogen
 
         tau_e = 3.44d5*(T_max**1.5)/(n0_cgs*log_lamb) !s (cgs)
         tau_i = 2.08d7*(T_max**1.5)/(Zi**4*n0_cgs*log_lamb)*sqrt(mi_mp) !s (cgs)
@@ -309,6 +312,7 @@ c ######################################################################
      .            ,chi_bgnskii =.false.   !Whether we are using Braginskii conductivities
 
         real(8) :: B_angle_threshold, min_sheath_flow
+        logical :: brem_rad_sink
 
       contains
 
@@ -3439,7 +3443,7 @@ c     Call variables
 c     Local variables
 
         integer :: nx,ny,nz,ig,jg,kg
-        real(8) :: x1,x2,x3,Zave
+        real(8) :: x1,x2,x3
 
 c     Begin program
 
@@ -3451,9 +3455,10 @@ c     Begin program
 #else
         ehs = 0d0
 #endif
-c     Bremsstrahlung radiation sink
-
-        ehs = ehs - brem_rad*rho**2*sqrt(tmpe)
+c     Bremsstrahlung radiation sink (with 13.6eV minimum temperature)
+        if (brem_rad_sink .eqv. .true. .and. tmpe .gt. ionization) then
+            ehs = ehs - brem_rad*rho**2*sqrt(tmpe)
+        endif
 
 c     End program
 
@@ -7318,3 +7323,6 @@ c     End program
       end function diff_mesh
       
       end module nlfunction_setup
+
+
+

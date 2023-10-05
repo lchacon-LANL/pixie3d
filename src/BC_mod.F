@@ -223,8 +223,8 @@ c     Exceptions for specific equilibria
         where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = EQU
         
         if (sheath_flow_bc) then !Needed when restarting from "clean" equ.
-          where (abs(bbcs(:,IPRS)) == EQU) bbcs(:,IPRS) = EQU !NEU
-        else
+cc          where (abs(bbcs(:,IPRS)) == EQU) bbcs(:,IPRS) = EQU !NEU
+cc       else
           where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
         endif
         
