@@ -1,0 +1,47 @@
+
+
+[36m  ******************************[0m
+[36m  2D ideal GS equilibrium solver[0m
+[36m  ******************************[0m
+
+[36m  2D GS equilibrium iter =  1 ; GS error=  1.77E+00 ; update rms=  5.82E-02[0m
+[36m  2D GS equilibrium iter =  2 ; GS error=  3.49E-01 ; update rms=  2.13E-02[0m
+[36m  2D GS equilibrium iter =  3 ; GS error=  2.08E-01 ; update rms=  7.25E-03[0m
+[36m  2D GS equilibrium iter =  4 ; GS error=  2.97E-01 ; update rms=  5.13E-03[0m
+[36m  2D GS equilibrium iter =  5 ; GS error=  1.51E-01 ; update rms=  6.25E-03[0m
+[36m  2D GS equilibrium iter =  6 ; GS error=  1.95E-02 ; update rms=  5.50E-04[0m
+[36m  2D GS equilibrium iter =  7 ; GS error=  1.13E-02 ; update rms=  1.27E-03[0m
+[36m  2D GS equilibrium iter =  8 ; GS error=  4.40E-02 ; update rms=  4.21E-04[0m
+[36m  2D GS equilibrium iter =  9 ; GS error=  3.37E-02 ; update rms=  1.19E-04[0m
+[36m  2D GS equilibrium iter = 10 ; GS error=  4.25E-02 ; update rms=  1.74E-04[0m
+[36m  2D GS equilibrium iter = 11 ; GS error=  4.98E-02 ; update rms=  3.39E-05[0m
+[36m  2D GS equilibrium iter = 12 ; GS error=  4.84E-02 ; update rms=  1.45E-05[0m
+[36m  2D GS equilibrium iter = 13 ; GS error=  4.73E-02 ; update rms=  1.34E-05[0m
+[36m  2D GS equilibrium iter = 14 ; GS error=  4.62E-02 ; update rms=  2.33E-05[0m
+[36m  2D GS equilibrium iter = 15 ; GS error=  4.46E-02 ; update rms=  1.75E-05[0m
+[36m  2D GS equilibrium iter = 16 ; GS error=  4.38E-02 ; update rms=  5.01E-06[0m
+[36m  2D GS equilibrium converged in  16 iterations with GS error =  4.38E-02[0m
+
+ EOM force residual comp 1=   7.8824341979658250E-002
+ EOM force residual comp 2=   5.3405958683871487E-003
+ EOM force residual comp 3=   1.7224421078901703E-003
+ EOM force residual total =   7.9023829694406619E-002
+
+
+  Grid mesh:................   32x   32x    1
+  Number of grid levels:....    4,    4,    1
+  Preconditioning method:... SI PC w/o flow
+  Timestep adaption......... T
+  External source........... F
+  Numerical grid............ F
+  Scalar advection scheme... SMART    
+  Velocity advection scheme. SMART    
+  Anisotropic transport sch. 4th-7pt  
+  TS scheme................. BDF2     
+
+    itime      time     dt     #CFL   vx_max   vy_max   vz_max    GMRES Newton CN factor  GMRES-DC
+
+Final statistics
+
+ itime  Newt/ndt  GMRES/ndt  GMRES/Newt
+    0       0.0        0.0        0.0

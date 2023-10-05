@@ -1,0 +1,93 @@
+ &datin
+!    E0=  0.000000000000000E+000 ,  0.000000000000000E+000 ,  2.499914999999999E-006
+    test     = t
+    ilevel   = 1
+
+    nxd      = 32
+    nyd      = 32
+    nzd      = 1
+
+    xmax     = 1d0
+    ymax     = 0d0
+    zmax     = 0d0
+
+    numerical_grid = f
+
+    bcs      = 'spt','rsw','per','per','per','per'
+
+    tau_w    = 1d2
+    
+    eta      = 0d0  !1.d-9
+    nu       = 1d0 !1.d-9
+    dd       = 0d0
+    chi      = 0d0
+
+    equil    = 'gstor'
+    gstor_I_drive = t
+    coords   = 'tor'
+    gparams  = 1.65d0,1d0,1d0,2d0,0d0,1.5151d0,0.01d0,0.d0
+!    gparams  = 10d0,1d0,1d0,2d0,0d0,1.5151d0,0.01d0,0.d0
+
+    nh2      = 1
+    nh3      = 1
+
+    gamma    = 1.6666666667d0
+
+    dt       = 1d-1
+    ndstep   = 1
+    numtime  = 1
+
+!    pvx      = 1d-10
+    pvx      = 0d0
+    odd      = f
+    random   = f
+
+    cnfactor = 0.
+    sm_flag  = 2
+
+    advect   = 4
+    v_advect = 4
+
+    restart  = f
+    timecorr = t
+
+    source   = f
+
+    pc_type     = 's1'
+    pc_tol      = 1d-1
+    pc_max_iter = 1
+    pc_debug    = f
+    pc_debug_it = 0
+    pc_divclean = f
+    lag_pinch_bc = f
+
+    maxksp   = 50
+    maxitgm  = 50
+    maxitnwt = 7
+    tolgm    = 8d-1
+    rtol     = 1d-3
+    atol     = 0d0
+    method   = 1
+    mf_eps   = 1d-6
+    vol_wgt  = t
+
+    nc_eom_f = t
+    nc_eom_v = t
+    solve_rho= f
+!    adiabatic= t
+
+    check_grid = f
+ /
+
+&graphics
+    sel_diag  = 2,5,6,7,9,10,14,22,23,24
+    dplot = 1d-4
+!    prof_conf = 1,'r',1,16,1
+    prof_conf = 1,'r',1,1,1
+    cont_conf = 3,'R','Z',1,1,1
+    hdf_plot = t
+    clean    = f
+    poincare    = t
+    adios = t
+ /
+
