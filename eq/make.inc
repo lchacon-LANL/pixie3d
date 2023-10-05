@@ -16,7 +16,7 @@ override CPPFLAGS += -D_equ
 
 #Modules
 
-MODS := io_mod.F90 mhd_mod.F BC_mod.F PC_mod.F rw_mod.F
+MODS := io_mod.F90 mhd_mod.F BC_mod.F PC_mod.F rw_bim_mod.F90 rw_mod.F
 
 #Define subdirectories for common code
 
