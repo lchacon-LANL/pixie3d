@@ -976,7 +976,7 @@
         if (max_prs == 0d0.or.(gam==0d0)) then
           rho = 1d0
         else
-          rho = (abs(prs/max_prs)**(1d0/gam))  !Forces positive density
+          rho = abs(prs/max_prs)**(1d0/gam)  !Forces positive density
         endif
 
 !     Find normalization constants
@@ -985,8 +985,23 @@
 
 !     Add pressure floor
 
-        where (prs < Tmin*rho) prs = Tmin*rho
+!!$        prs = prs + Tmin*rho
+!!$        where (prs < Tmin*rho) prs = Tmin*rho
 
+        do k=0,nz+1
+          do j=0,ny+1
+            do i=0,nx+1
+
+              call find_RZ(gv%gparams,igrid,i,j,k,RR,ZZ)
+
+              if (.not.(  (nbbbs >1.and.inside_sptrx(RR,ZZ)) &
+                      .or.(nbbbs<=1.and.(psi(i,j,k)<=sibry)))) then
+                prs(i,j,k) = prs(i,j,k) + Tmin*rho(i,j,k)
+              endif
+            enddo
+          enddo
+        enddo
+       
 !     Check EFIT qtys
 
         call efit_chk(.false.)
