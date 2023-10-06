@@ -227,7 +227,11 @@ cc          where (abs(bbcs(:,IPRS)) == EQU) bbcs(:,IPRS) = EQU !NEU
 cc       else
           where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
         endif
-        
+
+        if (dd > 0d0) then !Particle diffusivity provided, use Dirichlet BCs
+          where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = EQU
+        endif
+
 cc      case ('ntm2d')                   !No slip BCs
 cc
 cc        !Dirichlet boundary conditions for tangential velocity components

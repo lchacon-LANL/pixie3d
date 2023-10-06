@@ -18,7 +18,10 @@ c ####################################################################
      $            ,rw_exp_pc_bc   = .false. ! Use explicit PC BCs
      $            ,rw_exp_fix     = .true.  ! Use instability fix for small tau_w
 
-        real(8) :: tau_w=1d30,r_v=1d0  !Ideal wall by default
+        real(8) :: tau_w=1d30               ! Ideal wall by default
+     $            ,r_v  =1d0                ! Cyl/Hel vacuum wall position
+     $            ,d_rw=0d0                 ! RW thickness (m)
+     $            ,eta_rw=1d-30             ! RW resistivity (Ohm.m)
 
         real(8),pointer,dimension(:,:,:,:) :: E_bc
 
@@ -46,7 +49,7 @@ c     Local variables
 
         integer :: alloc_stat
 
-        integer :: nx,ny,nz,nzg
+        integer :: nx,ny,nz,nzg,nxg
       
 c     Begin program
 
@@ -54,15 +57,24 @@ c     Begin program
         ny = gv%gparams%nyv(1)
         nz = gv%gparams%nzv(1)
 
+        nxg = gv%gparams%nxgl(1)
         nzg = gv%gparams%nzgl(1)
 
         allocate(E_bc(0:nx+1,0:ny+1,0:nz+1,3))
 
         E_bc = 0d0
 
+        if (.not.res_wall_bc) return
+        
+        if (d_rw > 0d0) then
+          tau_w = mu_0*v_A*d_rw/eta_rw
+          dt = min(0.5*tau_w/nxg,dt)
+          if (my_rank == 0) write(*,*) " RW tau_w =",tau_w
+        endif
+        
         select case(coords)
         case('tor','sha','sh2')
-          if (nzd == 1) then
+          if (nzg == 1) then
             call rw_bim_symm_init(gv%gparams,(ilevel>0)
      $                           ,(test.and.coords=="tor"))
             if (test.and.coords=="tor") stop

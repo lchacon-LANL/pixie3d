@@ -107,8 +107,12 @@ c Safeguards
             min_prs = minval(prs(1:nx,1:ny,1:nz))
             min_prs = 0.1*pmin(min_prs)
           else
-            min_te  = minval(tmpe(1:nx,1:ny,1:nz))
-            min_te  = 0.1*pmin(min_te)
+            if (min_te > 0d0) then !Check for input minimum te
+              if (T_max > 0d0) min_te = min_te/T_max !Normalize input min
+            else
+              min_te  = minval(tmpe(1:nx,1:ny,1:nz))
+              min_te  = 0.1*pmin(min_te)
+            endif
           endif
 cc          write (*,*) min_te,min_prs
         endif

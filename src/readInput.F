@@ -21,6 +21,7 @@ c----------------------------------------------------------------------
 
       use rw_bc, ONLY: rw_fft_tupdate,rw_implicit_bc,rw_exp_ssp_bc
      $                ,rw_exp_pc_bc,rw_exp_fix,tau_w,r_v,rw_bcs
+     $                ,d_rw,eta_rw
 
       use app_iosetup
 
@@ -67,14 +68,12 @@ c Namelists
      .                   ,efit_coords,gstor_I_drive
      .                ,ilevel,debug,test
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
-     .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0,n_0
+     .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
      .                   ,aa_nu,bb_nu,cc_nu,heta,irrot_br_pert,eig_is_T
-     .                   ,spitzer,chi_bgnskii
+     .                   ,spitzer,chi_bgnskii,n_0,mi_mp,log_lamb,min_te
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old,xport_order
-     .                   ,r_v,tau_w,normal_flow_bc
-     .                   ,rw_fft_tupdate,rw_implicit_bc,rw_exp_ssp_bc
-     .                   ,rw_exp_pc_bc,rw_exp_fix
+     .                   ,r_v,tau_w,normal_flow_bc,d_rw,eta_rw
      .                   ,re_pkg,c_va,re_diag
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
@@ -106,6 +105,8 @@ c Namelists
      .                   ,use_p_classic_eq,post_filter_hel
      .                   ,binom_alph,v00_ExB_bc,sheath_flow_bc
      .                   ,B_angle_threshold,brem_rad_sink
+     .                   ,rw_fft_tupdate,rw_implicit_bc,rw_exp_ssp_bc
+     .                   ,rw_exp_pc_bc,rw_exp_fix
      .                ,prt_file,equ_file,map_file,dcon,min_sheath_flow
      .                !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -128,7 +129,7 @@ c Namelists
      .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic,adiabatic_rho
      .                   ,dlambda,rshear,vparflow,vperflow,xport_order
      .                   ,eq_params,lagrangian,irrot_br_pert,eig_is_T
-     .                   ,spitzer,chi_bgnskii
+     .                   ,spitzer,chi_bgnskii,nu_is_rhonu,min_te
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
@@ -137,11 +138,12 @@ c Namelists
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
      .                   ,aa_dff,bb_dff,cc_dff
-     .                   ,r_v,tau_w,zero_vpar_bc,rw_implicit_bc
-     .                   ,rw_exp_ssp_bc,rw_exp_pc_bc,rw_exp_fix
-     .                   ,rw_fft_tupdate,v00_ExB_bc,sheath_flow_bc
-     .                   ,B_angle_threshold,brem_rad_sink,brem_rad
-     .                   ,re_pkg,c_va,re_diag,n_0,min_sheath_flow
+     .                   ,r_v,tau_w,zero_vpar_bc,d_rw,eta_rw
+     .                   ,sheath_flow_bc,B_angle_threshold
+     .                   ,min_sheath_flow
+     .                   ,brem_rad_sink,brem_rad
+     .                   ,re_pkg,c_va,re_diag
+     .                   ,n_0,mi_mp,log_lamb
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
@@ -150,8 +152,10 @@ c Namelists
      .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
      .                   ,heta_is_rhoheta,subtract_E0,e_cons_vstar
      .                   ,use_p_classic_eq,post_filter_hel
-     .                   ,solve_prs,binom_alph
-
+     .                   ,solve_prs,binom_alph,xport_order
+     .                   ,rw_implicit_bc,rw_exp_ssp_bc,rw_exp_pc_bc
+     .                   ,rw_exp_fix,rw_fft_tupdate,v00_ExB_bc
+      
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
@@ -489,8 +493,10 @@ c     #####################################################################
 
       !Physics parameters
       n_0      = 1d20          ! Number density, SI units (m^(-3))
+      mi_mp    = 1d0           ! Ion mass in proton units
+      log_lamb = 1d1           ! Coulomb log
 
-      nu       = 1d-3          ! Reynolds number
+      nu       = 1d-3           ! Reynolds number
       eta      = 1d-3          ! Lundquist number
       dd       = 1d-3          ! Particle diffusion
       chi      = 1d-3          ! Perpendicular thermal diffusivity
@@ -551,6 +557,7 @@ c     #####################################################################
 
       re_pkg         = .false. ! Whether we activate the RE package
       c_va           = 1d2     ! Ratio speed of light / Alfven speed
+      min_te         = 0d0     ! Reference min temperature (eV)
       
       !Nonlinear function parameters
       adiabatic  = .false.     ! Whether we use adiabatic EoS or not
