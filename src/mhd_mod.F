@@ -35,12 +35,15 @@ c ######################################################################
      $          ,chi_perp_i
      $          ,chi_perp_e
      $          ,brem_rad
+     $          ,a_p
+     $          ,min_te  = 0d0
+     $          ,min_prs = 0d0
 
       contains
 
 c     phys_params
 c     ###############################################################
-      subroutine phys_params(L_0,BB0,p_0)
+      subroutine phys_params(L_0,BB0,p_0,t_min)
 
 c     ---------------------------------------------------------------
 c     Computes physical parameters (in SI units)
@@ -51,6 +54,7 @@ c     ---------------------------------------------------------------
 c     Call variables
 
         real(8) :: L_0,BB0,p_0
+        real(8),optional,intent(OUT) :: t_min
 
 c     Local variables
 
@@ -69,7 +73,7 @@ c     Begin program
         
         v_A = BB0/sqrt(mi*n_0*mu_0)  !m/s
         t_A = L_0/v_A                !s
-        T_max = 0.5*p_0/(kb*ip0*n_0) !eV
+        T_max = p_0/(a_p*kb*ip0*n_0) !eV
 
         ionization = ionization*n_0*kb*ip0 !Ionization energy of Hydrogen
 
@@ -82,7 +86,7 @@ c     Begin program
         sdiff_ref  = kdiff_ref*n_0  !Reference specific diffusivity (1/m/s)
         msdiff_ref = sdiff_ref*mp   !Reference mass specific diffusivity (kg/m/s)
 
-        chi_par_e  = 3.2*kb*T_max*tau_e/(me*kdiff_ref) !electrons
+        chi_par_e  = 3.2*kb*T_max*tau_e/(me*kdiff_ref)              !electrons
         chi_perp_e = 4.7*kb*T_max/(me*omega_ce**2*tau_e*kdiff_ref)  !electrons
         chi_perp_i = 2.0*kb*T_max/(mi*omega_ci**2*tau_i*kdiff_ref)  !ions
         resvty     = me/(n_0*qe*qe*tau_e*mu_0*kdiff_ref)
@@ -124,6 +128,11 @@ c$$$        write (*,*) brem_rad,n_0,iB0,Zi,L_0,mi_mp
      $                                                ," kg/m/s"
         endif
 
+        !Normalize minimum electron temperature
+        min_te = min_te/T_max
+
+        if (PRESENT(t_min)) t_min = a_p*min_te
+        
       end subroutine phys_params
       
       end module units
@@ -312,7 +321,7 @@ c ######################################################################
 
         integer :: xport_order=2
         
-        real(8) :: nu,eta,dd,chi,chi_par,gamma,di,de,a_p,temp_ratio
+        real(8) :: nu,eta,dd,chi,chi_par,gamma,di,de,temp_ratio
      .            ,heta=0d0,c_hyper,beta=1d-3,te0_ref,c_va
 
         real(8) :: aa_eta,bb_eta,cc_eta
@@ -3002,7 +3011,7 @@ c ######################################################################
         !Input parameters
         real(8) :: dlambda,rshear,vparflow,vperflow,E0(3),B0(3),M0(3)
 
-        real(8) :: eq_params(6),min_te=0d0,min_prs=0d0
+        real(8) :: eq_params(6)
 
         logical :: refine_eq
         
