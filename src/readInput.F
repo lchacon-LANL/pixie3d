@@ -21,7 +21,6 @@ c----------------------------------------------------------------------
 
       use rw_bc, ONLY: rw_fft_tupdate,rw_implicit_bc,rw_exp_ssp_bc
      $                ,rw_exp_pc_bc,rw_exp_fix,tau_w,r_v,rw_bcs
-     $                ,d_rw,eta_rw
 
       use app_iosetup
 
@@ -831,9 +830,11 @@ c     #####################################################################
       enddo
 
       if (res_wall_bc.and.(.not.rw_implicit_bc)) then
-        dt = min(0.5*tau_w/nxd,dt)
-        write (messg,*) " Adjusted dt for RW BC stability"
-        call warning(messg)
+        if (dt > 0.5*tau_w/nxd) then
+          dt = 0.5*tau_w/nxd
+          write (messg,*) " Adjusted dt for RW BC stability"
+          call warning(messg)
+        endif
       endif
 
       if (sheath_flow_bc) normal_flow_bc = .false. !Consider full ExB flow

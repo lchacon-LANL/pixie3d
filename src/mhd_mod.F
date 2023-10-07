@@ -19,6 +19,9 @@ c ######################################################################
      $          ,mi_mp      = 1d0    !Ion mass wrt proton mass
      $          ,log_lamb   = 1d1    !Coulomb log
      $          ,Zi         = 1d0    !Ion Z
+     $          ,min_te     = 0d0    !Minimum electron temperature
+     $          ,d_rw       = 0d0    !RW thickness (m)
+     $          ,eta_rw     = 1d-30  !RW resistivity (Ohm.m)
 
       !Derived physical parameters
       real(8) :: v_A
@@ -36,8 +39,8 @@ c ######################################################################
      $          ,chi_perp_e
      $          ,brem_rad
      $          ,a_p
-     $          ,min_te  = 0d0
      $          ,min_prs = 0d0
+     $          ,tau_w   = 1d30
 
       contains
 
@@ -93,9 +96,8 @@ c     Begin program
 
         brem_rad = (1.47275d-24*n_0*iB0)**2*(Zi**3)*L_0*sqrt(mi_mp) !Bremsstrahlung
 
-c$$$        write (*,*) brem_rad,n_0,iB0,Zi,L_0,mi_mp
-        
         if (my_rank == 0) then
+          write (*,*)
           write (*,'(a)') " Normalization constants:"
           write (*,*)
           write (*,'(a,1pe14.7,a)') " L_0 = ",L_0," m"
@@ -132,7 +134,17 @@ c$$$        write (*,*) brem_rad,n_0,iB0,Zi,L_0,mi_mp
         min_te = min_te/T_max
 
         if (PRESENT(t_min)) t_min = a_p*min_te
-        
+
+        !Compute resistive wall diffusion time
+        if (d_rw > 0d0.and.eta_rw > 0d0) then
+          tau_w = mu_0*v_A*d_rw/eta_rw
+          if (my_rank == 0) then
+            write (*,*)
+            write (*,'(a,1pe14.7)') " RW tau_w =",tau_w
+            write (*,*)
+          endif
+        endif
+
       end subroutine phys_params
       
       end module units

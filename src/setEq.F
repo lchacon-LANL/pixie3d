@@ -1911,6 +1911,16 @@ c     Other equilibrium quantities
           var(:,:,:,ITMPE) = 0d0
         end where
 
+c     Check timestep vs RW time
+
+        if (res_wall_bc.and.(.not.rw_implicit_bc)) then
+          if (dt > 0.5*tau_w/nxd) then
+            dt = 0.5*tau_w/nxd
+            write (messg,*) " Adjusted dt for RW BC stability"
+            call warning(messg)
+          endif
+        endif
+        
 c     ------------------------------------------
 c     ---------------  RWM TEST ----------------
 c     ------------------------------------------
