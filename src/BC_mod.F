@@ -3,7 +3,6 @@ c####################################################################
       module local_BCS_variables
 
         use variables
-
         use imposeBCinterface, ONLY: extrapolateBC
 
         use auxiliaryVariables

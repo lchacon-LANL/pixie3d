@@ -13,7 +13,7 @@ endif
 
 MODS := io_mod.F90 mhd_mod.F BC_mod.F rw_bim_mod.F90 rw_mod.F PC_mod.F re_mod.F
 
-EXCLUDE += %ts_if_mod.F %ts_mod.F %proj_int_mod.F
+EXCLUDE += %ts_if_mod.F %ts_mod.F %proj_int_mod.F %nk_mod.F %eigen.F
 
 override CPPFLAGS += -Dplotting
 
@@ -23,14 +23,16 @@ COMMONDIR = ../common
 
 SUBDIRS = $(COMMONDIR)/io\
 	  $(COMMONDIR)/math\
-	  $(COMMONDIR)/fft1d\
 	  $(COMMONDIR)/interpolation/1d_int\
+	  $(COMMONDIR)/fft1d\
+	  $(COMMONDIR)/OMP\
 	  $(COMMONDIR)/grid\
 	  $(COMMONDIR)/var_setup\
-	  $(COMMONDIR)/driver_setup\
+	  $(COMMONDIR)/newtonGMRES\
+	  $(COMMONDIR)/eigen\
 	  $(COMMONDIR)/matrixLightSolver\
 	  $(COMMONDIR)/MG\
-	  $(COMMONDIR)/OMP\
+	  $(COMMONDIR)/driver_setup\
 	  $(COMMONDIR)/orbit
 
 ifeq ($(MK),t)

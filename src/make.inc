@@ -18,18 +18,18 @@ COMMONDIR = ../common
 
 SUBDIRS = $(COMMONDIR)/io\
 	  $(COMMONDIR)/math\
+	  $(COMMONDIR)/interpolation/1d_int\
 	  $(COMMONDIR)/fft1d\
 	  $(COMMONDIR)/OMP\
-	  $(COMMONDIR)/interpolation/1d_int\
 	  $(COMMONDIR)/grid\
 	  $(COMMONDIR)/var_setup\
 	  $(COMMONDIR)/newtonGMRES\
-	  $(COMMONDIR)/driver_setup\
 	  $(COMMONDIR)/eigen\
 	  $(COMMONDIR)/matrixLightSolver\
 	  $(COMMONDIR)/MG\
+	  $(COMMONDIR)/driver_setup\
 	  $(COMMONDIR)/orbit
-
+	  
 ifeq ($(MK),t)
   SUBDIRS += $(COMMONDIR)/mk
 endif

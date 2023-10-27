@@ -1888,7 +1888,7 @@ c$$$     .                 ,gamma,equ_file)
      .                 ,0d0,equ_file)
         endif
         
-        find_a = .false.
+        find_a = .true.
 
         !Divergence clean field if not Tokamak
 c$$$#if !defined(vec_pot)

@@ -22,18 +22,20 @@ MODS := io_mod.F90 mhd_mod.F BC_mod.F PC_mod.F rw_bim_mod.F90 rw_mod.F
 
 COMMONDIR = ../common
 
-SUBDIRS = $(COMMONDIR)/math\
-          $(COMMONDIR)/io\
-          $(COMMONDIR)/fft\
-          $(COMMONDIR)/interpolation/1d_int\
-          $(COMMONDIR)/grid\
-	  $(COMMONDIR)/driver_setup\
-          $(COMMONDIR)/var_setup\
+SUBDIRS = $(COMMONDIR)/io\
+	  $(COMMONDIR)/math\
+	  $(COMMONDIR)/interpolation/1d_int\
+	  $(COMMONDIR)/fft1d\
+	  $(COMMONDIR)/OMP\
+	  $(COMMONDIR)/grid\
+	  $(COMMONDIR)/var_setup\
+	  $(COMMONDIR)/newtonGMRES\
+	  $(COMMONDIR)/eigen\
 	  $(COMMONDIR)/matrixLightSolver\
 	  $(COMMONDIR)/MG\
-	  $(COMMONDIR)/OMP\
+	  $(COMMONDIR)/driver_setup\
 	  $(COMMONDIR)/orbit
-
+	  
 # Set link files
 
 LNK_FILES = ../src/applyBC.F\
@@ -46,4 +48,4 @@ LNK_FILES = ../src/applyBC.F\
 
 #Exclusions
 
-EXCLUDE += %ts_io_mod.F %ts_if_mod.F %ts_base_mod.F %ts_mod.F %proj_int_mod.F
+EXCLUDE += %ts_io_mod.F %ts_if_mod.F %ts_base_mod.F %ts_mod.F %proj_int_mod.F %nk_mod.F %eigen.F
