@@ -134,6 +134,7 @@ cc        use ts_io
 
         logical :: car_diag_plots=.true.
      $            ,heat_flx_diag=.false.
+     $            ,hyperResistivity=.false.
         
         integer :: u_equf=1000,u_prtf=2000
         character(100) :: equ_file,prt_file

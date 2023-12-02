@@ -24,7 +24,7 @@ c--------------------------------------------------------------------
       use poincare_io
 
       use app_iosetup, ONLY: car_diag_plots,heat_flx_diag,fourier
-     $                      ,poincare
+     $                      ,poincare,hyperResistivity
 
       use re
       
@@ -44,7 +44,11 @@ c Local variables
 
       integer :: i,j,k,ig,jg,kg,ieq,bcs(6),igx,igy,igz,nx,ny,nz,ierr
       real(8) :: x1,y1,z1,ee(3),vr,vth,norm,lnorm
-     .          ,cov(3),cnv(3),gradp(3)
+     .          ,cov(3),cnv(3),gradp(3),vxB(3),BMagAvg(3),ResOhmsLaw(3)
+      real(8),allocatable,dimension(:,:,:) :: JparAvg,RHSfluc,BAvg,JAvg
+      real(8),allocatable,dimension(:,:,:,:) :: gradJpar,ecnv
+      real(8),allocatable,dimension(:,:,:) :: EAvg,ecnv1,ecnv2,ecnv3
+      real(8),allocatable,dimension(:,:) :: etaAvg
       logical :: cartsn,covariant,to_cartsn,to_cnv,tor
 
 c Begin program
@@ -359,6 +363,77 @@ c Pressure diagnostics
 
       p_tot = rho*tmp
 
+c Hyper-resistivity diagnostic (solve for lambda)
+
+      if (hyperResistivity .eqv. .true.) then
+
+      allocate(BAvg(0:nx+1,0:ny+1,3),JAvg(0:nx+1,0:ny+1,3)
+     .         ,EAvg(0:nx+1,0:ny+1,3),etaAvg(0:nx+1,0:ny+1)
+     .         ,JparAvg(0:nx+1,0:ny+1,0:nz+1)
+     .         ,RHSfluc(0:nx+1,0:ny+1,0:nz+1)
+     .         ,gradJpar(0:nx+1,0:ny+1,0:nz+1,3)
+     .         ,ecnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .         ,ecnv1(0:nx+1,0:ny+1,0:nz+1)
+     .         ,ecnv2(0:nx+1,0:ny+1,0:nz+1)
+     .         ,ecnv3(0:nx+1,0:ny+1,0:nz+1))
+     
+      ecnv1 = E_ni(:,:,:,1) ! placeholder before transforming to contravariant
+      ecnv2 = E_ni(:,:,:,2)
+      ecnv3 = E_ni(:,:,:,3)
+
+      call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+     .                     ,ecnv1,ecnv2,ecnv3,'cov','cnv')
+
+      ecnv(:,:,:,1) = ecnv1
+      ecnv(:,:,:,2) = ecnv2
+      ecnv(:,:,:,3) = ecnv3
+
+      do i = 1,3 ! Average each vector component toroidally
+          call toroidal_average(bcov(:,:,:,i),BAvg(:,:,i))
+          call toroidal_average(jcnv(:,:,:,i),JAvg(:,:,i))
+          call toroidal_average(ecnv(:,:,:,i),EAvg(:,:,i))
+      end do
+      call toroidal_average(eeta,etaAvg) ! Average scalar toroidally
+
+      do k = kming,kmaxg
+        do j = jming,jmaxg
+          do i = iming,imaxg
+            vxB = crossProduct(gv%gparams,i,j,k,igx
+     .                            ,vcov(i,j,k,:),bcov(i,j,k,:),.false.)
+
+            BMagAvg = BAvg(i,j,:)/vectorNorm(gv%gparams
+     .                                   ,i,j,k,igx,BAvg(i,j,:),.true.)
+
+            JparAvg(i,j,k) = scalarProduct(gv%gparams,i,j,k,igx
+     .                                     ,BMagAvg(:)
+     .                                     ,JAvg(i,j,:))
+
+            ResOhmsLaw = ecnv(i,j,k,:) - EAvg(i,j,:) + vxB
+     .                   - eeta(i,j,k)*jcnv(i,j,k,:)
+     .                   + etaAvg(i,j)*JAvg(i,j,:)
+
+            RHSfluc(i,j,k) = scalarProduct(gv%gparams,i,j,k,igx
+     .                                   ,BAvg(i,j,:)
+     .                                   ,ResOhmsLaw(:))
+
+          enddo
+        enddo
+      enddo
+
+      do k = kming,kmaxg
+        do j = jming,jmaxg
+          do i = iming,imaxg
+            gradJpar(i,j,k,:) = grad(gv%gparams,i,j,k,nx,ny,nz
+     .                                             ,igx,igy,igz,JparAvg)
+            !hyperResLambda = solveLambda(RHSfluc,gradJpar)
+          enddo
+        enddo
+      enddo
+
+      deallocate(BAvg,JAvg,EAvg,etaAvg,JparAvg,RHSfluc,gradJpar,ecnv
+     .           ,ecnv1,ecnv2,ecnv3)
+
+      endif
 
 c grad(P) diagnostic (relative to the magnetic field)
 
@@ -561,6 +636,35 @@ c End program
 
       contains
 
+c     toroidal_average
+c     ################################################################
+      subroutine toroidal_average(TargetVarIn,AvgVarOut)
+
+c     ----------------------------------------------------------------
+c     Averages a provided scalar or vector component along the z-axis.
+c     ----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8),dimension(0:nx+1,0:ny+1,0:nz+1),intent(in) :: TargetVarIn
+      real(8),dimension(0:nx+1,0:ny+1),intent(out) :: AvgVarOut
+
+c     Local variables
+
+c     Begin program
+
+      AvgVarOut = sum(TargetVarIn(:,:,1:nz),3)
+#if defined(petsc)
+      call MPI_Allreduce(AvgVarOut,AvgVarOut,size(AvgVarOut)
+     .                  ,MPI_DOUBLE_PRECISION,MPI_SUM
+     .                  ,gv%gparams%MPI_COMM_Z,mpierr)
+#endif
+      AvgVarOut = AvgVarOut/nzd
+      
+      end subroutine toroidal_average
+
 c     pol_flux_diag
 c     ################################################################
       subroutine pol_flux_diag(pflux)
@@ -628,7 +732,7 @@ c     Begin program
 
         j = my_rank_mpi
         if (j > 0) then
-          do i=0,nx+1
+        do i=0,nx+1
             Pflux(i,0:0,0) = Pflux(i,0:0,0) + mpivec(1+nn*(j-1):nn*j)
           enddo
         endif
@@ -680,8 +784,6 @@ c$$$#endif
         
       deallocate(bcnvavg)
       
-c     Local variables
-
       end subroutine pol_flux_diag
 
 c     tor_diag
