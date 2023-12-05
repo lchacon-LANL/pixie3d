@@ -9,16 +9,24 @@ c ######################################################################
       real(8),parameter ::  mu_0     = (4*pi)*1d-7 !Magnetic permeability (SI units)
      &                     ,eps_0    = 8.8542d-12  !Permittivity of free space
      &                     ,kb       = 1.6022d-19  !J/eV
-     &                     ,mi       = 1.6726d-27  !kg
-     &                     ,me       = 9.1094d-31  !kg
+     &                     ,mp       = 1.6726d-27  !proton mass, kg
+     &                     ,me       = 9.1094d-31  !electron mass, kg
      &                     ,qe       = 1.6022d-19  !C
-     &                     ,Zi       = 1d0         !Ion Z
-     &                     ,mi_mp    = 1d0         !Ion mass wrt proton mass
-     &                     ,log_lamb = 1d1         !Coulomb log
-      
+
+      !Input physical parameters
+      real(8) :: ionization = 13.6   !13.6eV Assumes Hydrogen
+     $          ,n_0        = 1d20   !Number density (SI units, m^(-3))
+     $          ,mi_mp      = 1d0    !Ion mass wrt proton mass
+     $          ,log_lamb   = 1d1    !Coulomb log
+     $          ,Zi         = 1d0    !Ion Z
+     $          ,min_te     = 0d0    !Minimum electron temperature
+     $          ,d_rw       = 0d0    !RW thickness (m)
+     $          ,eta_rw     = 1d-30  !RW resistivity (Ohm.m)
+
+      !Derived physical parameters
       real(8) :: v_A
      $          ,t_A
-     $          ,T_max
+     $          ,T_max = 0d0
      $          ,tau_e
      $          ,tau_i
      $          ,omega_ce
@@ -30,14 +38,15 @@ c ######################################################################
      $          ,chi_perp_i
      $          ,chi_perp_e
      $          ,brem_rad
-     $          ,ionization          !13.6eV Assumes Hydrogen
-     $          ,n_0      = 1d20     !Number density (SI units, m^(-3))
-      
+     $          ,a_p
+     $          ,min_prs = 0d0
+     $          ,tau_w   = 1d30
+
       contains
 
 c     phys_params
 c     ###############################################################
-      subroutine phys_params(L_0,BB0,p_0)
+      subroutine phys_params(L_0,BB0,p_0,t_min)
 
 c     ---------------------------------------------------------------
 c     Computes physical parameters (in SI units)
@@ -48,10 +57,11 @@ c     ---------------------------------------------------------------
 c     Call variables
 
         real(8) :: L_0,BB0,p_0
+        real(8),optional,intent(OUT) :: t_min
 
 c     Local variables
 
-        real(8) :: iLL,ip0,iB0
+        real(8) :: iLL,ip0,iB0,mi,nu_ref,sdiff_ref,kdiff_ref,msdiff_ref
         
 c     Begin program
 
@@ -61,28 +71,33 @@ c     Begin program
 
         n0_cgs = n_0*1d-6  !1/cm^3
         B0_cgs = BB0*1d4   !Gauss
+
+        mi = mp*mi_mp
         
         v_A = BB0/sqrt(mi*n_0*mu_0)  !m/s
         t_A = L_0/v_A                !s
-        T_max = 0.5*p_0/(kb*ip0*n_0) !eV
+        T_max = p_0/(a_p*kb*ip0*n_0) !eV
 
-        ionization = 13.6*n_0*kb*ip0 !Ionization energy of Hydrogen
+        ionization = ionization*n_0*kb*ip0 !Ionization energy of Hydrogen
 
         tau_e = 3.44d5*(T_max**1.5)/(n0_cgs*log_lamb) !s (cgs)
         tau_i = 2.08d7*(T_max**1.5)/(Zi**4*n0_cgs*log_lamb)*sqrt(mi_mp) !s (cgs)
         omega_ce = qe   *BB0/me !1/s (SI)
         omega_ci = qe*Zi*BB0/mi !1/s (SI)
 
-        chi_par_e  = 3.2*kb*T_max*tau_e/(me*v_A)*iLL              !electrons
-        chi_perp_e = 4.7*kb*T_max/(me*omega_ce**2*tau_e*v_A)*iLL  !electrons
-        chi_perp_i = 2.0*kb*T_max/(mi*omega_ci**2*tau_i*v_A)*iLL  !ions
-        resvty     = me/(n_0*qe*qe*tau_e*v_A*mu_0)*iLL
+        kdiff_ref  = L_0*v_A        !Reference kinetic diffusivity (m2/s)
+        sdiff_ref  = kdiff_ref*n_0  !Reference specific diffusivity (1/m/s)
+        msdiff_ref = sdiff_ref*mp   !Reference mass specific diffusivity (kg/m/s)
+
+        chi_par_e  = 3.2*kb*T_max*tau_e/(me*kdiff_ref)              !electrons
+        chi_perp_e = 4.7*kb*T_max/(me*omega_ce**2*tau_e*kdiff_ref)  !electrons
+        chi_perp_i = 2.0*kb*T_max/(mi*omega_ci**2*tau_i*kdiff_ref)  !ions
+        resvty     = me/(n_0*qe*qe*tau_e*mu_0*kdiff_ref)
 
         brem_rad = (1.47275d-24*n_0*iB0)**2*(Zi**3)*L_0*sqrt(mi_mp) !Bremsstrahlung
 
-c$$$        write (*,*) brem_rad,n_0,iB0,Zi,L_0,mi_mp
-        
         if (my_rank == 0) then
+          write (*,*)
           write (*,'(a)') " Normalization constants:"
           write (*,*)
           write (*,'(a,1pe14.7,a)') " L_0 = ",L_0," m"
@@ -104,10 +119,30 @@ c$$$        write (*,*) brem_rad,n_0,iB0,Zi,L_0,mi_mp
           write (*,*)
           write (*,'(a)') " Other relevant parameters:"
           write (*,*)
-          write (*,'(a,1pe14.7,a)') " tau_ee   =",tau_e," s^(-1)"
-          write (*,'(a,1pe14.7,a)') " tau_ii   =",tau_i," s^(-1)"
+          write (*,'(a,1pe14.7,a)') " tau_ee   =",tau_e," 1/s"
+          write (*,'(a,1pe14.7,a)') " tau_ii   =",tau_i," 1/s"
           write (*,'(a,1pe14.7,a)') " omega_ci =",omega_ci," rad/s"
           write (*,'(a,1pe14.7,a)') " omega_ce =",omega_ce," rad/s"
+          write (*,*)
+          write (*,'(a,1pe14.7,a)') " kin  diff =",kdiff_ref," m^2/s"
+          write (*,'(a,1pe14.7,a)') " spec diff =",sdiff_ref," 1/m/s"
+          write (*,'(a,1pe14.7,a)') " mass-spec diff=",msdiff_ref
+     $                                                ," kg/m/s"
+        endif
+
+        !Normalize minimum electron temperature
+        min_te = min_te/T_max
+
+        if (PRESENT(t_min)) t_min = a_p*min_te
+
+        !Compute resistive wall diffusion time
+        if (d_rw > 0d0.and.eta_rw > 0d0) then
+          tau_w = mu_0*v_A*d_rw/eta_rw
+          if (my_rank == 0) then
+            write (*,*)
+            write (*,'(a,1pe14.7)') " RW tau_w =",tau_w
+            write (*,*)
+          endif
         endif
 
       end subroutine phys_params
@@ -299,7 +334,7 @@ c ######################################################################
 
         integer :: xport_order=2
         
-        real(8) :: nu,eta,dd,chi,chi_par,gamma,di,de,a_p,temp_ratio
+        real(8) :: nu,eta,dd,chi,chi_par,gamma,di,de,temp_ratio
      .            ,heta=0d0,c_hyper,beta=1d-3,te0_ref,c_va
 
         real(8) :: aa_eta,bb_eta,cc_eta
@@ -2989,7 +3024,7 @@ c ######################################################################
         !Input parameters
         real(8) :: dlambda,rshear,vparflow,vperflow,E0(3),B0(3),M0(3)
 
-        real(8) :: eq_params(6),min_te=0d0,min_prs=0d0
+        real(8) :: eq_params(6)
 
         logical :: refine_eq
         
@@ -3409,7 +3444,7 @@ c     Viscous src: obtain cnv tensor pi, and dot with mixed tensor nabla_v (T_l^
         if (visc(i,j,k) > 0d0) then
           pi_tnsr=EOM_Pi_ijk(g_def,i,j,k,nx,ny,nz,igr,vcnv1,visc,symm)
 
-          nabla_v = fnabla_v(g_def,i,j,k,igr,vcnv2,0,1,3)
+          nabla_v = fnabla_v(g_def,i,j,k,igr,vcnv2,0,1,3,.false.)
 
           !Make nabla_v covariant on both sides
           nabla_v = matmul(nabla_v
@@ -5880,16 +5915,16 @@ c     Diffusive part
 
         if (symm_pi) then
           if (flag /= 0) then
-            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,1,1,3,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,1,1,3,.true.)
           else
-            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,0,1,3,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,0,1,3,.true.)
           endif
           nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
         else
           if (flag /= 0) then
-            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,1,1,1,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,1,1,1,.true.)
           else
-            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,0,1,1,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,0,1,1,.true.)
           endif
         endif
 
@@ -5971,16 +6006,16 @@ c       Diffusive part
 
         if (symm_pi) then
           if (flag /= 0) then
-            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,2,1,3,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,2,1,3,.true.)
           else
-            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,0,1,3,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,0,1,3,.true.)
           endif
           nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
         else
           if (flag /= 0) then
-            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,2,2,2,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,2,2,2,.true.)
           else
-            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,0,2,2,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,0,2,2,.true.)
           endif
         endif
 
@@ -6064,16 +6099,16 @@ c       Diffusive part
 
         if (symm_pi) then
           if (flag /= 0) then
-            nabla_v_cnv =fnabla_v(g_def,i,j,k,igr,vec1,3,1,3,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igr,vec1,3,1,3,.true.)
           else
-            nabla_v_cnv =fnabla_v(g_def,i,j,k,igr,vec1,0,1,3,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igr,vec1,0,1,3,.true.)
           endif
           nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
         else
           if (flag /= 0) then
-            nabla_v_cnv =fnabla_v(g_def,i,j,k,igr,vec1,3,3,3,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igr,vec1,3,3,3,.true.)
           else
-            nabla_v_cnv =fnabla_v(g_def,i,j,k,igr,vec1,0,3,3,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igr,vec1,0,3,3,.true.)
           endif
         endif
 

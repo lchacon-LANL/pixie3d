@@ -2,6 +2,8 @@ c module rw_bc
 c ####################################################################
       module rw_bc
 
+        use units, ONLY: tau_w
+      
         use local_BCS_variables
 
         use var_io, ONLY: ilevel
@@ -18,7 +20,7 @@ c ####################################################################
      $            ,rw_exp_pc_bc   = .false. ! Use explicit PC BCs
      $            ,rw_exp_fix     = .true.  ! Use instability fix for small tau_w
 
-        real(8) :: tau_w=1d30,r_v=1d0  !Ideal wall by default
+        real(8) :: r_v  = 1d0                ! Cyl/Hel vacuum wall position
 
         real(8),pointer,dimension(:,:,:,:) :: E_bc
 
@@ -46,7 +48,7 @@ c     Local variables
 
         integer :: alloc_stat
 
-        integer :: nx,ny,nz,nzg
+        integer :: nx,ny,nz,nzg,nxg
       
 c     Begin program
 
@@ -54,15 +56,18 @@ c     Begin program
         ny = gv%gparams%nyv(1)
         nz = gv%gparams%nzv(1)
 
+        nxg = gv%gparams%nxgl(1)
         nzg = gv%gparams%nzgl(1)
 
         allocate(E_bc(0:nx+1,0:ny+1,0:nz+1,3))
 
         E_bc = 0d0
 
+        if (.not.res_wall_bc) return
+                
         select case(coords)
-        case('tor','sha','sh2')
-          if (nzd == 1) then
+        case('tor','sha','sh2','sh3')
+          if (nzg == 1) then
             call rw_bim_symm_init(gv%gparams,(ilevel>0)
      $                           ,(test.and.coords=="tor"))
             if (test.and.coords=="tor") stop
@@ -71,7 +76,10 @@ c     Begin program
      $      ,'VACUUM RW response not implemented for non-symm tor geom')
           endif
         end select
-      
+
+#if defined(petsc)
+        call MPI_Barrier(MPI_COMM_WORLD,mpierr)
+#endif
 c     End program
 
       end subroutine rw_allocBCVariables
@@ -200,7 +208,7 @@ c     Compute EXTERNAL tangential B-field components @ RW (VACUUM response)
        call vacuum_hel(g_def,igr,bcnv1int,bcnv1intm,bcovext
      $                ,new_time,debug)
 c$$$      case('cyl')
-      case('tor','sha','sh2')
+      case('tor','sha','sh2','sh3')
         if (nzd == 1) then
           call vacuum_tor_symm(g_def,igr,bcnv1int,bcovext,dbg)
         else

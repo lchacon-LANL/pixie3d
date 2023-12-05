@@ -852,12 +852,10 @@
         real(8),dimension(0:nx+1,0:ny+1,0:nz+1)   :: prs,rho
         character(*) :: equ_file
 
-!!$        logical :: dcon
-
 !     Local variables
 
         integer :: i,j,k,ig,jg,kg,istat,inbv,bcs(6,3),nxg,nyg,nzg
-        real(8) :: max_prs,RR,ZZ,BB0,iB0,ip0,ipsi0,x1,y1,z1
+        real(8) :: max_prs,Tmin,RR,ZZ,BB0,iB0,ip0,ipsi0,x1,y1,z1
 
         real(8),allocatable, dimension(:,:,:) :: bsub3,psi
         real(8),allocatable, dimension(:,:,:,:) :: aa
@@ -937,10 +935,6 @@
 
         ipsi0 = iB0*iLL*(2*pi)**(-e_bp)
 !!        ipsi0 = iB0*iLL*(2*pi)**(-1d0)
-        
-!     Normalized pressure
-
-        prs = prs*ip0 + 1d-4 !Add pressure floor
 
 !     Find magnetic field components
 
@@ -970,6 +964,10 @@
      &              ,icomp=(/IBX/),is_vec=.true.          &
      &              ,is_cnv=.true.,iorder=2)
 
+!     Find normalized pressure
+
+        prs = prs*ip0 
+
 !     Find normalized density
 
         max_prs = maxval(prs)
@@ -978,13 +976,32 @@
         if (max_prs == 0d0.or.(gam==0d0)) then
           rho = 1d0
         else
-          rho = (abs(prs/max_prs)**(1d0/gam))  !Forces positive density
+          rho = abs(prs/max_prs)**(1d0/gam)  !Forces positive density
         endif
 
 !     Find normalization constants
 
-        call phys_params(1d0/iLL,BB0,max_prs)
-        
+        call phys_params(1d0/iLL,BB0,max_prs,t_min=Tmin)
+
+!     Add pressure floor
+
+!!$        prs = prs + Tmin*rho
+!!$        where (prs < Tmin*rho) prs = Tmin*rho
+
+        do k=0,nz+1
+          do j=0,ny+1
+            do i=0,nx+1
+
+              call find_RZ(gv%gparams,igrid,i,j,k,RR,ZZ)
+
+              if (.not.(  (nbbbs >1.and.inside_sptrx(RR,ZZ)) &
+                      .or.(nbbbs<=1.and.(psi(i,j,k)<=sibry)))) then
+                prs(i,j,k) = prs(i,j,k) + Tmin*rho(i,j,k)
+              endif
+            enddo
+          enddo
+        enddo
+       
 !     Check EFIT qtys
 
         call efit_chk(.false.)

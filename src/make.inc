@@ -24,12 +24,12 @@ SUBDIRS = $(COMMONDIR)/io\
 	  $(COMMONDIR)/grid\
 	  $(COMMONDIR)/var_setup\
 	  $(COMMONDIR)/newtonGMRES\
-	  $(COMMONDIR)/driver_setup\
 	  $(COMMONDIR)/eigen\
 	  $(COMMONDIR)/matrixLightSolver\
 	  $(COMMONDIR)/MG\
+	  $(COMMONDIR)/driver_setup\
 	  $(COMMONDIR)/orbit
-
+	  
 ifeq ($(MK),t)
   SUBDIRS += $(COMMONDIR)/mk
 endif

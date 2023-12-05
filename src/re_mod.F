@@ -18,8 +18,11 @@ c$$$      use mg_solver
 
       use par_int
 
+#if defined(plotting)
+      use ts_base
+#else
       use timestepping
-
+#endif
       integer,private :: order_bc=1,bc_nre(6)=0
      $                  ,INRE=1,IDNRE=2,IJRE1=3,IJRE2=4,IJRE3=5
 
