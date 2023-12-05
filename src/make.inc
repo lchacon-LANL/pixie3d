@@ -18,9 +18,9 @@ COMMONDIR = ../common
 
 SUBDIRS = $(COMMONDIR)/io\
 	  $(COMMONDIR)/math\
-	  $(COMMONDIR)/fft1d\
 	  $(COMMONDIR)/OMP\
 	  $(COMMONDIR)/interpolation/1d_int\
+	  $(COMMONDIR)/fft1d\
 	  $(COMMONDIR)/grid\
 	  $(COMMONDIR)/var_setup\
 	  $(COMMONDIR)/newtonGMRES\
