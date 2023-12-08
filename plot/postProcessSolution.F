@@ -47,7 +47,7 @@ c Local variables
 
       logical :: cartsn,covariant,to_cartsn,to_cnv,tor
       
-      type(mg_array),target :: gv_jpar
+      type(mg_array),target :: gv_gjpar
 
 c Begin program
 
@@ -1168,26 +1168,37 @@ c     hyperres_diag
 c     ##################################################################
       subroutine hyperres_diag(lambda)
 
-      integer :: igrid,ii,i,j,k,guess,nn,bcs(6,3),bc_lbda(6),order
+      use fixed_point_accelerator
       
-      real(8) :: vxB(3),BMagAvg(3),ResOhmsLaw(3),dvol
+      integer :: igrid,ii,i,j,k,guess,nn,bcs(6,3),bc_lbda(6),order,it
+      
+      real(8) :: vxB(3),BMagAvg(3),ResOhmsLaw(3),dvol,lerror
      $          ,lambda(0:nx+1,0:ny+1,0:nz+1)
             
-      real(8),allocatable,dimension(:,:,:) :: JparAvg,RHSfluc,BAvg,JAvg
+      real(8),allocatable,dimension(:,:,:)   :: JparAvg,RHSfluc,BAvg
+     $                                         ,RHSsrc,JAvg,diffcf
       real(8),allocatable,dimension(:,:,:,:) :: gradJpar,ecnv
-      real(8),allocatable,dimension(:,:,:) :: EAvg,ecnv1,ecnv2,ecnv3
-      real(8),allocatable,dimension(:,:) :: etaAvg,x,y
+      real(8),allocatable,dimension(:,:,:)   :: EAvg,ecnv1,ecnv2,ecnv3
+      real(8),allocatable,dimension(:,:)     :: etaAvg,x,y
+      real(8),allocatable,dimension(:)       :: lbda_err,xold
       
+      type (fpa_state) :: fpav
+
       allocate(BAvg(0:nx+1,0:ny+1,3),JAvg(0:nx+1,0:ny+1,3)
-     .         ,EAvg(0:nx+1,0:ny+1,3),etaAvg(0:nx+1,0:ny+1)
-     .         ,JparAvg(0:nx+1,0:ny+1,0:nz+1)
-     .         ,RHSfluc(0:nx+1,0:ny+1,0:nz+1)
-     .         ,gradJpar(0:nx+1,0:ny+1,0:nz+1,3)
-     .         ,ecnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .         ,ecnv1(0:nx+1,0:ny+1,0:nz+1)
-     .         ,ecnv2(0:nx+1,0:ny+1,0:nz+1)
-     .         ,ecnv3(0:nx+1,0:ny+1,0:nz+1))
-     
+     .        ,EAvg(0:nx+1,0:ny+1,3),etaAvg(0:nx+1,0:ny+1)
+     .        ,JparAvg(0:nx+1,0:ny+1,0:nz+1)
+     .        ,RHSfluc(0:nx+1,0:ny+1,0:nz+1)
+     .        ,RHSsrc (0:nx+1,0:ny+1,0:nz+1)
+     .        ,diffcf (0:nx+1,0:ny+1,0:nz+1)
+     .        ,gradJpar(0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,ecnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,ecnv1(0:nx+1,0:ny+1,0:nz+1)
+     .        ,ecnv2(0:nx+1,0:ny+1,0:nz+1)
+     .        ,ecnv3(0:nx+1,0:ny+1,0:nz+1))
+
+      nn = nx*ny*nz
+      allocate(x(nn,1),y(nn,1),lbda_err(nn),xold(nn))
+
       ecnv1 = E_ni(:,:,:,1) ! placeholder before transforming to contravariant
       ecnv2 = E_ni(:,:,:,2)
       ecnv3 = E_ni(:,:,:,3)
@@ -1206,18 +1217,18 @@ c     ##################################################################
       end do
       call toroidal_average(eeta,etaAvg) ! Average scalar toroidally
 
-      do k = kming,kmaxg
-        do j = jming,jmaxg
-          do i = iming,imaxg
+      do k = 0,nz+1
+        do j = 0,ny+1
+          do i = 0,nx+1
             vxB = crossProduct(gv%gparams,i,j,k,igx
-     .                            ,vcov(i,j,k,:),bcov(i,j,k,:),.false.)
+     .                        ,vcov(i,j,k,:),bcov(i,j,k,:),.false.)
 
-            BMagAvg = BAvg(i,j,:)/vectorNorm(gv%gparams
-     .                                   ,i,j,k,igx,BAvg(i,j,:),.true.)
+            BMagAvg = BAvg(i,j,:)
+     $              /vectorNorm(gv%gparams,i,j,k,igx,BAvg(i,j,:),.true.)
 
             JparAvg(i,j,k) = scalarProduct(gv%gparams,i,j,k,igx
-     .                                     ,BMagAvg(:)
-     .                                     ,JAvg(i,j,:))
+     .                                    ,BMagAvg(:)
+     .                                    ,JAvg(i,j,:))
 
             ResOhmsLaw = ecnv(i,j,k,:) - EAvg(i,j,:) + vxB
      .                   - eeta(i,j,k)*jcnv(i,j,k,:)
@@ -1230,20 +1241,28 @@ c     ##################################################################
         enddo
       enddo
 
-      do k = kming,kmaxg
-        do j = jming,jmaxg
-          do i = iming,imaxg
+      lbda_err = reshape(RHSfluc(1:nx,1:ny,1:nz),shape(lbda_err))
+
+      lerror = rms(lbda_err)
+
+      if (lerror < 1d-12) return
+
+      do k = 0,nz+1
+        do j = 0,ny+1
+          do i = 0,nx+1
             gradJpar(i,j,k,:) = grad(gv%gparams,i,j,k,nx,ny,nz
      .                              ,igx,igy,igz,JparAvg)
           enddo
         enddo
       enddo
 
-      !Lambda solve
-      call allocateMGArray(gv%gparams,3,gv_jpar)
+      !Set up Lambda solve
+      call allocateMGArray(gv%gparams,3,gv_gjpar)
 
       igrid = igx
-      gv_jpar%grid(igrid)%array = gradJpar
+      gv_gjpar%grid(igrid)%array = gradJpar
+
+      bc_lbda = varray%array_var(IRHO)%bconds
 
       bcs(:,1) = bcond
       bcs(:,2) = bcond
@@ -1252,73 +1271,114 @@ c     ##################################################################
       where(bcs == DEF) bcs = EXT  !Extrapolation by default
       
       order = 0
-      call restrictMGArray(IVX,3,gv_jpar,bcs,igrid,order
+      call restrictMGArray(IVX,3,gv_gjpar,bcs,igrid,order
      .                    ,order_bc=order_bc)
 
-      nn = nx*ny*nz
-      allocate(x(nn,1),y(nn,1))
-      
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            ii  = i + nx*(j-1) + nx*ny*(k-1)
+      !Lambda iteration
+      lambda = 0d0 ; x = 0d0
 
-            y(ii,1) = RHSfluc(i,j,k)
+      call fpa_create(fpav,lbda_err,maxv=5)
 
-            dvol = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
-            if (vol_wgt) then
-              dvol = dvol*gv%gparams%gmetric%grid(igrid)%dlvol(i,j,k)
-            endif
-            
-            y(ii,1) = y(ii,1)*dvol
+      do it=1,10
 
-            x(ii,1) = 0d0
+c$$$        diffcf = log(abs(lambda/JparAvg))
+c$$$        
+c$$$        if (it > 1) then
+c$$$          RHSsrc = lap(gv%gparams,igrid,diffcf,dff=lambda)
+c$$$        else
+c$$$          RHSsrc = 0d0
+c$$$        endif
+
+        RHSsrc = lap(gv%gparams,igrid,lambda,dff=JparAvg)
+        
+        do k = 1,nz
+          do j = 1,ny
+            do i = 1,nx
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+              y(ii,1) = RHSfluc(i,j,k) + RHSsrc(i,j,k)
+
+              dvol = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
+              if (vol_wgt) then
+                dvol = dvol*gv%gparams%gmetric%grid(igrid)%dlvol(i,j,k)
+              endif
+              
+              y(ii,1) = y(ii,1)*dvol
+            enddo
           enddo
         enddo
-      enddo
       
-      bc_lbda = varray%array_var(IRHO)%bconds
+        guess = 1
+        call cSolver(gv%gparams,1,nn,y,x,bc_lbda
+     .              ,igrid,ilevel,guess,lmbda_mtvc2,vol_wgt
+     .              ,tol           = 1d-4
+     .              ,gm_driver     = .true. !pc_gm_driver
+     .              ,mg_debug      = mg_debug
+     .              ,mg_galerkin   = mg_glrkin
+     .              ,mg_order_res  = mg_ores
+     .              ,mg_order_prol = mg_oprol
+     .              ,mg_gm_coarse_solve  = mg_gm_coarse
+     .              ,mg_vcyc       = 10 !mg_vcyc
+     .              ,mg_smooth     = sm_type
+     .              ,sm_it         = sm_iter
+     .              ,sm_omega      = sm_omega
+     .              ,sm_ncolors    = sm_ncolors
+     .              ,sm_line_relax = sm_line_relax
+     .              ,sm_zebra_relax= sm_zebra_relax
+     .              ,sm_zebra_it   = sm_zebra_it
+     .              )
 
-      guess = 0
-      call cSolver(gv%gparams,1,nn,y,x,bc_lbda
-     .            ,igrid,ilevel,guess,lmbda_mtvc,vol_wgt
-     .            ,tol           = 1d-4
-     .            ,gm_driver     = .true. !pc_gm_driver
-     .            ,mg_debug      = mg_debug
-     .            ,mg_galerkin   = mg_glrkin
-     .            ,mg_order_res  = mg_ores
-     .            ,mg_order_prol = mg_oprol
-     .            ,mg_gm_coarse_solve  = mg_gm_coarse
-     .            ,mg_vcyc       = mg_vcyc
-     .            ,mg_smooth     = 'gm'
-     .            ,sm_it         = sm_iter
-     .            ,sm_omega      = sm_omega
-     .            ,sm_ncolors    = sm_ncolors
-     .            ,sm_line_relax = sm_line_relax
-     .            ,sm_zebra_relax= sm_zebra_relax
-     .            ,sm_zebra_it   = sm_zebra_it
-     .            )
+        !Compute lambda
+        x(:,1) = x(:,1)/reshape(JparAvg(1:nx,1:ny,1:nz),shape(x(:,1)))
+        
+        !Compute residual
+        lbda_err = x(:,1) - xold
 
-c     Return hyper-resistivity lambda
+        !Apply fixed-point accelerator
+cc        call fpa_correction(fpav,lbda_err,dp=dot2)
 
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            ii  = i + nx*(j-1) + nx*ny*(k-1)
+        x(:,1) = xold + lbda_err
 
-            lambda(i,j,k) = x(ii,1)
-          enddo
-        enddo
+        xold = x(:,1)
+
+        lambda(1:nx,1:ny,1:nz)
+     $       = reshape(x(:,1),shape(lambda(1:nx,1:ny,1:nz)))
+        
+        call setBC_ez(gv%gparams,igrid,lambda,bc_lbda,iorder=order_bc)
+
+        lerror = rms(lbda_err)
+        
+        if (my_rank==0) write (*,*) "Lambda it error, it=",it
+     $                             ,",error=",lerror
+
+c diag ****
+        call createDrawInCfile(4,'lambda.bin','j','t','x','y'
+     $                        ,(/'u   ','rhsF','rhsS','lbda'/)
+     $                        ,'-c -X0 -L57','drawlambda.in')
+        open(unit=110,file='lambda.bin',form='unformatted'
+     .      ,status='unknown')
+        call contour(jparavg(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,0,110)
+        call contour(rhsfluc(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(rhssrc (0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(lambda (0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        close(110)
+        pause
+c diag ****
+cc        if (lerror < 1d-4.and.it > 2) exit
       enddo
 
-      !Impose BCs on perturbation
-      call setBC_ez(gv%gparams,igrid,lambda,bc_lbda,iorder=order_bc)
+      !Destroy fixed-point accelerator
+      call fpa_destroy(fpav)
 
-      call deallocateMGArray(gv_jpar)
+      call deallocateMGArray(gv_gjpar)
 
       deallocate(BAvg,JAvg,EAvg,etaAvg,JparAvg,RHSfluc,gradJpar,ecnv
-     .          ,ecnv1,ecnv2,ecnv3,x,y)
-
+     .          ,ecnv1,ecnv2,ecnv3,x,y,lbda_err,diffcf,xold)
+      
       end subroutine hyperres_diag
 
 c     lmbda_mtvc
@@ -1402,7 +1462,7 @@ c     Map vector x to array for processing
 
 c     Map velocity components
 
-      call point_to_MG_array(nnx,nny,nnz,igrid,v0_cnv,gv_jpar)
+      call point_to_MG_array(nnx,nny,nnz,igrid,v0_cnv,gv_gjpar)
  
 c     Calculate matrix-vector product
 
@@ -1421,12 +1481,13 @@ c     Calculate matrix-vector product
             endif
 
             !Conservative advection
-            upwind = flx_advec(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                        ,v0_cnv,drho(:,:,:,1),UPWD)
+            upwind = flx_advec(g_def,i,j,k,nnx,nny,nnz
+     $                        ,igrid,igrid,igrid
+     $                        ,v0_cnv,drho(:,:,:,1),UPWD)
 
-            y(ijk) = dvol*upwind
+c$$$            y(ijk) = dvol*upwind
 c$$$            y(ijk)=dvol*(0.01*drho(i,j,k,1) + upwind)
-c$$$            y(ijk)=dvol*(cnp/dt*drho(i,j,k,1) + alpha*upwind)
+            y(ijk)=dvol*(cnp/dt*drho(i,j,k,1) + alpha*upwind)
 
           enddo
         enddo
@@ -1440,5 +1501,116 @@ c     End program
       call deallocMGPointers(fpointers,mg_ctx_l)
 
       end subroutine lmbda_mtvc
+
+c     lmbda_mtvc2
+c     ####################################################################
+      subroutine lmbda_mtvc2(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
+c     --------------------------------------------------------------------
+c     This subroutine calculates, for given x, y = A.x  matrix-free
+c     for the continuity equation.
+c     In call:
+c      * gpos: vector index of position on the numerical grid
+c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
+c              surrounding stencil is filled (9-pt stencil in 2D
+c              , 27-pt stencil in 3D).
+c            + If gpos = 0, all the grid is considered.
+c            + If gpos < 0, all grid is mapped, but operations are 
+c              restricted to stencil of abs(gpos) (useful for
+c              matrix-light GS)
+c      * neq: number of coupled equations
+c      * ntot: total number of unknowns: neq*nx*ny*nz
+c      * x(ntot): input vector
+c      * y(ntot): output vector
+c      * igrid: grid level
+c      * bcnf: boundary conditions on x vector.
+c     --------------------------------------------------------------------
+
+      use setMGBC_interface
+
+      use local_BCS_variables, ONLY: order_bc,nc_eom_v
+
+      implicit none
+
+c     Call variables
+
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8)    :: x(ntot),y(ntot)
+      type(grid_mg_def),pointer :: g_def
+
+c     Local variables
+
+      integer    :: isig,ijk,ijkg,nnx,nny,nnz,ip,im,jp,jm,kp,km
+      integer    :: imin,imax,jmin,jmax,kmin,kmax,i,j,k,ig,jg,kg
+ 
+      real(8),pointer,dimension(:,:,:,:) :: drho
+
+      real(8),pointer,dimension(:,:,:) :: jac
+
+      real(8)    :: slap,dvol
+
+      logical    :: fpointers
+
+      type(mg_ctx),pointer :: mg_ctx_l => null()
+
+c     Begin program
+
+      call allocMGPointers(neq,g_def,mg_ctx_l,fpointers)
+
+      isig = g_def%istartp(igrid)
+
+      nnx = g_def%nxv(igrid)
+      nny = g_def%nyv(igrid)
+      nnz = g_def%nzv(igrid)
+
+      jac => g_def%gmetric%grid(igrid)%jac
+
+c     Find limits for loops
+
+      call limits(mg_ctx_l,abs(gpos),igrid
+     .           ,imin,imax,jmin,jmax,kmin,kmax)
+
+c     Map vector x to array for processing
+
+      allocate(drho(0:nnx+1,0:nny+1,0:nnz+1,neq))
+
+      drho = 0d0
+
+      !For GS, gpos < 0 so that the whole vector x is mapped
+      !For finding the diagonal, gpos > 0
+      call fillArray(g_def,igrid,neq,x,drho,bcnd,order_bc,gpos=gpos
+     .              ,icomp=(/IRHO/))
+ 
+c     Calculate matrix-vector product
+
+      do k = kmin,kmax
+        do j = jmin,jmax
+          do i = imin,imax
+
+            call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+            ijk = i + nnx*(j-1) + nnx*nny*(k-1)
+
+            if (MG_get_res_vol_wgt()) then
+              dvol = g_def%gmetric%grid(igrid)%dlvol(i,j,k)*jac(i,j,k)
+            else
+              dvol = jac(i,j,k)
+            endif
+
+            slap = lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+     .                  ,drho(:,:,:,1))
+
+            y(ijk) = dvol*slap
+
+          enddo
+        enddo
+      enddo
+
+c     End program
+
+      deallocate(drho)
+
+      call deallocMGPointers(fpointers,mg_ctx_l)
+
+      end subroutine lmbda_mtvc2
       
       end subroutine postProcessSolution
