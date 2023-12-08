@@ -1075,7 +1075,7 @@ c ######################################################################
      .         ,qfactor,lambda,p_tot
      .         ,vpar,vpsi,vperp,jmag
      .         ,gppar,gppsi,gpperp
-     .         ,f1,f2,f3,E1,E2,E3
+     .         ,f1,f2,f3,E1,E2,E3,hlambda
 
         real(8),pointer,dimension(:,:,:) ::
      .          bx_cov,by_cov,bz_cov
@@ -1157,7 +1157,8 @@ c     ##################################################################
      .         ,heat_src(ilom:ihip,jlom:jhip,klom:khip))
 
       allocate (qfactor(ilom:ihip,jlom:jhip,klom:khip)
-     .         ,lambda (ilom:ihip,jlom:jhip,klom:khip))
+     .         ,lambda (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,hlambda(ilom:ihip,jlom:jhip,klom:khip))
 
       allocate (jrex_car(ilom:ihip,jlom:jhip,klom:khip)
      .         ,jrey_car(ilom:ihip,jlom:jhip,klom:khip)
@@ -1188,7 +1189,7 @@ c     ##################################################################
      .           ,divrgB,divrgJ,divrgV,Pflux,p_tot
      .           ,E1,E2,E3,F1,F2,F3,heat_src,jmag)
 
-      deallocate (qfactor,lambda)
+      deallocate (qfactor,lambda,hlambda)
 
       deallocate(jrex_car,jrey_car,jrez_car)
       

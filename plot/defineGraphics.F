@@ -632,6 +632,9 @@ c Define graphics group #4: Diagnostics
       graph(4)%array_graph(27)%array => gpperp
       graph(4)%array_graph(27)%descr = 'grad(P).(b x grad(psi))'
 
+      graph(4)%array_graph(28)%array => hlambda
+      graph(4)%array_graph(28)%descr = 'hyper-res lambda'
+
       if (re_pkg) then
         do ieq=1,size(v_re%array_var)
           graph(4)%array_graph(28+ieq)%array =>v_re%array_var(ieq)%array
@@ -642,7 +645,7 @@ c Define graphics group #4: Diagnostics
       else
         graph(4)%array_graph(28:ngraph)%descr = ''
       endif
-      
+
 cc      sel_gr(4,:) = (/ (i,i=6,14) /)
 cc      sel_gr(4,:) = (/ (i,i=1,9) /)
       sel_gr(4,:) = (/ (i,i=1,xdraw_cont_lim) /)
