@@ -1396,6 +1396,11 @@ c$$$     $                             ,",error=",lerror/l0
         if (my_rank==0) write (*,*) "  >>> A_J error, it=",it
      $                             ,",error=",lerror/l1
 
+        !Find lambda (with BCs)
+        lambda(1:nx,1:ny,1:nz)=reshape(xi,shape(lambda(1:nx,1:ny,1:nz)))
+        lambda = lambda/JparAvg
+        call setBC_ez(gv%gparams,igrid,lambda,bc_lbda,iorder=order_bc)
+
 c diag ****
 c$$$        call createDrawInCfile(9,'lambda.bin','j','t','x','y'
 c$$$     $                        ,(/'xi  ','Jpar','gJp1','gJp2'
