@@ -630,7 +630,7 @@ c Define graphics group #4: Diagnostics
       graph(4)%array_graph(26)%descr = 'grad(P).grad(psi)'
 
       graph(4)%array_graph(27)%array => gpperp
-      graph(4)%array_graph(27)%descr = 'grad(P).(b x grad(psi))'
+      graph(4)%array_graph(27)%descr = 'grad(P).(bxgrad(psi))'
 
       graph(4)%array_graph(28)%array => hlambda
       graph(4)%array_graph(28)%descr = 'hyper-res lambda'
@@ -643,7 +643,7 @@ c Define graphics group #4: Diagnostics
         
         graph(4)%array_graph(29+size(v_re%array_var):ngraph)%descr = ''
       else
-        graph(4)%array_graph(28:ngraph)%descr = ''
+        graph(4)%array_graph(29:ngraph)%descr = ''
       endif
 
 cc      sel_gr(4,:) = (/ (i,i=6,14) /)

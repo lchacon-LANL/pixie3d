@@ -4,9 +4,9 @@ c ####################################################################
 
         use setMGBC_interface
 
-        use PC_var
+        use nlfunction_setup
 
-        use local_BCS_variables, ONLY:order_bc
+        use local_BCS_variables, ONLY:order_bc,nc_eom_v
      .                               ,default_A_BCs
      .                               ,default_B_BCs
 
@@ -636,7 +636,8 @@ c     End program
 c     vlap_div_clean
 c     #################################################################
       subroutine vlap_div_clean(g_def,iout,nx,ny,nz,igx,igy,igz,db,dacov
-     .              ,da0cov,dbcov,w_bcs,w_pre_bcs,diag_plots,gm_it,rtol)
+     .              ,da0cov,dbcov,w_bcs,w_pre_bcs,diag_plots,gm_it,rtol
+     $              ,bcs_b)
 
 c     -----------------------------------------------------------------
 c     Finds curl(dA)=B^(n+1)-B^n, with dA=inv_lap(dJ). 
@@ -650,6 +651,7 @@ c       * w_bcs (optional): whether output has BCs
 c       * w_pre_bcs (optional): whether input requires BCs
 c       * diag_plots (optional): whether we want plots of answer
 c       * gm_it,rtol (optional): number of GMRES iterations and conv. tol.
+c       * bcs_b (optional): BCs for db
 c     -----------------------------------------------------------------
 
       implicit none
@@ -661,7 +663,7 @@ c     Call variables
       integer :: nx,ny,nz,igx,igy,igz,iout
       real(8) :: db(0:nx+1,0:ny+1,0:nz+1,3)
 
-      integer,optional :: gm_it
+      integer,optional :: gm_it,bcs_b(6,3)
       real(8),optional :: rtol
       real(8),optional,INTENT(IN) :: dbcov (0:nx+1,0:ny+1,0:nz+1,3)
      $                              ,da0cov(0:nx+1,0:ny+1,0:nz+1,3)
@@ -697,9 +699,14 @@ c     Begin program
 
 c     Define BCs
 
-      bcsb(:,1) = u_0%array_var(IBX)%bconds
-      bcsb(:,2) = u_0%array_var(IBY)%bconds
-      bcsb(:,3) = u_0%array_var(IBZ)%bconds
+      if (PRESENT(bcs_b)) then
+        bcsb = bcs_b
+      else
+        bcsb(:,1) = u_0%array_var(IBX)%bconds
+        bcsb(:,2) = u_0%array_var(IBY)%bconds
+        bcsb(:,3) = u_0%array_var(IBZ)%bconds
+      endif
+      
 c$$$      bcsb = gv%aux%vec_list(IBCNV_0)%bconds
 
       call default_A_BCs(bcsa)
@@ -858,8 +865,6 @@ c      * y(ntot): output vector
 c      * igrid: grid level
 c      * bcnf: boundary conditions on x vector.
 c     ---------------------------------------------------------------
-
-      use matvec
 
       implicit none
 

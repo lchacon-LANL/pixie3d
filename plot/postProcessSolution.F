@@ -47,8 +47,6 @@ c Local variables
 
       logical :: cartsn,covariant,to_cartsn,to_cnv,tor
       
-      type(mg_array),target :: gv_gjpar
-
 c Begin program
 
       igx = igrid
@@ -1169,56 +1167,57 @@ c     ##################################################################
       subroutine hyperres_diag(lambda)
 
       use fixed_point_accelerator
+
+      use B_tools, xi2 => xi
       
-      integer :: igrid,ii,i,j,k,guess,nn,bcs(6,3),bc_lbda(6),order,it
+      integer :: igrid,ii,i,j,k,guess,nn,bc_lbda(6),bc_xi(6)
+     $          ,order,it,bcsb(6,3),bcsa(6,3),bcs(6,3)
       
-      real(8) :: vxB(3),BMagAvg(3),ResOhmsLaw(3),dvol,lerror
+      real(8) :: vxB(3),BMagAvg(3),ResOhmsLaw(3),dvol,vol,lerror,l0,l1
      $          ,lambda(0:nx+1,0:ny+1,0:nz+1)
             
       real(8),allocatable,dimension(:,:,:)   :: JparAvg,RHSfluc,BAvg
-     $                                         ,RHSsrc,JAvg,diffcf
-      real(8),allocatable,dimension(:,:,:,:) :: gradJpar,ecnv
-      real(8),allocatable,dimension(:,:,:)   :: EAvg,ecnv1,ecnv2,ecnv3
+     $                                         ,RHSsrc,JAvg,diffcf,xxi
+     $                                         ,lambda_o
+      real(8),allocatable,dimension(:,:,:,:) :: gradJpar,gradJpar_cnv
+     $                                         ,ecnv,ajcov,ajcov_o,ecov
+      real(8),allocatable,dimension(:,:,:)   :: EAvg
       real(8),allocatable,dimension(:,:)     :: etaAvg,x,y
-      real(8),allocatable,dimension(:)       :: lbda_err,xi
+      real(8),allocatable,dimension(:)       :: lbda_err,xi,xa
       
       type (fpa_state) :: fpav
+      
+      igrid = igx
 
       allocate(BAvg(0:nx+1,0:ny+1,3),JAvg(0:nx+1,0:ny+1,3)
      .        ,EAvg(0:nx+1,0:ny+1,3),etaAvg(0:nx+1,0:ny+1)
      .        ,JparAvg(0:nx+1,0:ny+1,0:nz+1)
      .        ,RHSfluc(0:nx+1,0:ny+1,0:nz+1)
      .        ,RHSsrc (0:nx+1,0:ny+1,0:nz+1)
-     .        ,diffcf (0:nx+1,0:ny+1,0:nz+1)
+     .        ,xxi    (0:nx+1,0:ny+1,0:nz+1)
+     .        ,lambda_o(0:nx+1,0:ny+1,0:nz+1)
+     .        ,diffcf  (0:nx+1,0:ny+1,0:nz+1)
      .        ,gradJpar(0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,ecnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,ecnv1(0:nx+1,0:ny+1,0:nz+1)
-     .        ,ecnv2(0:nx+1,0:ny+1,0:nz+1)
-     .        ,ecnv3(0:nx+1,0:ny+1,0:nz+1))
+     .        ,gradJpar_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,ecnv   (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,ecov   (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,ajcov  (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,ajcov_o(0:nx+1,0:ny+1,0:nz+1,3))
 
       nn = nx*ny*nz
-      allocate(x(nn,1),y(nn,1),lbda_err(nn),xi(nn))
+      allocate(x(nn,1),y(nn,1),lbda_err(nn),xi(nn),xa(3*nn))
 
-      ecnv1 = E_ni(:,:,:,1) ! placeholder before transforming to contravariant
-      ecnv2 = E_ni(:,:,:,2)
-      ecnv3 = E_ni(:,:,:,3)
-
-      call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
-     .                     ,ecnv1,ecnv2,ecnv3,'cov','cnv')
-
-      ecnv(:,:,:,1) = ecnv1
-      ecnv(:,:,:,2) = ecnv2
-      ecnv(:,:,:,3) = ecnv3
+      ecnv = XformToCnv(gv%gparams,igx,E_ni)
 
       !Average each vector component toroidally
       do i = 1,3
-          call toroidal_average(bcov(:,:,:,i),BAvg(:,:,i))
-          call toroidal_average(jcnv(:,:,:,i),JAvg(:,:,i))
-          call toroidal_average(ecnv(:,:,:,i),EAvg(:,:,i))
+        call toroidal_average(bcov(:,:,:,i),BAvg(:,:,i))
+        call toroidal_average(jcnv(:,:,:,i),JAvg(:,:,i))
+        call toroidal_average(ecnv(:,:,:,i),EAvg(:,:,i))
       end do
       call toroidal_average(eeta,etaAvg) ! Average scalar toroidally
 
-      !LC: this implementation is incorrect per the assumption <B/|B|^2>=<B>/<|B^2|>
+      !Compute Ohm's law sources
       do k = 0,nz+1
         do j = 0,ny+1
           do i = 0,nx+1
@@ -1249,133 +1248,191 @@ c     ##################################################################
 
       if (lerror < 1d-12) return
 
-      !Compute gradient of j_||
-      do k = 0,nz+1
-        do j = 0,ny+1
-          do i = 0,nx+1
-            gradJpar(i,j,k,:) = grad(gv%gparams,i,j,k,nx,ny,nz
-     .                              ,igx,igy,igz,JparAvg)
+      !Compute gradient of j_|| (in cnv representation)
+      bcs(:,1) = bcond
+      bcs(:,2) = bcond
+      bcs(:,3) = bcond
+      where(bcs == DEF) bcs =-EXT
+      
+      gradJpar = grad(gv%gparams,igx,JparAvg)
+      call setBC_ez(gv%gparams,igx,gradJpar,.false.,bcs,iorder=order_bc)
+      gradJpar_cnv = XformToCnv(gv%gparams,igx,gradJpar)
+
+c     Find scalar potential xi
+
+      bc_xi = bcond
+      where(bc_xi == DEF) bc_xi = NEU !Homogeneous Neumann
+
+      !Compute residual
+      vol = 0d0
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            ii  = i + nx*(j-1) + nx*ny*(k-1)
+            dvol = gv%gparams%gmetric%grid(igx)%dvol(i,j,k)
+            y(ii,1) = RHSfluc(i,j,k)*dvol
+            vol = vol + dvol
           enddo
         enddo
       enddo
+      vol = psum((/vol/))
+      vol = psum(y(:,1))/vol
 
-      gradJpar = XformToCnv(gv%gparams,igx,gradJpar)
-      
-      !Set up Lambda solve
-      call allocateMGArray(gv%gparams,3,gv_gjpar)
+      !Regularize residual by subtracting mean (needed by Neumann BCs)
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            ii  = i + nx*(j-1) + nx*ny*(k-1)
+            dvol = gv%gparams%gmetric%grid(igx)%dvol(i,j,k)
+            y(ii,1) = y(ii,1) - dvol*vol
+          enddo
+        enddo
+      enddo
+        
+      !Solve for scalar potential
+      if (my_rank == 0) write (*,*) " Hyper-res grad(xi) solve..."
+      guess = 0
+      call cSolver(gv%gparams,1,nn,y,x,bc_xi
+     .            ,igrid,ilevel,guess,lap_mtvc,.true.
+     .            ,tol           = rtol
+     .            ,gm_driver     = .true. !pc_gm_driver
+     .            ,mg_debug      = .false. !mg_debug
+     .            ,mg_galerkin   = .false. !mg_glrkin
+     .            ,mg_order_res  = 0 !mg_ores
+     .            ,mg_order_prol = 1 !mg_oprol
+     .            ,mg_gm_coarse_solve  = .false. !mg_gm_coarse
+     .            ,mg_coarse_grid_level = 2
+     .            ,mg_vcyc       = 100 !mg_vcyc
+     .            ,mg_smooth     = "jb" !sm_type
+     .            ,sm_it         = 5 !sm_iter
+     .            ,sm_omega      = 0.7d0 !sm_omega
+     .            ,sm_ncolors    = 4   !sm_ncolors
+     .            ,sm_line_relax = .false. !sm_line_relax
+     .            ,sm_zebra_relax= .false. !sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
+     .            ,sing_matrix   = .true.)
 
-      igrid = igx
-      gv_gjpar%grid(igrid)%array = gradJpar
+      !Find xi (with BCs)
+      xxi(1:nx,1:ny,1:nz) = reshape(x,shape(xxi(1:nx,1:ny,1:nz)))
+      call setBC_ez(gv%gparams,igrid,xxi,bc_xi,iorder=order_bc)
 
-      bc_lbda = varray%array_var(IRHO)%bconds !Homogeneous Neumann
-cc      where(bc_lbda == NEU) bc_lbda = DIR
+c     Solve for vector potential
+
+      call default_A_BCs(bcsa)
+      call default_B_BCs(bcsb)
+
+      !Homogeneous Dirichlet (lambda=0 @ Bdry)
+      bc_lbda = bcond
+      where(bc_lbda == DEF) bc_lbda = DIR
+
+      !Vector-potential/lambda iteration
+      lambda = 0d0 ; x = 0d0 ; xi = 0d0 ; ajcov = 0d0 ; ajcov_o = 0d0
 
       bcs(:,1) = bcond
       bcs(:,2) = bcond
       bcs(:,3) = bcond
+      where(bcs == DEF) bcs = EXT
 
-      where(bcs == DEF) bcs = EXT  !Extrapolation by default
+      call fpa_create(fpav,xa,maxv=10)
+
+      !Compute lambda (with BCs) and vector potential
+      if (my_rank == 0) write (*,*) " Hyper-res curl(A_J) solve..."
+
+      lerror = 1d0 ; l1 = 1d0
       
-      order = 0
-      call restrictMGArray(IVX,3,gv_gjpar,bcs,igrid,order
-     .                    ,order_bc=order_bc)
+      do it=1,30
 
-      !Lambda iteration
-      lambda = 0d0 ; x = 0d0 ; xi = 0d0
+        !Reconstruct lambda*V_J vector
+        ecov = grad(gv%gparams,igx,xxi)
+        ecnv = XformToCnv(gv%gparams,igx,ecov)
+        ecnv = ecnv + curl(gv%gparams,igx,ajcov)
 
-      call fpa_create(fpav,lbda_err,maxv=5)
+        call setBC_ez(gv%gparams,igx,ecnv,.true.,bcs,iorder=order_bc)
 
-      do it=1,10
-
-        !Compute residual
-        RHSsrc =
-     $      -flx_advec_mesh(gv%gparams,igrid,gradJpar,lambda,SMART,bcs)
-
-        do k = 1,nz
-          do j = 1,ny
-            do i = 1,nx
-              ii  = i + nx*(j-1) + nx*ny*(k-1)
-
-              y(ii,1) = RHSfluc(i,j,k) + RHSsrc(i,j,k)
-
-              dvol = gv%gparams%gmetric%grid(igrid)%dvol(i,j,k)
-              
-              y(ii,1) = y(ii,1)*dvol
-            enddo
-          enddo
-        enddo
-
-        !Regularize residual by subtracting mean (needed by Neumann BCs)
-        y = y - psum(y(:,1))/nn
-c$$$        write (*,*) psum(y(:,1))
+        !Compute lambda (with BCs)
+        lambda_o = lambda
+        lambda = scalarProduct_mesh(gv%gparams,igx,gradJpar,ecnv)
+     $       /(scalarProduct_mesh(gv%gparams,igx,gradJpar,gradJpar_cnv))
+        lambda = max(lambda,0d0)
         
-        !Solve for update
-        guess = 0
-        call cSolver(gv%gparams,1,nn,y,x,bc_lbda
-     .              ,igrid,ilevel,guess,lap_mtvc,.true.
-     .              ,tol           = 1d-2
-     .              ,gm_driver     = .true. !pc_gm_driver
-     .              ,mg_debug      = mg_debug
-     .              ,mg_galerkin   = .false. !mg_glrkin
-     .              ,mg_order_res  = 0 !mg_ores
-     .              ,mg_order_prol = 1 !mg_oprol
-     .              ,mg_gm_coarse_solve  = .false. !mg_gm_coarse
-     .              ,mg_vcyc       = 5 !mg_vcyc
-     .              ,mg_smooth     = "jb" !sm_type
-     .              ,sm_it         = 5 !sm_iter
-     .              ,sm_omega      = 0.7d0 !sm_omega
-     .              ,sm_ncolors    = 2   !sm_ncolors
-     .              ,sm_line_relax = .false. !sm_line_relax
-     .              ,sm_zebra_relax= .false. !sm_zebra_relax
-     .              ,sm_zebra_it   = sm_zebra_it
-     .              ,sing_matrix   = .false.)
-
-        !Apply fixed-point accelerator
-        call fpa_correction(fpav,x(:,1),dp=dot2)
-
-        xi = xi + x(:,1)
-
-        !Compute error
-        lerror = rms(x(:,1))
-        
-        if (my_rank==0) write (*,*) "Lambda it error, it=",it
-     $                             ,",error=",lerror
-
-        !Find lambda (with BCs)
-        lambda(1:nx,1:ny,1:nz)=reshape(xi,shape(lambda(1:nx,1:ny,1:nz)))
-        lambda = lambda/JparAvg
         call setBC_ez(gv%gparams,igrid,lambda,bc_lbda,iorder=order_bc)
 
+c$$$        !Compute error in lambda
+c$$$        x(:,1) = reshape(lambda  (1:nx,1:ny,1:nz)
+c$$$     $                  -lambda_o(1:nx,1:ny,1:nz),shape(x(:,1)))
+c$$$        lerror = rms(x(:,1))
+c$$$
+c$$$        if (it == 1) l0 = lerror
+c$$$        if (my_rank==0) write (*,*) "Lambda it error, it=",it
+c$$$     $                             ,",error=",lerror/l0
+
+        if (lerror < rtol*l1.and.it > 1) exit
+
+        !Solve for vector potential A_J
+        ecnv(:,:,:,1) = lambda*gradJpar_cnv(:,:,:,1)
+        ecnv(:,:,:,2) = lambda*gradJpar_cnv(:,:,:,2)
+        ecnv(:,:,:,3) = lambda*gradJpar_cnv(:,:,:,3)
+
+        ajcov_o = ajcov
+        call vlap_curl_inv(gv%gparams,igx,ecnv,ajcov,bcsb,bcsa,ilevel
+     .                    ,rtol=5d-1)
+
+        !Apply fixed-point accelerator
+        xa = reshape(ajcov_o(1:nx,1:ny,1:nz,:)
+     $              -ajcov  (1:nx,1:ny,1:nz,:),shape(xa))
+
+        call fpa_correction(fpav,xa,dp=dot2)
+
+        ajcov(1:nx,1:ny,1:nz,:) = ajcov_o(1:nx,1:ny,1:nz,:)
+     $         - reshape(xa,shape(ajcov  (1:nx,1:ny,1:nz,:)))
+
+        call setMGBC(gv%gparams,0,3,nx,ny,nz,igx,ajcov,bcsa
+     $              ,icomp=(/IAX/),is_vec=.true.,is_cnv=.false.
+     .              ,iorder=order_bc)
+
+        !Compute error in A_J
+        lerror = rms(reshape(xa,(/3*nn/)))
+        if (it == 1) l1 = lerror
+        if (my_rank==0) write (*,*) "  >>> A_J error, it=",it
+     $                             ,",error=",lerror/l1
+
 c diag ****
-        call createDrawInCfile(4,'lambda.bin','j','t','x','y'
-     $                        ,(/'u   ','rhsF','rhsS','lbda'/)
-     $                        ,'-c -X0 -L57','drawlambda.in')
-        open(unit=110,file='lambda.bin',form='unformatted'
-     .      ,status='unknown')
-        call contour(jparavg(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,0,110)
-        call contour(rhsfluc(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        RHSsrc = 0d0
-c$$$        RHSsrc(1:nx,1:ny,1:nz)
-c$$$     $       = reshape(y(:,1),shape(lambda(1:nx,1:ny,1:nz)))
-        call contour(rhssrc (0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(lambda (0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        close(110)
-        pause
+c$$$        call createDrawInCfile(9,'lambda.bin','j','t','x','y'
+c$$$     $                        ,(/'xi  ','Jpar','gJp1','gJp2'
+c$$$     $                        ,'gJp3','A_1 ','A_2 ','A_3 ','lbda'/)
+c$$$     $                        ,'-c -X0 -L57','drawlambda.in')
+c$$$        open(unit=110,file='lambda.bin',form='unformatted'
+c$$$     .      ,status='unknown')
+c$$$        call contour(xxi(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+c$$$     .              ,0d0,xmax,0d0,ymax,0,110)
+c$$$        call contour(JparAvg(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(gradJpar(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(gradJpar(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(gradJpar(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(ajcov(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(ajcov(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(ajcov(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        call contour(lambda(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
+c$$$        close(110)
+c$$$        pause
 c diag ****
-cc        if (lerror < 1d-4.and.it > 2) exit
       enddo
 
       !Destroy fixed-point accelerator
       call fpa_destroy(fpav)
 
-      call deallocateMGArray(gv_gjpar)
+      deallocate(BAvg,JAvg,EAvg,etaAvg,JparAvg,RHSfluc,RHSsrc,xxi,diffcf
+     $          ,gradJpar,gradJpar_cnv,ecnv,ecov,ajcov,ajcov_o,lambda_o)
 
-      deallocate(BAvg,JAvg,EAvg,etaAvg,JparAvg,RHSfluc,gradJpar,ecnv
-     .          ,ecnv1,ecnv2,ecnv3,x,y,lbda_err,diffcf,xi)
+      deallocate(x,y,lbda_err,xi,xa)
       
       end subroutine hyperres_diag
 
@@ -1458,10 +1515,6 @@ c     Map vector x to array for processing
       call fillArray(g_def,igrid,neq,x,drho,bcnd,order_bc,gpos=gpos
      .              ,icomp=(/IRHO/))
 
-c     Map velocity components
-
-      call point_to_MG_array(nnx,nny,nnz,igrid,v0_cnv,gv_gjpar)
- 
 c     Calculate matrix-vector product
 
       do k = kmin,kmax
@@ -1500,10 +1553,10 @@ c     End program
 
       end subroutine lmbda_mtvc
 
-c lap_mtvc
-c####################################################################
+c     lap_mtvc
+c     ##################################################################
       subroutine lap_mtvc(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
-c--------------------------------------------------------------------
+c     ------------------------------------------------------------------
 c     This subroutine is a matvec test, y = A.x.
 c     In call:
 c      * gpos: vector index of position on the numerical grid
@@ -1519,8 +1572,8 @@ c      * ntot: total number of unknowns: neq*nx*ny*nz
 c      * x(ntot): input vector
 c      * y(ntot): output vector
 c      * igrid: grid level
-c      * bcnf: boundary conditions on x vector.
-c--------------------------------------------------------------------
+c      * bcnd: boundary conditions on x vector.
+c      -----------------------------------------------------------------
 
       use setMGBC_interface
 
@@ -1528,13 +1581,13 @@ c--------------------------------------------------------------------
 
       implicit none
 
-c Call variables
+c     Call variables
 
       integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
       real(8)    :: x(ntot),y(ntot)
       type(grid_mg_def),pointer :: g_def
 
-c Local variables
+c     Local variables
 
       integer :: i,j,k,ig,jg,kg,isig,ijk,ijkg,nxx,nyy,nzz
       integer :: imin,imax,jmin,jmax,kmin,kmax,order
@@ -1545,7 +1598,7 @@ c Local variables
 
       type(mg_ctx),pointer :: mg_ctx_l => null()
 
-c Begin program
+c     Begin program
 
       call allocMGPointers(neq,g_def,mg_ctx_l,fpointers)
 
@@ -1555,12 +1608,12 @@ c Begin program
       nyy = g_def%nyv(igrid)
       nzz = g_def%nzv(igrid)
 
-c Find limits for loops
+c     Find limits for loops
 
       call limits(mg_ctx_l,abs(gpos),igrid
      .           ,imin,imax,jmin,jmax,kmin,kmax)
 
-c Map vector x to array for processing
+c     Map vector x to array for processing
 
       allocate(xarr(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
@@ -1574,27 +1627,25 @@ cc      xarr = 0d0
      .    .or.abs(bcnd(5,1)) == NEU
      .    .or.abs(bcnd(6,1)) == NEU) order = 0
 
-      call fillArray(g_def,igrid,neq,x,xarr,bcnd,order,gpos=gpos
-     .              ,icomp=(/IRHO/))
+      call fillArray(g_def,igrid,neq,x,xarr,bcnd,order,gpos=gpos)
 
-c Calculate matrix-vector product
+c     Calculate matrix-vector product
 
       do k = kmin,kmax
         do j = jmin,jmax
           do i = imin,imax
 
-            call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
-
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
             y(ijk) = lap(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                  ,xarr(:,:,:,1),vol=MG_get_res_vol_wgt())
+     .                  ,xarr(:,:,:,1),vol=MG_get_res_vol_wgt()
+     $                  ,zeroflx=.true.)
 
           enddo
         enddo
       enddo
 
-c End program
+c     End program
 
       deallocate(xarr)
 
