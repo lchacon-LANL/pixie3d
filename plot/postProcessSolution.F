@@ -1293,7 +1293,7 @@ c     Find scalar potential xi
       if (my_rank == 0) write (*,*) " Hyper-res grad(xi) solve..."
       guess = 0
       call cSolver(gv%gparams,1,nn,y,x,bc_xi
-     .            ,igrid,ilevel,guess,lap_mtvc,.true.
+     .            ,igrid,ilevel,guess,lapneu_mtvc,.true.
      .            ,tol           = rtol
      .            ,gm_driver     = .true. !pc_gm_driver
      .            ,mg_debug      = .false. !mg_debug
@@ -1353,7 +1353,7 @@ c     Solve for vector potential
         lambda_o = lambda
         lambda = scalarProduct_mesh(gv%gparams,igx,gradJpar,ecnv)
      $       /(scalarProduct_mesh(gv%gparams,igx,gradJpar,gradJpar_cnv))
-        lambda = max(lambda,0d0)
+c$$$        lambda = max(lambda,0d0)
         
         call setBC_ez(gv%gparams,igrid,lambda,bc_lbda,iorder=order_bc)
 
@@ -1369,6 +1369,9 @@ c$$$     $                             ,",error=",lerror/l0
         if (lerror < rtol*l1.and.it > 1) exit
 
         !Solve for vector potential A_J
+c$$$        ecnv(:,:,:,1) = (lambda-lambda_o)*gradJpar_cnv(:,:,:,1)
+c$$$        ecnv(:,:,:,2) = (lambda-lambda_o)*gradJpar_cnv(:,:,:,2)
+c$$$        ecnv(:,:,:,3) = (lambda-lambda_o)*gradJpar_cnv(:,:,:,3)
         ecnv(:,:,:,1) = lambda*gradJpar_cnv(:,:,:,1)
         ecnv(:,:,:,2) = lambda*gradJpar_cnv(:,:,:,2)
         ecnv(:,:,:,3) = lambda*gradJpar_cnv(:,:,:,3)
@@ -1377,9 +1380,10 @@ c$$$     $                             ,",error=",lerror/l0
         call vlap_curl_inv(gv%gparams,igx,ecnv,ajcov,bcsb,bcsa,ilevel
      .                    ,rtol=5d-1)
 
-        !Apply fixed-point accelerator
-        xa = reshape(ajcov_o(1:nx,1:ny,1:nz,:)
-     $              -ajcov  (1:nx,1:ny,1:nz,:),shape(xa))
+        !Apply fixed-point accelerator on A_J update
+c$$$        xa = -reshape(ajcov(1:nx,1:ny,1:nz,:),shape(xa))
+        xa = -reshape(ajcov  (1:nx,1:ny,1:nz,:)
+     $               -ajcov_o(1:nx,1:ny,1:nz,:),shape(xa))
 
         call fpa_correction(fpav,xa,dp=dot2)
 
@@ -1393,40 +1397,55 @@ c$$$     $                             ,",error=",lerror/l0
         !Compute error in A_J
         lerror = rms(reshape(xa,(/3*nn/)))
         if (it == 1) l1 = lerror
-        if (my_rank==0) write (*,*) "  >>> A_J error, it=",it
+        if (my_rank==0) write (*,100) "  >>> A_J error, it=",it
      $                             ,",error=",lerror/l1
-
-        !Find lambda (with BCs)
-        lambda(1:nx,1:ny,1:nz)=reshape(xi,shape(lambda(1:nx,1:ny,1:nz)))
-        lambda = lambda/JparAvg
-        call setBC_ez(gv%gparams,igrid,lambda,bc_lbda,iorder=order_bc)
+ 100    format(a,i3,a,1pe12.3)
 
 c diag ****
-c$$$        call createDrawInCfile(9,'lambda.bin','j','t','x','y'
-c$$$     $                        ,(/'xi  ','Jpar','gJp1','gJp2'
-c$$$     $                        ,'gJp3','A_1 ','A_2 ','A_3 ','lbda'/)
-c$$$     $                        ,'-c -X0 -L57','drawlambda.in')
-c$$$        open(unit=110,file='lambda.bin',form='unformatted'
-c$$$     .      ,status='unknown')
-c$$$        call contour(xxi(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,0,110)
-c$$$        call contour(JparAvg(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(gradJpar(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(gradJpar(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(gradJpar(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(ajcov(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(ajcov(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(ajcov(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(lambda(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        close(110)
+        ecov = grad(gv%gparams,igx,xxi)
+        ecnv = XformToCnv(gv%gparams,igx,ecov)
+        ecnv = ecnv + curl(gv%gparams,igx,ajcov)
+        call createDrawInCfile(15,'lambda.bin','j','t','x','y'
+     $                        ,(/'xi  ','Jpar','gJp1','gJp2'
+     $                        ,'gJp3','A_1 ','A_2 ','A_3 ','lbda'
+     $                      ,'ecn1','ecn2','ecn3','ecn1','ecn2','ecn3'/)
+     $                        ,'-c -X0 -L57','drawlambda.in')
+        open(unit=110,file='lambda.bin',form='unformatted'
+     .      ,status='unknown')
+        call contour(xxi(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,0,110)
+        call contour(JparAvg(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(gradJpar(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(gradJpar(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(gradJpar(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(ajcov(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(ajcov(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(ajcov(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(lambda(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(ecnv(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(ecnv(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(ecnv(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        ecnv(:,:,:,1) = (lambda)*gradJpar_cnv(:,:,:,1)
+        ecnv(:,:,:,2) = (lambda)*gradJpar_cnv(:,:,:,2)
+        ecnv(:,:,:,3) = (lambda)*gradJpar_cnv(:,:,:,3)
+        call contour(ecnv(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(ecnv(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(ecnv(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        close(110)
 c$$$        pause
 c diag ****
       enddo
@@ -1558,9 +1577,9 @@ c     End program
 
       end subroutine lmbda_mtvc
 
-c     lap_mtvc
+c     lapneu_mtvc
 c     ##################################################################
-      subroutine lap_mtvc(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
+      subroutine lapneu_mtvc(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
 c     ------------------------------------------------------------------
 c     This subroutine is a matvec test, y = A.x.
 c     In call:
@@ -1624,13 +1643,7 @@ c     Map vector x to array for processing
 
 cc      xarr = 0d0
 
-      order = order_bc
-      if (    abs(bcnd(1,1)) == NEU
-     .    .or.abs(bcnd(2,1)) == NEU
-     .    .or.abs(bcnd(3,1)) == NEU
-     .    .or.abs(bcnd(4,1)) == NEU
-     .    .or.abs(bcnd(5,1)) == NEU
-     .    .or.abs(bcnd(6,1)) == NEU) order = 0
+      order = 0
 
       call fillArray(g_def,igrid,neq,x,xarr,bcnd,order,gpos=gpos)
 
@@ -1656,6 +1669,6 @@ c     End program
 
       call deallocMGPointers(fpointers,mg_ctx_l)
 
-      end subroutine lap_mtvc
+      end subroutine lapneu_mtvc
       
       end subroutine postProcessSolution
