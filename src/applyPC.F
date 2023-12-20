@@ -1995,6 +1995,8 @@ c     potential and the differentiating it. It takes B in cartesian
 c     or curvilinear and returns Bcnv.
 c--------------------------------------------------------------------
 
+      use PC_var
+      
       use B_tools
 
       implicit none
