@@ -361,7 +361,8 @@ c Pressure diagnostics
 
 c Hyper-resistivity diagnostic (solve for hyperresistivity lambda)
 
-      if (hyperResistivity) call hyperres_diag(hlambda)
+      if (hyperResistivity.and.TS_chk_plot_dump(.false.))
+     $     call hyperres_diag(hlambda)
 
 c grad(P) diagnostic (relative to the magnetic field)
 
