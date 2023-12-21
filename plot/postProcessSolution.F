@@ -579,14 +579,16 @@ c     Call variables
 
       real(8),dimension(0:nx+1,0:ny+1,0:nz+1),intent(in) :: TargetVarIn
       real(8),dimension(0:nx+1,0:ny+1),intent(out) :: AvgVarOut
-
+      real(8),dimension(0:nx+1,0:ny+1) :: dummy
+      
 c     Local variables
 
 c     Begin program
 
       AvgVarOut = sum(TargetVarIn(:,:,1:nz),3)
 #if defined(petsc)
-      call MPI_Allreduce(AvgVarOut,AvgVarOut,size(AvgVarOut)
+      dummy = AvgVarOut
+      call MPI_Allreduce(dummy,AvgVarOut,size(AvgVarOut)
      .                  ,MPI_DOUBLE_PRECISION,MPI_SUM
      .                  ,gv%gparams%MPI_COMM_Z,mpierr)
 #endif
@@ -612,6 +614,7 @@ c     Local variables
 
       real(8),allocatable,dimension(:,:,:) :: bcnvavg
 #if defined(petsc)
+      real(8),allocatable,dimension(:,:,:) ::dummy
       real(8),allocatable,dimension(:) :: mpivec
 #endif
 
@@ -624,9 +627,12 @@ c     Begin program
       
       bcnvavg = sum(bcnv(:,:,1:nz,:),3)
 #if defined(petsc)
-      call MPI_Allreduce(bcnvavg,bcnvavg,size(bcnvavg)
+      allocate(dummy(0:nx+1,0:ny+1,3))
+      dummy = bcnvavg
+      call MPI_Allreduce(dummy,bcnvavg,size(bcnvavg)
      .                  ,MPI_DOUBLE_PRECISION,MPI_SUM
      .                  ,gv%gparams%MPI_COMM_Z,mpierr)
+      deallocate(dummy)
 #endif
       bcnvavg = bcnvavg/nzd
       
@@ -1179,10 +1185,9 @@ c     ##################################################################
             
       real(8),allocatable,dimension(:,:,:)   :: JparAvg,RHSfluc,BAvg
      $                                         ,RHSsrc,JAvg,diffcf,xxi
-     $                                         ,lambda_o
-      real(8),allocatable,dimension(:,:,:,:) :: gradJpar,gradJpar_cnv
+     $                                         ,lambda_o,EAvg,dummy
+      real(8),allocatable,dimension(:,:,:,:) :: gJpar,gJpar_cnv
      $                                         ,ecnv,ajcov,ajcov_o,ecov
-      real(8),allocatable,dimension(:,:,:)   :: EAvg
       real(8),allocatable,dimension(:,:)     :: etaAvg,x,y
       real(8),allocatable,dimension(:)       :: lbda_err,xi,xa
       
@@ -1190,20 +1195,22 @@ c     ##################################################################
       
       igrid = igx
 
-      allocate(BAvg(0:nx+1,0:ny+1,3),JAvg(0:nx+1,0:ny+1,3)
-     .        ,EAvg(0:nx+1,0:ny+1,3),etaAvg(0:nx+1,0:ny+1)
-     .        ,JparAvg(0:nx+1,0:ny+1,0:nz+1)
-     .        ,RHSfluc(0:nx+1,0:ny+1,0:nz+1)
-     .        ,RHSsrc (0:nx+1,0:ny+1,0:nz+1)
-     .        ,xxi    (0:nx+1,0:ny+1,0:nz+1)
-     .        ,lambda_o(0:nx+1,0:ny+1,0:nz+1)
-     .        ,diffcf  (0:nx+1,0:ny+1,0:nz+1)
-     .        ,gradJpar(0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,gradJpar_cnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,ecnv   (0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,ecov   (0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,ajcov  (0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,ajcov_o(0:nx+1,0:ny+1,0:nz+1,3))
+      allocate(BAvg     (0:nx+1,0:ny+1,3)
+     .        ,JAvg     (0:nx+1,0:ny+1,3)
+     .        ,EAvg     (0:nx+1,0:ny+1,3)
+     .        ,etaAvg   (0:nx+1,0:ny+1)
+     .        ,JparAvg  (0:nx+1,0:ny+1,0:nz+1)
+     .        ,RHSfluc  (0:nx+1,0:ny+1,0:nz+1)
+     .        ,RHSsrc   (0:nx+1,0:ny+1,0:nz+1)
+     .        ,xxi      (0:nx+1,0:ny+1,0:nz+1)
+     .        ,lambda_o (0:nx+1,0:ny+1,0:nz+1)
+     .        ,diffcf   (0:nx+1,0:ny+1,0:nz+1)
+     .        ,gJpar    (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,gJpar_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,ecnv     (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,ecov     (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,ajcov    (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,ajcov_o  (0:nx+1,0:ny+1,0:nz+1,3))
 
       nn = nx*ny*nz
       allocate(x(nn,1),y(nn,1),lbda_err(nn),xi(nn),xa(3*nn))
@@ -1255,9 +1262,9 @@ c     ##################################################################
       bcs(:,3) = bcond
       where(bcs == DEF) bcs =-EXT
       
-      gradJpar = grad(gv%gparams,igx,JparAvg)
-      call setBC_ez(gv%gparams,igx,gradJpar,.false.,bcs,iorder=order_bc)
-      gradJpar_cnv = XformToCnv(gv%gparams,igx,gradJpar)
+      gJpar = grad(gv%gparams,igx,JparAvg)
+      call setBC_ez(gv%gparams,igx,gJpar,.false.,bcs,iorder=order_bc)
+      gJpar_cnv = XformToCnv(gv%gparams,igx,gJpar)
 
 c     Find scalar potential xi
 
@@ -1352,8 +1359,8 @@ c     Solve for vector potential
 
         !Compute lambda (with BCs)
         lambda_o = lambda
-        lambda = scalarProduct_mesh(gv%gparams,igx,gradJpar,ecnv)
-     $       /(scalarProduct_mesh(gv%gparams,igx,gradJpar,gradJpar_cnv))
+        lambda = scalarProduct_mesh(gv%gparams,igx,gJpar,ecnv)
+     $       /(scalarProduct_mesh(gv%gparams,igx,gJpar,gJpar_cnv))
 c$$$        lambda = max(lambda,0d0)
         
         call setBC_ez(gv%gparams,igrid,lambda,bc_lbda,iorder=order_bc)
@@ -1366,16 +1373,17 @@ c$$$
 c$$$        if (it == 1) l0 = lerror
 c$$$        if (my_rank==0) write (*,*) "Lambda it error, it=",it
 c$$$     $                             ,",error=",lerror/l0
+c$$$        if (lerror < rtol*l0.and.it > 1) exit
 
         if (lerror < rtol*l1.and.it > 1) exit
 
         !Solve for vector potential A_J
-c$$$        ecnv(:,:,:,1) = (lambda-lambda_o)*gradJpar_cnv(:,:,:,1)
-c$$$        ecnv(:,:,:,2) = (lambda-lambda_o)*gradJpar_cnv(:,:,:,2)
-c$$$        ecnv(:,:,:,3) = (lambda-lambda_o)*gradJpar_cnv(:,:,:,3)
-        ecnv(:,:,:,1) = lambda*gradJpar_cnv(:,:,:,1)
-        ecnv(:,:,:,2) = lambda*gradJpar_cnv(:,:,:,2)
-        ecnv(:,:,:,3) = lambda*gradJpar_cnv(:,:,:,3)
+c$$$        ecnv(:,:,:,1) = (lambda-lambda_o)*gJpar_cnv(:,:,:,1)
+c$$$        ecnv(:,:,:,2) = (lambda-lambda_o)*gJpar_cnv(:,:,:,2)
+c$$$        ecnv(:,:,:,3) = (lambda-lambda_o)*gJpar_cnv(:,:,:,3)
+        ecnv(:,:,:,1) = lambda*gJpar_cnv(:,:,:,1)
+        ecnv(:,:,:,2) = lambda*gJpar_cnv(:,:,:,2)
+        ecnv(:,:,:,3) = lambda*gJpar_cnv(:,:,:,3)
 
         ajcov_o = ajcov
         call vlap_curl_inv(gv%gparams,igx,ecnv,ajcov,bcsb,bcsa,ilevel
@@ -1402,60 +1410,52 @@ c$$$        xa = -reshape(ajcov(1:nx,1:ny,1:nz,:),shape(xa))
      $                             ,",error=",lerror/l1
  100    format(a,i3,a,1pe12.3)
 
-c diag ****
-        ecov = grad(gv%gparams,igx,xxi)
-        ecnv = XformToCnv(gv%gparams,igx,ecov)
-        ecnv = ecnv + curl(gv%gparams,igx,ajcov)
-        call createDrawInCfile(15,'lambda.bin','j','t','x','y'
-     $                        ,(/'xi  ','Jpar','gJp1','gJp2'
-     $                        ,'gJp3','A_1 ','A_2 ','A_3 ','lbda'
-     $                      ,'ecn1','ecn2','ecn3','ecn1','ecn2','ecn3'/)
-     $                        ,'-c -X0 -L57','drawlambda.in')
-        open(unit=110,file='lambda.bin',form='unformatted'
-     .      ,status='unknown')
-        call contour(xxi(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,0,110)
-        call contour(JparAvg(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(gradJpar(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(gradJpar(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(gradJpar(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(ajcov(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(ajcov(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(ajcov(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(lambda(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(ecnv(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(ecnv(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(ecnv(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        ecnv(:,:,:,1) = (lambda)*gradJpar_cnv(:,:,:,1)
-        ecnv(:,:,:,2) = (lambda)*gradJpar_cnv(:,:,:,2)
-        ecnv(:,:,:,3) = (lambda)*gradJpar_cnv(:,:,:,3)
-        call contour(ecnv(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(ecnv(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(ecnv(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        close(110)
-c$$$        pause
-c diag ****
       enddo
 
+c diag ****
+      if (my_rank == 0) then
+        call createDrawInCfile(15,'lambda.bin','j','t','x','y'
+     $                    ,(/'xi  ','Jpar','gJp1','gJp2','gJp3'
+     $                      ,'A_1 ','A_2 ','A_3 ','lbda','hlm1'
+     $                      ,'hlm2','hlm3','hlm1','hlm2','hlm3'/)
+     $                    ,'-c -X0 -L57','drawlambda.in')
+      endif
+
+      !WARNING: this debug code requires global communication
+      call dumpGlobalField(gv%gparams,1,"lambda.bin",xxi,0)
+      call dumpGlobalField(gv%gparams,1,"lambda.bin",JparAvg,1)
+      call dumpGlobalField(gv%gparams,1,"lambda.bin",gJpar(:,:,:,1),1)
+      call dumpGlobalField(gv%gparams,1,"lambda.bin",gJpar(:,:,:,2),1)
+      call dumpGlobalField(gv%gparams,1,"lambda.bin",gJpar(:,:,:,3),1)
+      call dumpGlobalField(gv%gparams,1,"lambda.bin",aJcov(:,:,:,1),1)
+      call dumpGlobalField(gv%gparams,1,"lambda.bin",aJcov(:,:,:,2),1)
+      call dumpGlobalField(gv%gparams,1,"lambda.bin",aJcov(:,:,:,3),1)
+      call dumpGlobalField(gv%gparams,1,"lambda.bin",lambda,1)
+
+      ecov = grad(gv%gparams,igx,xxi)
+      ecnv = XformToCnv(gv%gparams,igx,ecov)
+      ecnv = ecnv + curl(gv%gparams,igx,ajcov)
+
+      call dumpGlobalField(gv%gparams,1,"lambda.bin",ecnv(:,:,:,1),1)
+      call dumpGlobalField(gv%gparams,1,"lambda.bin",ecnv(:,:,:,2),1)
+      call dumpGlobalField(gv%gparams,1,"lambda.bin",ecnv(:,:,:,3),1)
+
+      ecnv(:,:,:,1) = lambda*gJpar_cnv(:,:,:,1)
+      ecnv(:,:,:,2) = lambda*gJpar_cnv(:,:,:,2)
+      ecnv(:,:,:,3) = lambda*gJpar_cnv(:,:,:,3)
+
+      call dumpGlobalField(gv%gparams,1,"lambda.bin",ecnv(:,:,:,1),1)
+      call dumpGlobalField(gv%gparams,1,"lambda.bin",ecnv(:,:,:,2),1)
+      call dumpGlobalField(gv%gparams,1,"lambda.bin",ecnv(:,:,:,3),1)
+
+c$$$        pause
+c diag ****
+        
       !Destroy fixed-point accelerator
       call fpa_destroy(fpav)
 
       deallocate(BAvg,JAvg,EAvg,etaAvg,JparAvg,RHSfluc,RHSsrc,xxi,diffcf
-     $          ,gradJpar,gradJpar_cnv,ecnv,ecov,ajcov,ajcov_o,lambda_o)
+     $          ,gJpar,gJpar_cnv,ecnv,ecov,ajcov,ajcov_o,lambda_o)
 
       deallocate(x,y,lbda_err,xi,xa)
       
