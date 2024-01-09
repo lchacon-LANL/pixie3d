@@ -1405,7 +1405,7 @@ c$$$        xa = -reshape(ajcov(1:nx,1:ny,1:nz,:),shape(xa))
 
         !Compute error in A_J
         lerror = rms(reshape(xa,(/3*nn/)))
-        if (it == 1) l1 = lerror
+        if (it == 1) l1 = max(lerror,findRoundOff())
         if (my_rank==0) write (*,100) "  >>> A_J error, it=",it
      $                             ,",error=",lerror/l1
  100    format(a,i3,a,1pe12.3)
