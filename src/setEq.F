@@ -3346,15 +3346,15 @@ c     Local variables
         real(8) :: chirh,chirhm,chirhp
 
         real(8) :: bz0,dummy(0:nxdp),bth0_old(0:nxdp)
-     .            ,bzz0_old(0:nxdp),xh(0:nxd),dr(0:nxd)
+     .            ,bzz0_old(0:nxdp),xh(0:nxdp),dr(0:nxdp)
      .            ,bzf(0:nxdp),btf(0:nxdp),p0_old(0:nxdp)
      .            ,jzf(nxd),jtf(nxd),dl(nxd),d(nxd),du(nxd)
-     .            ,etah(0:nxdp)
+     .            ,etah(0:nxdp),rg(0:nxdp),drh(0:nxdp)
 
         real(8) :: pprof
         external   pprof
 
-        real(8) :: alpha,etah0
+        real(8) :: alpha,etah0,gp,dvol,dx1,dx2
         real(8) :: chih(0:nxd)
 
         real(8) :: pa
@@ -3376,22 +3376,33 @@ c     Begin program
 
 c       Initialize iteration
 
-        bz0 = 1d0 !bzz0(0)
+        bz0 = 1d0
 
+        call find_global_radial_mesh(rg)
+        
+        !Half-mesh positions and spacings
+        do i=0,nxd
+          xh (i) = 0.5*(rg(i+1)+rg(i))
+          drh(i) =      rg(i+1)-rg(i)
+        enddo
+        drh(nxdp) = drh(nxd)
+        xh (nxdp) = xh(nxd)+drh(nxd)
+        
+        !Integer mesh spacings
+        do i=1,nxdp
+          dr(i) = xh(i)-xh(i-1)
+        enddo
+        dr(0) = dr(1)
+
+        !Initial guess for B_theta and B_z (defined in half mesh)
+        bth0 = 0.5*xh*Eoeta
+        bzz0 = bz0
+        
         !Find half-mesh positions
         do i=0,nxd
-          dr(i)  =      gv%gparams%xg(i+1)-gv%gparams%xg(i)
-          xh(i)  = 0.5*(gv%gparams%xg(i+1)+gv%gparams%xg(i))
-          chih(i)=0.5*chi*(chi_rfx(gv%gparams%xg(i+1))
-     $                    +chi_rfx(gv%gparams%xg(i  )))
+          chih(i)=0.5*chi*(chi_rfx(rg(i+1))+chi_rfx(rg(i)))
         enddo
-
-        !Initial guess for B_theta (defined in half mesh)
-        bth0 = 0d0
-        do i=0,nxd
-          bth0(i) = 0.5*xh(i)*Eoeta
-        enddo
-
+       
         p0_old = p0
 
 c       Iteration
@@ -3406,12 +3417,9 @@ c       Iteration
             do i=1,nxdp
               etah(i) = res_spitzer(p0(i),p0(1))
             enddo
-c$$$            etah0 = etah(1)
-c$$$            etah  = etah/etah0
           else
             do i=1,nxdp
-              rh = gv%gparams%xg(i)
-              etah(i) = res_rfx(rh)
+              etah(i) = res_rfx(rg(i))
             enddo
           endif
 
@@ -3422,40 +3430,65 @@ c$$$            etah  = etah/etah0
           !Perform integral of B_theta
           dummy(0) = 0d0
           bth0 (0) = 0d0
-          do i=1,nxd
-            x1 = xh(i)
-            rh = gv%gparams%xg(i)
-
+          do i=1,nxdp
+            !Full-mesh field components
             bzh = 0.5*(bzz0(i)+bzz0(i-1))
             bth = 0.5*(bth0(i)+bth0(i-1))
 
-            dummy(i)=dummy(i-1)
-     .              +(Eoeta/etah(i)*bzh**2
-     .               -bth*(p0(i+1)-p0(i-1))/2./dr(i))
-     .                /(bzh**2+bth**2)*rh*dr(i)
+            !Second order pressure gradient
+            dx1=drh(i-1)
+            dx2=drh(i)
 
-            bth0(i) = dummy(i)/x1
+            if (i==nxdp) then
+              gp = (p0(i)-p0(i-1))/drh(i)
+            else
+              gp = ( p0(i+1)*dx1/dx2/(dx1+dx2)
+     .              +p0(i  )*(dx2-dx1)/dx2/dx1
+     .              -p0(i-1)*dx2/dx1/(dx1+dx2))
+            endif
+            
+            !Accumulate integral on half mesh
+            dvol = 0.5*(xh(i)**2-xh(i-1)**2)
+            dummy(i)=dummy(i-1)
+     .              +(Eoeta/etah(i)*bzh**2-bth*gp)/(bzh**2+bth**2)*dvol
+
+            !Transform to Bth on half-mesh
+            bth0(i) = dummy(i)/xh(i)
           enddo
 
           !Perform integral of Bz
           dummy = 0d0
-          do i=1,nxd
-            x1 = xh(i)
+          do i=1,nxdp
+            x1 = xh(i)  !Half mesh
+            rh = rg(i)  !Full mesh
+
             bzh = 0.5*(bzz0(i)+bzz0(i-1))
             bth = 0.5*(bth0(i)+bth0(i-1))
-            rh  = gv%gparams%xg(i)
 
+            !Second order pressure gradient
+            dx1 = drh(i-1)
+            dx2 = drh(i)
+
+            if (i==nxdp) then
+              gp = (p0(i)-p0(i-1))/drh(i)
+            else
+              gp = ( p0(i+1)*dx1/dx2/(dx1+dx2)
+     .              +p0(i  )*(dx2-dx1)/dx2/dx1
+     .              -p0(i-1)*dx2/dx1/(dx1+dx2))
+            endif
+
+            !Accumulate integral
             dummy(i) = dummy(i-1)
-     .                +(Eoeta/etah(i)*bth+(p0(i+1)-p0(i-1))/2./dr(i))
-     .                /(bzh**2+bth**2)*dr(i)
+     .               +(Eoeta/etah(i)*bth+gp)/(bzh**2+bth**2)*dr(i)
           enddo
 
+          !Transform to Bz
           bzz0 = exp(-dummy)
 
           if (theta /= 0d0) then
             bz_avg = 0d0
             do i=1,nxd
-               bz_avg = bz_avg + (bzz0(i)*i + bzz0(i-1)*(i-1))*dr(i)**2
+               bz_avg = bz_avg + (bzz0(i)*xh(i)+bzz0(i-1)*xh(i-1))*dr(i)
             enddo
             bz_avg = bz_avg/xmax**2
             bzz0 = bth0(nxd)/theta/bz_avg*bzz0
@@ -3468,12 +3501,12 @@ c$$$            etah  = etah/etah0
           endif
 
           !Transfer to integer mesh (f stands for full mesh)
-          call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd)
+          call IntDriver1d(nxdp+1,xh(0:nxdp),bth0(0:nxdp)
      .                    ,nxdp,gv%gparams%xg(1:nxdp),dummy(1:nxdp)
      .                    ,2,0)
           btf = dummy
 
-          call IntDriver1d(nxdp,xh(0:nxd),bzz0(0:nxd)
+          call IntDriver1d(nxdp+1,xh(0:nxdp),bzz0(0:nxdp)
      .                    ,nxdp,gv%gparams%xg(1:nxdp),dummy(1:nxdp)
      .                    ,2,0)
           bzf = dummy
@@ -3484,19 +3517,24 @@ c$$$            etah  = etah/etah0
 
           !Find pinch flow (NOT normalized to nominal resistivity)
           vr0 = 0d0
-          do i=1,nxd
-            vr0(i) = -(Eoeta*btf(i)
-     .             +etah(i)*(p0(i+1)-p0(i-1))/2./dr(i))
-     .             /(bzf(i)**2+btf(i)**2)
+          do i=1,nxdp
+            rh  = rg(i)
+
+            dx1 = drh(i-1)
+
+            if (i < nxdp) then
+              !Second order pressure gradient
+              dx2 = drh(i)
+
+              gp = ( p0(i+1)*dx1/dx2/(dx1+dx2)
+     .              +p0(i  )*(dx2-dx1)/dx2/dx1
+     .              -p0(i-1)*dx2/dx1/(dx1+dx2))
+            else
+              gp = (p0(i)-p0(i-1))/dx1
+            endif
+
+            vr0(i) = -(Eoeta*bth0(i)+etah(i)*gp)/(bzz0(i)**2+bth0(i)**2)
           enddo
-! Daniele, 12/7/2011
-! dr(nxdp)=0. so I use dr(nxd)
-          vr0(nxdp)= -(Eoeta*btf(nxdp)
-c$$$     .         +etah(nxdp)
-c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
-! Daniele, 1/8/2014
-     .         +etah(nxdp)*(p0(nxdp)-p0(nxd))/dr(nxd))
-     .         /(bzf(nxdp)**2+btf(nxdp)**2)
 
           vr0 = etah0*vr0
 
@@ -3504,7 +3542,7 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
 
           !Find current j on integer mesh
           do i=1,nxd
-            rh = gv%gparams%xg(i)
+            rh = rg(i)
             jzf(i)=(xh(i)*bth0(i)-xh(i-1)*bth0(i-1))/(rh*dr(i))
             jtf(i)=-(bzz0(i)-bzz0(i-1))/dr(i)
           enddo
@@ -3513,14 +3551,14 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
 
           !Find heat source on integer mesh
           do i=1,nxd
-            rh = gv%gparams%xg(i)
+            rh = rg(i)
             p0(i)=rh*etah(i)*(jtf(i)*jtf(i)+jzf(i)*jzf(i))
      .           +rh*ext_heat_src_prof(rh)/eta
           enddo
           p0 = etah0*p0
 
           !BCs with finite p(a)
-          rh = gv%gparams%xg(nxd)
+          rh = rg(nxd)
           p0(nxd) = p0(nxd) + pa/dr(nxd)*
      .         (-gamma/(gamma-1.)*xh(nxd)*vr0(nxd)
      .          +vr0(nxd)*rh
@@ -3528,7 +3566,7 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
 
           !Build the tridiagonal matrix to be inverted
           do i=1,nxd
-            rh  = gv%gparams%xg(i)
+            rh  = rg(i)
 
             dl(i)= -gamma/(gamma-1.)*xh(i-1)*vr0(i)/(2.*dr(i))
      .            +vr0(i)*rh/(2.*dr(i))
@@ -3545,11 +3583,11 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
           enddo
 
           !BCs at i=1
-          rh  = gv%gparams%xg(1)
+          rh  = rg(1)
           d(1)=d(1)+vr0(1)*rh/(2.*dr(1))
 
           !BSc at i=nxd
-          rh  = gv%gparams%xg(nxd)
+          rh  = rg(nxd)
           d(nxd)=d(nxd)
      .          -gamma/(gamma-1.)*xh(nxd)*vr0(nxd)/(2.*dr(nxd))
      .          +vr0(nxd)*rh/(2.*dr(nxd))
@@ -3590,18 +3628,15 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
           do i=1,nxd
             etah(i) = res_spitzer(p0(i),p0(1))
           enddo
-c$$$          etah0 = etah(1)
-c$$$          etah  = etah/etah0
         else
           do i=1,nxd
-            rh = gv%gparams%xg(i)
-            etah(i) = res_rfx(rh)
+            etah(i) = res_rfx(rg(i))
           enddo
         endif
 
         !Check force balance
         do i=1,nxd
-          rh  = gv%gparams%xg(i)
+          rh  = rg(i)
 
           bzh = 0.5*(bzz0(i)+bzz0(i-1))
           bth = 0.5*(bth0(i)+bth0(i-1))
@@ -3620,7 +3655,7 @@ c$$$          etah  = etah/etah0
         do i=1,nxd
           bzh = 0.5*(bzz0(i)+bzz0(i-1))
           bth = 0.5*(bth0(i)+bth0(i-1))
-          rh  = gv%gparams%xg(i)
+          rh  = rg(i)
 
           dummy(i) = Eoeta*bzh/etah(i)
      $              -bzh/rh*(bth0(i)*i-bth0(i-1)*(i-1))
@@ -3635,9 +3670,9 @@ c$$$          etah  = etah/etah0
         !Check energy equation
         etah = etah*etah0
         do i=1,nxd
-          rh  = gv%gparams%xg(i)
-          rhm = gv%gparams%xg(i-1)
-          rhp = gv%gparams%xg(i+1)
+          rh  = rg(i)
+          rhm = rg(i-1)
+          rhp = rg(i+1)
 
           chirh =chi*chi_rfx(rh)
           chirhm=chi*chi_rfx(rhm)
@@ -3668,7 +3703,7 @@ c$$$          etah  = etah/etah0
         !Calculate pinch equilibrium features (theta parameter, Bz(r=0), I0)
         bz_avg = 0d0
         do i=1,nxd
-          bz_avg = bz_avg + (bzz0(i)*i + bzz0(i-1)*(i-1))*dr(i)**2
+          bz_avg = bz_avg + (bzz0(i)*xh(i)+bzz0(i-1)*xh(i-1))*dr(i)
         enddo
 
         if (my_rank == 0) then
@@ -3702,7 +3737,7 @@ cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
         if (my_rank == 0.and.(.not.test)) then
           write (*,*) 'r,bth0,bzz0,q0,vr0,p0'
           do i=0,nxdp
-            rh  = gv%gparams%xg(i)
+            rh  = rg(i)
             write(*,10) rh,bth0(i),bzz0(i)
      .             ,(rh*bzz0(i))/(RR*bth0(i)),vr0(i),p0(i)
           enddo
