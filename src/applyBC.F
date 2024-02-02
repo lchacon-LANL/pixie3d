@@ -289,8 +289,6 @@ c--------------------------------------------------------------------
 
       use rw_bc
 
-      use ts_io, ONLY: ts_after_restart
-
       implicit none
 
 c Call variables
@@ -823,7 +821,7 @@ c--------------------------------------------------------------------
       use var_setup
 
 #if !defined(_equ)
-      use ts_io, ONLY: ts_after_restart,TS_chk_after_restart
+      use ts_io, ONLY: TS_chk_after_restart
 #endif
       use app_iosetup, ONLY: test
       
