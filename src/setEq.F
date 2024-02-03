@@ -3369,12 +3369,12 @@ c     Begin program
           write (*,*)
         endif
 
-        alpha = 0.8d0 !underrelaxation constant
+c       Initialize iteration
+
+        alpha = 0.8d0           !underrelaxation constant
         etah0 = 1d0   !needed if not spitzer
 
         pa = pw
-
-c       Initialize iteration
 
         bz0 = 1d0
 
@@ -3398,7 +3398,7 @@ c       Initialize iteration
         bth0 = 0.5*xh*Eoeta
         bzz0 = bz0
         
-        !Find half-mesh positions
+        !Find transport coeff at half-mesh positions
         do i=0,nxd
           chih(i)=0.5*chi*(chi_rfx(rg(i+1))+chi_rfx(rg(i)))
         enddo
@@ -3442,9 +3442,9 @@ c       Iteration
             if (i==nxdp) then
               gp = (p0(i)-p0(i-1))/drh(i)
             else
-              gp = ( p0(i+1)*dx1/dx2/(dx1+dx2)
-     .              +p0(i  )*(dx2-dx1)/dx2/dx1
-     .              -p0(i-1)*dx2/dx1/(dx1+dx2))
+              gp = (p0(i+1)*dx1/dx2/(dx1+dx2)
+     .             +p0(i  )*(dx2-dx1)/dx2/dx1
+     .             -p0(i-1)*dx2/dx1/(dx1+dx2))
             endif
             
             !Accumulate integral on half mesh
@@ -3472,9 +3472,9 @@ c       Iteration
             if (i==nxdp) then
               gp = (p0(i)-p0(i-1))/drh(i)
             else
-              gp = ( p0(i+1)*dx1/dx2/(dx1+dx2)
-     .              +p0(i  )*(dx2-dx1)/dx2/dx1
-     .              -p0(i-1)*dx2/dx1/(dx1+dx2))
+              gp = (p0(i+1)*dx1/dx2/(dx1+dx2)
+     .             +p0(i  )*(dx2-dx1)/dx2/dx1
+     .             -p0(i-1)*dx2/dx1/(dx1+dx2))
             endif
 
             !Accumulate integral
@@ -3549,7 +3549,7 @@ c       Iteration
 
           !Pressure solve
 
-          !Find heat source on integer mesh
+          !Find joule-heating source on integer mesh
           do i=1,nxd
             rh = rg(i)
             p0(i)=rh*etah(i)*(jtf(i)*jtf(i)+jzf(i)*jzf(i))
