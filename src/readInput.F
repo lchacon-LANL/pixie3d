@@ -851,6 +851,8 @@ c     #####################################################################
 
       if (chi_par == 0d0) chi_par = chi
 
+      if (chi_par /= chi) solve_prs = .false.
+      
       if (di == 0d0) then
         de = 0d0
         ion_hall = .false.

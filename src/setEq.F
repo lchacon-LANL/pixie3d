@@ -3354,7 +3354,7 @@ c     Local variables
         real(8) :: pprof
         external   pprof
 
-        real(8) :: alpha,etah0,gp,dvol,dx1,dx2
+        real(8) :: alpha,etah0,gp,dvol,dx1,dx2,p_diff_coeff
         real(8) :: chih(0:nxd)
 
         real(8) :: pa
@@ -3372,11 +3372,18 @@ c     Begin program
 c       Initialize iteration
 
         alpha = 0.8d0           !underrelaxation constant
-        etah0 = 1d0   !needed if not spitzer
+        etah0 = 1d0             !needed if not spitzer
 
         pa = pw
 
         bz0 = 1d0
+
+        !Diffuse Te instead of p if use_p_diff is false
+        if (use_p_diff) then
+          p_diff_coeff = 1d0
+        else
+          p_diff_coeff = 1d0/a_p
+        endif
 
         call find_global_radial_mesh(rg)
         
@@ -3562,7 +3569,7 @@ c       Iteration
           p0(nxd) = p0(nxd) + pa/dr(nxd)*
      .         (-gamma/(gamma-1.)*xh(nxd)*vr0(nxd)
      .          +vr0(nxd)*rh
-     .          +2.*chih(nxd)/eta*xh(nxd)/dr(nxd))
+     .          +2.*p_diff_coeff*chih(nxd)/eta*xh(nxd)/dr(nxd))
 
           !Build the tridiagonal matrix to be inverted
           do i=1,nxd
@@ -3570,16 +3577,17 @@ c       Iteration
 
             dl(i)= -gamma/(gamma-1.)*xh(i-1)*vr0(i)/(2.*dr(i))
      .            +vr0(i)*rh/(2.*dr(i))
-     .            -chih(i-1)/eta*xh(i-1)/dr(i)**2.
+     .            -p_diff_coeff*chih(i-1)/eta*xh(i-1)/dr(i)**2
 
             d(i)=  gamma/(gamma-1.)
      .            *(xh(i)*vr0(i+1)-xh(i-1)*vr0(i-1))/(2.*dr(i))
-     .            +1./eta*(chih(i)*xh(i)+chih(i-1)*xh(i-1))/dr(i)**2.
+     .            +p_diff_coeff/eta*(chih(i)*xh(i)+chih(i-1)*xh(i-1))
+     $                         /dr(i)**2
 
             du(i)= gamma/(gamma-1.)
      .            *(xh(i)*vr0(i))/(2.*dr(i))
      .            -vr0(i)*rh/(2.*dr(i))
-     .            -chih(i)/eta*xh(i)/dr(i)**2.
+     .            -p_diff_coeff*chih(i)/eta*xh(i)/dr(i)**2
           enddo
 
           !BCs at i=1
@@ -3591,7 +3599,7 @@ c       Iteration
           d(nxd)=d(nxd)
      .          -gamma/(gamma-1.)*xh(nxd)*vr0(nxd)/(2.*dr(nxd))
      .          +vr0(nxd)*rh/(2.*dr(nxd))
-     .          +chih(nxd)/eta*xh(nxd)/dr(nxd)**2.
+     .          +p_diff_coeff*chih(nxd)/eta*xh(nxd)/dr(nxd)**2
 
           !Invert tridiagonal matrix
           call DGTSV(nxd,1,dl(2:nxd),d,du(1:nxd-1),p0(1:nxd),nxd
@@ -3682,18 +3690,14 @@ c       Iteration
      .          gamma/(gamma-1.)
      .           *(rhp*p0(i+1)*vr0(i+1)-rhm*p0(i-1)*vr0(i-1))/(2.*dr(i))
      .          -vr0(i)*rh*(p0(i+1)-p0(i-1))/(2.*dr(i))
-!     .          -chi/eta*(0.5*(rhp+rh)*(p0(i+1)-p0(i  ))/(rhp-rh)
-!     .                   +0.5*(rhm+rh)*(p0(i  )-p0(i-1))/(rhm-rh))/dr(i)
-! Daniele, 02/07/2014
-     .          -1./eta*
+     .          -p_diff_coeff/eta*
      .          (0.5*(chirhp+chirh)
      .          *0.5*(rhp+rh)*(p0(i+1)-p0(i  ))/(rhp-rh)
      .          +0.5*(chirhm+chirh)
-     .          *0.5*(rhm+rh)*(p0(i  )-p0(i-1))/(rhm-rh))
-     .          /dr(i)
+     .          *0.5*(rhm+rh)*(p0(i  )-p0(i-1))/(rhm-rh))/dr(i)
      .          -rh*etah(i)*(jtf(i)*jtf(i)+jzf(i)*jzf(i))
         enddo
-        dummy = dummy*eta
+!        dummy = dummy*eta
 
         if (my_rank == 0) then
           write(*,'(a,1pe14.7)') ' Energy equation error ='
