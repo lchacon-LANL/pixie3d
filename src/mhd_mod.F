@@ -3128,7 +3128,8 @@ c ######################################################################
      .            ,limit_dt_flow_cfl=.false. !Whether to limit Dt according to flow CFL
      .            ,post_filter_hel  =.false. !Whether to filter helical simulations
      .            ,re_pkg           =.false. !Whether we are using the runaway-e package
-
+     .            ,no_visc_heating  =.false. !Whether we allow for viscous heating or not
+        
         logical,private :: symm_pi
 
         real(8) :: binom_alph=0d0
@@ -3615,7 +3616,8 @@ c     Begin program
         ihs =eta(i,j,k)*vectorNorm(g_def,i,j,k,igr,jcov(i,j,k,:),.true.)
         
         !Ion viscosity
-        ihs =ihs + viscous_heat_src(g_def,i,j,k,igr,nu,vcnv,vcnv,sym_st)
+        if (.not.no_visc_heating) 
+     .  ihs =ihs + viscous_heat_src(g_def,i,j,k,igr,nu,vcnv,vcnv,sym_st)
 
         !Electron viscosity
         !Comment out for old TM Hall MHD performance results

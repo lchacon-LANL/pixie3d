@@ -314,6 +314,9 @@ c     Warnings
           call info('  Using (2-gamma)*v.grad(Te) form of Te eq.')
         endif
       endif
+
+      if (no_visc_heating) call warning('  Turned off viscous heating')
+
 #if !defined(vec_pot)
       if (.not.pc_divclean) call info('  Div-cleaning postprocessed')
 #endif
