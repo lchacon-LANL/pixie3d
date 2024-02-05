@@ -96,7 +96,7 @@ c Namelists
      .                   ,ts_ramp_up_dt_recovery,refine_eq
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
-     .                   ,adiabatic_rho,solve_prs
+     .                   ,adiabatic_rho,solve_prs,no_visc_heating
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
@@ -143,6 +143,7 @@ c Namelists
      .                   ,brem_rad_sink,brem_rad
      .                   ,re_pkg,c_va,re_diag
      .                   ,n_0,mi_mp,log_lamb
+     $                   ,no_visc_heating
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
@@ -527,6 +528,8 @@ c     #####################################################################
 
       spitzer  = .false.       ! Whether we are using Spitzer resistivity
       chi_bgnskii = .false.    ! Whether to use Braginskii conductivities
+
+      no_visc_heating = .false.! Whether we allow for viscous heating or not
       
       gamma    = 5./3.         ! Polytropic constant of plasma
 
@@ -849,10 +852,12 @@ c     #####################################################################
         nc_eom_gp  = .true.
       endif
 
+      !Parallel transport checks
       if (chi_par == 0d0) chi_par = chi
 
-      if (chi_par /= chi) solve_prs = .false.
-      
+      if (chi_par /= chi) solve_prs = .false.  !Solve for Te
+
+      !Hall MHD checks
       if (di == 0d0) then
         de = 0d0
         ion_hall = .false.
