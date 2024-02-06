@@ -1,6 +1,10 @@
 
- Reading EXTERNAL eigenmodes from pixie3d-eigen.eig...
- Divergence cleaning converged in 16 its
+
+[36m  Reading EXTERNAL eigenmodes from pixie3d-eigen.eig...[0m
+[36m  Done![0m
+
+[36m  Divergence cleaning perturbation...[0m
+  >> Divergence cleaning converged in 16 its
 
   Grid mesh:................   64x   32x    1
   Number of grid levels:....    5,    4,    1

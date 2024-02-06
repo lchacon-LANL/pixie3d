@@ -1,4 +1,5 @@
 
+
   Grid mesh:................   32x   32x    1
   Number of processors:.....    2,    2,    1
   Preconditioning method:... Identity
@@ -29,6 +30,7 @@ Final statistics
 
  BEGIN FILE TRANSFER
 
+
  Reading REFERENCE file pix3d_ref.in
 
  REFERENCE problem dimensions
@@ -44,6 +46,7 @@ Final statistics
 
  Performing STATE transfer
 
+
  TARGET problem dimensions
    NEQ=           8
    NX=          64
@@ -55,6 +58,7 @@ Final statistics
  Writing output record_out.bp at itime=  10; time= 1.0000000E-01
 
  FINALIZED FILE TRANSFER
+
 
  Reading restart file(s)...
  Done!
