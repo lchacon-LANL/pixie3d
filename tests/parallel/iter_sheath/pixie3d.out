@@ -1,0 +1,87 @@
+
+
+ Creating EFIT map...
+
+ EFIT Domain dimensions:
+
+ Magnetic axis (R,Z)   6.3419522030000000       0.63279860880000005     
+ Psi at magnetic axis   0.0000000000000000     
+ Psi at magnetic bdry   13.877579510000000     
+ Minor rad.  a (m)=   2.1809500000000002     
+ Limiter R_max (m)=   8.3940000000000001     
+ Limiter R_min (m)=   4.0320999999999998     
+ Limiter Z_max (m)=   4.6753000000000000     
+ Limiter Z_min (m)=  -4.5418000000000003     
+ Psi box R_max/a=   4.1266420596529034     
+ Psi box R_min/a=   1.3755473532176343     
+ Psi box Z_max/a=   2.2925789220293904     
+ Psi box Z_min/a=  -2.0633210298264517     
+ R/a =   2.8487814943029410     
+ Z/a =   2.1436988468328022     
+
+ Reading EFIT equilibrium...
+
+
+ Normalization constants:
+
+ L_0 =  2.1809500E+00 m
+ n_0 =  1.0000000E+20 1/m^3
+ B_0 =  5.4209334E+00 T
+ p_0 =  2.8049552E-02 N/m^2
+ v_A =  1.1824236E+07 m/s
+ t_A =  1.8444743E-07 s
+ Te max=  2.0469983E+01 keV 
+
+ Normalized parameters:
+
+ beta       =  2.8049552E-02
+ chi_par e  =  4.5010133E+05
+ chi_perp i =  9.2579823E-12
+ eta        =  1.0869085E-11
+ Brem_rad   =  1.6097396E-09
+
+ Other relevant parameters:
+
+ tau_ee   = 1.0074759E-03 1/s
+ tau_ii   = 6.0917148E-02 1/s
+ omega_ci = 5.1927654E+08 rad/s
+ omega_ce = 9.5345680E+11 rad/s
+
+ kin  diff = 2.5788068E+07 m^2/s
+ spec diff = 2.5788068E+27 1/m/s
+ mass-spec diff= 4.3133122E+00 kg/m/s
+ Magnetic axis normalized coords=   2.9078851890231321       0.29014815048488046     
+ delta psi_mag =  -3.2306855520816502E-016
+ delta psi_bry =  -2.9694597273272887E-005
+
+ Checking EFIT GS error...
+
+ Relative GS error =  0.38464808775498793     
+
+  Grid mesh:................   64x   32x    1
+  Number of processors:.....    2,    1,    1
+  Preconditioning method:... SI PC w/o flow
+  Timestep adaption......... T
+  External source........... F
+  Numerical grid............ T
+  Scalar advection scheme... SMART    
+  Velocity advection scheme. SMART    
+  Anisotropic transport sch. 4th-7pt  
+  TS scheme................. BDF2     
+
+    itime      time     dt     #CFL   vx_max   vy_max   vz_max    GMRES Newton CN factor  GMRES-DC
+         1      0.08  8.0E-02 3.0E+04  5.4E-03  4.6E-03  1.0E-04    12     5     0.000       16
+         2      0.18  9.6E-02 3.6E+04  9.3E-03  6.8E-03  1.1E-04    12     5     0.000       17
+         3      0.28  1.0E-01 3.7E+04  1.3E-02  8.0E-03  1.4E-04     9     5     0.000       18
+         4      0.38  1.0E-01 3.7E+04  1.6E-02  9.2E-03  2.6E-04     9     5     0.000       18
+         5      0.48  1.0E-01 3.7E+04  1.8E-02  1.0E-02  4.1E-04     9     5     0.000       19
+         6      0.58  1.0E-01 3.7E+04  1.9E-02  1.0E-02  5.9E-04     9     5     0.000       24
+         7      0.68  1.0E-01 3.7E+04  1.8E-02  9.2E-03  7.8E-04     9     6     0.000       25
+         8      0.78  1.0E-01 3.7E+04  1.6E-02  7.6E-03  9.5E-04     8     5     0.000       25
+         9      0.88  1.0E-01 3.7E+04  1.2E-02  8.1E-03  1.1E-03     8     5     0.000       25
+        10      0.98  1.0E-01 3.7E+04  8.5E-03  1.1E-02  1.2E-03     8     5     0.000       25
+
+Final statistics
+
+ itime  Newt/ndt  GMRES/ndt  GMRES/Newt
+   10       5.1        9.3        1.8

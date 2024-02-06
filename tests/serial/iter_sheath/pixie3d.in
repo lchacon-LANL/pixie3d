@@ -1,0 +1,158 @@
+ &setup
+    nxd = 64 
+    nyd = 32 
+    nzd = 1
+
+    numerical_grid = t
+
+    coords   = 'ext'  !To bypass framework
+
+    xmax     = 1d0
+    ymax     = 0.
+    zmax     = 0.
+
+    bcs      = 'spt','def','per','per','per','per'
+
+    efit_coords = 'sh3'
+    gparams = -6.219577546,-0.5143555944d0,2.24d0,1.9d0,.6d0,0.06d0,1.35  !R0(m),Z0(m),aa(m),kappa,delta,zeta,kappa_sp
+
+ /
+
+ &phys
+    eta      = 6d-5
+    dd       = 1d-5
+    chi      = 1d-3
+    nu       = 1d-3
+    brem_rad = 1.45d-5
+    n_0 = 1d20
+   
+    aa_nu = 3d0
+    bb_nu = 5d0
+    cc_nu = 4d0
+    aa_dff = 9d0
+    bb_dff = 5d0
+    cc_dff = 1d0
+
+    equil    = 'efit'
+
+    refine_eq = f
+    
+    dlambda  = 0.5
+
+    gamma    = 1.6667
+
+    adiabatic   = f 
+    chi_bgnskii = t
+    spitzer     = t
+    sheath_flow_bc = t
+    B_angle_threshold = 8d-2
+    brem_rad_sink = t
+    min_sheath_flow = 0d0
+
+    xport_order = 4
+
+    pvx      = 1d-4
+    odd      = f
+    random   = f
+
+    nh2      = 1
+    nh3      =-1
+ /
+
+ &fv
+    sym_st   = f
+
+    advect   = 4
+    v_advect = 4
+
+    solenoidal = t
+    nc_eom_f   = t
+    nc_eom_v   = f
+
+    solve_rho  = t
+    solve_prs  = f
+    use_p_eom  = f
+    use_p_diff = f
+    use_p_classic_eq = f
+ /
+
+ &ts
+    dt       = 1d-1
+
+!    tmax     = 1d2
+!    dstep    = 1d0
+    numtime  = 10
+    ndstep   = 1
+
+    ts_restart  = f
+    ts_adapt_dt = t
+    ts_ramp_up_dt = t
+!    ts_ramp_up_dt_fraction = 0.01
+!    ts_ramp_up_dt_recovery = 1.5
+    ts_ramp_up_dt_fraction = 0.8
+    ts_ramp_up_dt_recovery = 1.2
+    cnfactor = 0d0
+    sm_flag  = 2
+
+    source   = f
+
+    limit_dt_flow_cfl = t
+ /
+
+ &nks
+    maxksp   = 20
+    maxitgm  = 20
+    tolgm    = 8d-1
+    rtol     = 1d-3
+    atol     = 0d0
+    method   = 1
+    mf_eps   = 1d-6
+    vol_wgt  = t
+    iguess   = 0
+
+    maxitnwt = 9
+!    fpa      = t
+!    fpa_it   = 10 
+ /
+
+ &pc
+    pc_type   = 's1'
+    pc_tol    = 1d-1
+    pc_iter   = 0
+    mg_vcyc   = 1
+    sm_iter   = 5
+ /
+
+ &i_o
+    ilevel   = 0
+    dcon     = f
+    check_grid = f
+    chk_src  = f
+    test     = t
+    equ_file = 'SN_fr_11_sh.geqdsk'
+ /
+
+ &graphdef
+    sel_diag  = 2,3,4,5,6,7,8,12,15,17,18,19,20,22,23
+!    sel_graph = 1,-2,5,6,7,-9,11,-12,14
+    dplot =1d1
+    prof_conf = 1,'R',1,1,1
+!    prof_conf = 2,'Z',65,1,1
+    cont_conf = 3,'R','Z',1,1,1
+!    cont_conf = 2,'R','PHI',1,1,1
+    hdf_plot  = f
+    xdraw_plot= t
+    poincare = f
+    hyperResistivity = f
+    car_diag_plots = t
+ /
+
+ &xfer
+   ofile = 'pixie3d-n0=300x.in'
+   ifile = 'pixie3d-n0=300x-2d_eq.in'
+   orecfile = 'record-2.5.0.bp.sn-fr-11.refined_3d_eq-300x-128x64x32'
+   irecfile = 'record-2.5.0.bp.sn-fr-11.refined_2d_eq-300x-128x64x1'
+   order = 2
+   is_equ = t
+   zero_flow = t
+ /
