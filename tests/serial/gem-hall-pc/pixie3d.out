@@ -1,4 +1,5 @@
 
+
   Grid mesh:................   64x   64x    1
   Number of grid levels:....    5,    5,    1
   Preconditioning method:... SI PC w/o flow

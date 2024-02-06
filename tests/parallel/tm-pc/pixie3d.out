@@ -1,4 +1,5 @@
 
+
   Grid mesh:................   32x   32x    1
   Number of processors:.....    1,    2,    1
   Preconditioning method:... SI PC w/o flow

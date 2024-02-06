@@ -17,15 +17,15 @@
 [36m  2D GS equilibrium iter = 11 ; GS error=  4.98E-02 ; update rms=  3.39E-05[0m
 [36m  2D GS equilibrium iter = 12 ; GS error=  4.84E-02 ; update rms=  1.45E-05[0m
 [36m  2D GS equilibrium iter = 13 ; GS error=  4.73E-02 ; update rms=  1.34E-05[0m
-[36m  2D GS equilibrium iter = 14 ; GS error=  4.62E-02 ; update rms=  2.33E-05[0m
-[36m  2D GS equilibrium iter = 15 ; GS error=  4.46E-02 ; update rms=  1.75E-05[0m
-[36m  2D GS equilibrium iter = 16 ; GS error=  4.38E-02 ; update rms=  5.01E-06[0m
+[36m  2D GS equilibrium iter = 14 ; GS error=  4.62E-02 ; update rms=  2.30E-05[0m
+[36m  2D GS equilibrium iter = 15 ; GS error=  4.46E-02 ; update rms=  1.81E-05[0m
+[36m  2D GS equilibrium iter = 16 ; GS error=  4.38E-02 ; update rms=  5.07E-06[0m
 [36m  2D GS equilibrium converged in  16 iterations with GS error =  4.38E-02[0m
 
- EOM force residual comp 1=   7.8824341979658250E-002
- EOM force residual comp 2=   5.3405958683871487E-003
- EOM force residual comp 3=   1.7224421078901703E-003
- EOM force residual total =   7.9023829694406619E-002
+ EOM force residual comp 1=   7.8811258521542679E-002
+ EOM force residual comp 2=   5.3397349181228673E-003
+ EOM force residual comp 3=   1.7222972393612910E-003
+ EOM force residual total =   7.9010717921848841E-002
 
 
   Grid mesh:................   32x   32x    1
