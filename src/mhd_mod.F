@@ -3057,7 +3057,7 @@ cc        real(8),pointer,dimension(:,:,:) :: jpar_B => null()
 
 c     dump_1d_eq
 c     ###############################################################
-      subroutine dump_1d_eq(r,bth0,bz0,p0,n0,vr0,eta0)
+      subroutine dump_1d_eq(RR,r,bth0,bz0,p0,n0,vr0,eta0)
 
 c     ---------------------------------------------------------------
 c     Dump 1d equilibrium for eigen analysis
@@ -3068,8 +3068,8 @@ c     ---------------------------------------------------------------
       real(8),dimension(:) :: r,bth0,bz0,p0
       real(8),optional,dimension(:) :: n0,vr0,eta0
 
-      integer :: nr
-      real(8) :: n_r=0d0,vr_r=0d0,eta_r=0d0
+      integer :: nr,i
+      real(8) :: n_r=0d0,vr_r=0d0,eta_r=0d0,RR
 
       if(PRESENT(n0)  ) n_r   = 1d0
       if(PRESENT(vr0) ) vr_r  = 1d0
@@ -3090,6 +3090,26 @@ c     ---------------------------------------------------------------
         if(PRESENT(n0  )) write (123,*) n0
         close(123)
       endif
+
+#if defined(RFX)
+      if (my_rank == 0) then
+          if(PRESENT(vr0)) then
+            write (*,*) 'r,bth0,bz0,q0,vr0,p0'
+            do i=1,nr
+              write (*,10) r(i),bth0(i),bz0(i)
+     .             ,(r(i)*bz0(i))/(RR*bth0(i)),vr0(i),p0(i)
+            enddo
+          else
+            write (*,*) 'r,bth0,bz0,q0,p0'
+            do i=1,nr
+              write (*,10) r(i),bth0(i),bz0(i)
+     .             ,(r(i)*bz0(i))/(RR*bth0(i)),p0(i)
+            enddo
+          endif
+        endif
+        
+ 10     format (4f7.3,2e12.3)
+#endif
 
       end subroutine dump_1d_eq
       

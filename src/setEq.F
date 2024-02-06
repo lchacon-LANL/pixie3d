@@ -1267,7 +1267,7 @@ c     RFP equilibria (analytical)
         enddo
 
         !Dump equilibrium for eigen code
-        call dump_1d_eq(rg,bth0,bzz0,p00)
+        call dump_1d_eq(RR,rg,bth0,bzz0,p00)
 
         !Build equilibrium
 
@@ -1505,7 +1505,7 @@ c     Tokamak equilibria (analytical)
         enddo
 
         !Dump equilibrium for eigen code
-        call dump_1d_eq(rg,bth0,bzz0,p00,n0=n00)
+        call dump_1d_eq(RR,rg,bth0,bzz0,p00,n0=n00)
 
         !Build equilibrium
         var(:,:,:,IVX)  = 0d0
@@ -2925,7 +2925,8 @@ c$$$     .                 - 2    /24*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
         bzz0(0) = bzz0(1)
         
         !Dump equilibrium for eigen code
-        call dump_1d_eq(rg,bth0,bzz0,p0)
+        RR = gv%gparams%params(3)
+        call dump_1d_eq(RR,rg,bth0,bzz0,p0)
 
       end subroutine GS_equil_1d
 
@@ -3220,7 +3221,7 @@ cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
 
         call IntDriver1d(nxdp+1,xh(0:nxdp),bzz0(0:nxdp)
      .                  ,nxdp,rg(1:nxdp),dummy(1:nxdp)
-     .                  ,1,0)
+     .                  ,2,0)
         bzz0 = dummy
 
         !Extrapolate linearly in radius @ r=0
@@ -3281,19 +3282,7 @@ c diag ****
         vr0(0) = -vr0(1)
 
         !Dump equilibrium for eigen code
-        call dump_1d_eq(rg,bth0,bzz0,p0,eta0=etap,vr0=vr0) !Note:etap->eta/eta0, vr0->vr0/eta0
-
-#if defined(RFX)
-        if (my_rank == 0.and.(.not.test)) then
-          write (*,*) 'r,bth0,bzz0,q0,vr0,p0'
-          do i=0,nxdp
-            write(*,10) rg(i),bth0(i),bzz0(i)
-     .             ,(rg(i)*bzz0(i))/(RR*bth0(i)),vr0(i),p0(i)
-          enddo
-        endif
-
- 10     format (4f10.6,2e12.3)
-#endif
+        call dump_1d_eq(RR,rg,bth0,bzz0,p0,eta0=etap,vr0=vr0) !Note:etap->eta/eta0, vr0->vr0/eta0
 
       end subroutine Ohm_equil_1d
 
@@ -3495,7 +3484,7 @@ c       Iteration
           if (theta /= 0d0) then
             bz_avg = 0d0
             do i=1,nxd
-               bz_avg = bz_avg + (bzz0(i)*xh(i)+bzz0(i-1)*xh(i-1))*dr(i)
+              bz_avg = bz_avg + (bzz0(i)*xh(i)+bzz0(i-1)*xh(i-1))*dr(i)
             enddo
             bz_avg = bz_avg/xmax**2
             bzz0 = bth0(nxd)/theta/bz_avg*bzz0
@@ -3508,13 +3497,14 @@ c       Iteration
           endif
 
           !Transfer to integer mesh (f stands for full mesh)
-          call IntDriver1d(nxdp+1,xh(0:nxdp),bth0(0:nxdp)
-     .                    ,nxdp,gv%gparams%xg(1:nxdp),dummy(1:nxdp)
+          btf = xh*bth0
+          call IntDriver1d(nxdp+1,xh(0:nxdp),btf(0:nxdp)
+     .                    ,nxdp,rg(1:nxdp),dummy(1:nxdp)
      .                    ,2,0)
-          btf = dummy
+          btf = dummy/rg
 
           call IntDriver1d(nxdp+1,xh(0:nxdp),bzz0(0:nxdp)
-     .                    ,nxdp,gv%gparams%xg(1:nxdp),dummy(1:nxdp)
+     .                    ,nxdp,rg(1:nxdp),dummy(1:nxdp)
      .                    ,2,0)
           bzf = dummy
 
@@ -3737,19 +3727,8 @@ cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
         bth0 = btf
         bzz0 = bzf
 
-#if defined(RFX)
-        if (my_rank == 0.and.(.not.test)) then
-          write (*,*) 'r,bth0,bzz0,q0,vr0,p0'
-          do i=0,nxdp
-            rh  = rg(i)
-            write(*,10) rh,bth0(i),bzz0(i)
-     .             ,(rh*bzz0(i))/(RR*bth0(i)),vr0(i),p0(i)
-          enddo
-        endif
- 10     format (4f7.3,2e12.3)
-#endif
-
- 101    format (5f7.3,2e12.3)
+        !Dump equilibrium for eigen code
+        call dump_1d_eq(RR,rg,bth0,bzz0,p0,eta0=etah,vr0=vr0) !Note:etap->eta/eta0, vr0->vr0/eta0
 
       end subroutine Ohm_equil_1d_xport
 
