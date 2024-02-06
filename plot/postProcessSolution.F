@@ -1240,8 +1240,8 @@ c     ##################################################################
      .                                    ,JAvg(i,j,:))
 
             ResOhmsLaw = ecnv(i,j,k,:) - EAvg(i,j,:) + vxB
-     .                   - eeta(i,j,k)*jcnv(i,j,k,:)
-     .                   + etaAvg(i,j)*JAvg(i,j,:)
+     .                   - eeta(i,j,k)*(jcnv(i,j,k,:)-JAvg(i,j,:))
+     .                   !+ etaAvg(i,j)*JAvg(i,j,:)
 
             RHSfluc(i,j,k) = scalarProduct(gv%gparams,i,j,k,igx
      .                                    ,BAvg(i,j,:)
@@ -1387,7 +1387,7 @@ c$$$        ecnv(:,:,:,3) = (lambda-lambda_o)*gJpar_cnv(:,:,:,3)
 
         ajcov_o = ajcov
         call vlap_curl_inv(gv%gparams,igx,ecnv,ajcov,bcsb,bcsa,ilevel
-     .                    ,rtol=5d-1)
+     .                    ,rtol=5d-1) !try .2
 
         !Apply fixed-point accelerator on A_J update
 c$$$        xa = -reshape(ajcov(1:nx,1:ny,1:nz,:),shape(xa))

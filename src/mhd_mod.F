@@ -108,7 +108,7 @@ c     Begin program
           write (*,'(a,1pe14.7,a)') " t_A = ",t_A," s"
           write (*,'(a,1pe14.7,a)') " Te max= ",T_max*1d-3," keV "
           write (*,*)
-          write (*,'(a)') " Normalized parameters:"
+          write (*,'(a)') " Normalized ref. params (not used):"
           write (*,*)
           write (*,'(a,1pe14.7)') " beta       = ",p_0
           write (*,'(a,1pe14.7)') " chi_par e  = ",chi_par_e
