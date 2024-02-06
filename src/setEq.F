@@ -3361,7 +3361,7 @@ c     Local variables
 
 c     Begin program
 
-        if (my_rank == 0) then
+        if (my_rank == 0.and.(.not.test)) then
           write (*,*)
           call info('  **************************************')
           call info('  1D Ohmic equilibrium solver with Xport')
@@ -3655,7 +3655,7 @@ c       Iteration
 
         if (my_rank == 0) then
           write(*,*)
-          write(*,'(a,1pe14.7)') ' Force-balance error ='
+          write(*,'(a,1pe14.7)') '  Force-balance error ='
      .                        ,sqrt(sum(dummy(1:nxd)**2)/nxd)
         endif
 
@@ -3671,7 +3671,7 @@ c       Iteration
         enddo
 
         if (my_rank == 0) then
-          write(*,'(a,1pe14.7)') ' Ohms law      error ='
+          write(*,'(a,1pe14.7)') '  Ohms law      error ='
      .                        ,sqrt(sum(dummy(1:nxd)**2)/nxd)
         endif
 
@@ -3700,7 +3700,7 @@ c       Iteration
 !        dummy = dummy*eta
 
         if (my_rank == 0) then
-          write(*,'(a,1pe14.7)') ' Energy equation error ='
+          write(*,'(a,1pe14.7)') '  Energy equation error ='
      .                        ,sqrt(sum(dummy(1:nxd)**2)/nxd)
         endif
 

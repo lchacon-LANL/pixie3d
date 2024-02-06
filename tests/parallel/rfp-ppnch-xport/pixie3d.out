@@ -1,0 +1,41 @@
+
+  1D equilibrium converged in  46 iterations with error =  5.30E-07
+
+  Force-balance error = 2.1272889E-06
+  Ohms law      error = 1.3362433E-10
+  Energy equation error = 6.5549062E-06
+
+  Pinch equilibrium features:
+   Theta  = 0.0629747
+   Bz(r=0)= 1.0000000
+   I0     = 0.3926275
+   E0/eta = 0.6250000
+   T_flux = 3.1173456
+
+  Grid mesh:................  128x   32x    1
+  Number of processors:.....    2,    1,    1
+  Preconditioning method:... SI PC w/o flow
+  Timestep adaption......... T
+  External source........... F
+  Numerical grid............ F
+  Scalar advection scheme... SMART    
+  Velocity advection scheme. SMART    
+  Anisotropic transport sch. 4th-7pt  
+  TS scheme................. BDF2     
+
+    itime      time     dt     #CFL   vx_max   vy_max   vz_max    GMRES Newton CN factor  GMRES-DC
+         1      0.00  8.8E-05 1.0E+00  9.2E-06  6.4E-15  0.0E+00     1     1     0.000        6
+         2      0.08  8.0E-02 9.1E+02  9.2E-06  1.4E-12  1.9E-14    15     5     0.000        7
+         3      0.16  8.4E-02 9.6E+02  9.2E-06  1.1E-10  6.7E-12    11     4     0.000        7
+         4      0.25  8.8E-02 1.0E+03  9.2E-06  4.3E-10  2.5E-11    10     4     0.000        8
+         5      0.34  9.3E-02 1.1E+03  9.2E-06  9.7E-10  5.8E-11    10     4     0.000        9
+         6      0.44  9.7E-02 1.1E+03  9.2E-06  1.6E-09  1.0E-10    10     5     0.000        9
+         7      0.54  1.0E-01 1.1E+03  9.2E-06  2.6E-09  1.6E-10    11     5     0.000        9
+         8      0.64  1.0E-01 1.1E+03  9.2E-06  3.5E-09  2.2E-10     9     4     0.000        9
+         9      0.74  1.0E-01 1.1E+03  9.2E-06  4.4E-09  2.7E-10     8     4     0.000        8
+        10      0.84  1.0E-01 1.1E+03  9.2E-06  5.1E-09  3.2E-10     8     4     0.000        8
+
+Final statistics
+
+ itime  Newt/ndt  GMRES/ndt  GMRES/Newt
+   10       4.0        9.3        2.3

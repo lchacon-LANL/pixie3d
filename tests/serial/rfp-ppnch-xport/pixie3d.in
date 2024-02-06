@@ -1,0 +1,107 @@
+ &datin
+    br_pert_phase_old=   0.0000000000000000
+    br_pert_bc_old=   0.0000000000000000
+    E0=   0.0000000000000000      ,   0.0000000000000000      ,   6.2500000000000003E-006
+    nxd      = 64 
+    nyd      = 32
+    nzd      = 1
+
+    xmax     = 1.
+    ymax     = 0.
+    zmax     = 25.13274123
+
+    equil    = 'ppnsl'
+    coords   = 'hel'
+    bcs      = 'spt','def','per','per','per','per'
+    gparams  = 1d0,0.25d0,4d0,0.,0.625d0,0.1,0.d0,1.d-5
+    numerical_grid = f
+
+    M0=  0.000000000000000E+000 ,  0.000000000000000E+000 ,  0.000000000000000E+000
+
+    eta      = 1d-5
+    nu       = 3d-4
+    dd       = 2d-3
+    chi      = 1d-4 
+    chi_par  = 1d2
+
+    lagrangian = .false.  !trattazione lagrangiana della trasmissione parallela del calore
+    aa_eta   = 24.
+    bb_eta   = 4.
+    cc_eta   = 1.5
+    spitzer  = f          !eta propto T^-1.5
+
+    nh1      = 1	  ! viene messo uguale ad nh2 nel codice
+    nh2      = 1	  ! nelle nuove versioni di pixie il modo è scelto da qui! nh2 = m
+    nh3      = -1	  ! non dovrebbe contare per la geo elicoidale 
+    pvx      = 0d0 !LC 1.e-6      ! perturbo
+
+    gamma    = 1.66667d0 ! per simulazioni con pressione
+    
+    odd      = f
+    random   = f
+
+    advect   = 4
+    v_advect = 4
+
+    solenoidal = t
+    nc_eom_f   = t
+    nc_eom_v   = t
+    solve_rho  = f
+    no_visc_heating = t !LC: turn off viscous heating if true
+    
+    dt       = 0.1  !LC: 1.d0  !This dt is too large for chi_par >> chi_perp
+    numtime  = 10
+    ndstep   = 1
+!LC: these options ramp up the timestep at the beginning
+    ts_ramp_up_dt = f
+    ts_ramp_up_dt_fraction = 0.1
+    ts_ramp_up_dt_recovery = 1.1
+
+    cnfactor = 0.
+    sm_flag  = 2
+
+    restart  = f
+    postprocess = t
+ 
+    iguess   = 0
+
+    maxitgm  = 10
+    maxksp   = 10
+    maxitnwt = 8
+    tolgm    = 8d-1
+    rtol     = 1d-3
+    method   = 1
+    mf_eps   = 1d-6
+    vol_wgt  = t
+ 
+    pc_type     = 's1'
+    pc_tol      = 1d-1
+    pc_max_iter = 1
+    pc_debug    = f
+    pc_debug_it = 0
+    pc_divclean = f
+
+    mg_coarse_solve = t
+    mg_vcyc  = 1
+    mg_ores  = 0
+    mg_oprol = 2
+    sm_iter  = 4
+
+    ilevel = 0
+    test   = t
+    check_grid = f
+    source   = f
+    chk_src  = f
+
+    mg_zebra_relax = f
+ /
+
+ &graphics
+    sel_diag  = 2,3,4,5,6,7,8,9,10,11,12,13,14,22,23,24
+    dplot = 5d-1
+    prof_conf = 1,'r',1,1,1
+    cont_conf = 3,'x','y',1,1,1
+    hdf_plot = f
+ /
+
+
