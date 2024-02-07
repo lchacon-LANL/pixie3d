@@ -32,7 +32,7 @@
  t_A =  1.8444743E-07 s
  Te max=  2.0469983E+01 keV 
 
- Normalized parameters:
+ Normalized ref. params (not used):
 
  beta       =  2.8049552E-02
  chi_par e  =  4.5010133E+05
