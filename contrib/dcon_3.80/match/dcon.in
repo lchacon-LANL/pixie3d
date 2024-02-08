@@ -1,0 +1,41 @@
+&dcon_control
+	bal_flag=f
+	mat_flag=t
+	ode_flag=t
+	vac_flag=f
+
+	res_flag=t
+
+	nn=1
+	cyl_flag=f
+	delta_mlow=-2
+	delta_mhigh=5
+	delta_mband=0
+	sing_start=0
+
+	mthvac=480
+	thmax0=1
+
+	tol_nr=1e-8
+	tol_r=1e-14
+	crossover=1e-1
+
+	singfac_max=1e-2
+	singfac_min=1e-6
+	ucrit=1e4
+
+	sing_order=4
+	sort_type="absm"
+	ksing=0
+/
+
+&dcon_output
+	crit_break=t
+	ahb_flag=f
+	msol_ahb=1
+	mthsurf0=1
+
+	bin_euler=t
+	euler_stride=1
+	bin_sol=f
+/

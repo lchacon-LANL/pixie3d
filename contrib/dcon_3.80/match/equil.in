@@ -1,0 +1,33 @@
+&equil_control
+	eq_type="ldp_i"
+	eq_filename="../../../equilibria/bulmer/test10/itest10.01000_inv_teq"
+
+	jac_type="hamada"
+	power_bp=0
+	power_b=0
+	power_r=0
+
+	grid_type="ldp"
+	psilow=1.000E-03
+	psihigh=1
+	mpsi=128
+	mtheta=128
+
+	newq0=1.010
+
+	input_only=f
+	power_flag=t
+/
+
+&equil_output
+	gse_flag=f
+
+	out_eq_1d=f
+	bin_eq_1d=f
+
+	out_eq_2d=f
+	bin_eq_2d=f
+
+	out_2d=f
+	bin_2d=f
+/

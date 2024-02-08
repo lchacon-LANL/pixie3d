@@ -1,0 +1,19 @@
+Type (G=Graph, C=Contour):	G
+
+filename  
+;results/qscan/coarse/sum2.bin
+;results/qscan/fine/sum2.bin
+sum2.bin
+
+graph title:	Toroidal Computation
+
+variable names
+0	newq0
+1	inval
+2	psifac
+3	di
+4	deltap
+5	asinh deltap
+
+ix	iy	title
+0	4

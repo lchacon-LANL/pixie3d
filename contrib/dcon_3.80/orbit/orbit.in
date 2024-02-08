@@ -1,0 +1,41 @@
+&orbit_input
+	gc_flag=f
+	restart_flag=f
+	orbit_type="inner"
+
+	particle="ion"
+	ai=1
+	zi=1
+
+	psi0=.1
+	theta0=0
+	zeta0=0
+
+	r0=.5
+	z0=0
+	phi0=0
+
+	energy0=25e3
+	alpha0=90
+	phase0=90
+	alpha0=25
+	phase0=45
+
+	taumax=1.5
+	report=.1
+	stride=1
+
+	tol=1e-9
+	errmax=1
+
+	break_flag=t
+	cross=f
+
+	orbit_out=t
+	orbit_bin=t
+
+	field_out=f
+	field_bin=f
+	interp_flag=f
+	ode_bin=f
+/

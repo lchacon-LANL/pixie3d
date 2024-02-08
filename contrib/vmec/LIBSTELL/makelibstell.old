@@ -1,0 +1,53 @@
+#This makefile goes in dirs Debug and Release (first level below LIBSTELL)
+SHELL   = /bin/sh
+PRECOMP = cpp -P -C -traditional -DLINUX -DNEED_BLAS $(CPPFLAGS)
+COMPILE = $(FC) 
+COMPILE_FREE = $(FC) 
+FFILE   = '$*''.F'
+F90FILE = '$*''.F90'
+LINK    = ar -ruv
+CLEAN_ARCH = 
+#HOME_BIN= $(HOME)/bin
+HOME_BIN= ../bin
+MOD_PATH= -I
+#INC_PATH= $(NETCDF_INC)
+SPATH   = ../Sources
+
+#Contains list of source files (.o) and dependencies
+DEPLIST = LIBSTELL.dep
+OBJLIST = ../ObjectList
+VPATH = $(SPATH):$(SPATH)/Modules:$(SPATH)/Ezcdf:$(SPATH)/Miscel
+
+#Includes source files and dependency list
+include $(DEPLIST)
+include $(OBJLIST)
+
+.SUFFIXES :
+.SUFFIXES : .f .f90 .o
+
+libstell.a : $(ObjectFiles) 
+	$(LINK) $@ $(ObjectFiles)
+	$(CLEAN_ARCH)
+
+#Compile object files defined in OBJLIST.
+.f.o :
+	@if grep -q '^!DEC\$$' $<; \
+      then \
+         awk -f $(HOME_BIN)/awk_cdir.awk $< > $(FFILE) ; \
+         $(COMPILE) $(CPPFLAGS) $(FLAGS) $(MOD_PATH).. -c $(FFILE); rm -f $(FFILE); \
+      else \
+         echo '$(COMPILE) $(FLAGS) $(MOD_PATH). -c $<'; \
+         $(COMPILE) $(CPPFLAGS) $(FLAGS) $(MOD_PATH). -c $< ; \
+      fi
+
+.f90.o :
+	@if grep -q '^!DEC\$$' $<; \
+      then \
+         awk -f $(HOME_BIN)/awk_cdir.awk $< > $(F90FILE) ; \
+         $(COMPILE_FREE) $(CPPFLAGS) $(FLAGS) $(MOD_PATH).. $(INC_PATH) -c $(F90FILE); rm -f $(F90FILE);  \
+      else \
+         echo '$(COMPILE_FREE) $(FLAGS) $(MOD_PATH). $(INC_PATH) -c $<'; \
+         $(COMPILE_FREE) $(CPPFLAGS) $(FLAGS) $(MOD_PATH).. $(INC_PATH) -c $< ; \
+      fi
+clean:
+	-@rm -f *.o *.mod *.a

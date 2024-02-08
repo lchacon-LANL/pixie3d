@@ -1,0 +1,33 @@
+Type (G=Graph, C=Contour):	G
+
+filename(s)
+diagnose.bin
+
+graph title:	Particle Orbits
+
+variable names
+0	tau
+1	r
+2	z
+3	jac11
+4	jac21
+5	jac12
+6	jac22
+7	jacd11
+8	jacd21
+9	jacd12
+10	jacd22
+
+ix	iy	title
+0	3	"jac11
+0	4	"jac21
+0	5	"jac12
+0	6	"jac22
+0	7	"jacd11
+0	8	"jacd21
+0	9	"jacd12
+0	10	"jacd22
+0	7 3	"jacd11
+0	8 4	"jacd21
+0	9 5	"jacd12
+0	10 6	"jacd22

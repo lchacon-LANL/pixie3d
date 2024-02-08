@@ -1,0 +1,29 @@
+Type (G=Graph, C=Contour):	M2
+
+filename(s)
+contour.bin
+
+comment:	Contour Plot
+
+independent variable names
+t	time
+x	x
+y	y
+
+dependent variable names
+1	vx
+2	vy
+3	vz
+4	bx
+5	by
+6	bz
+7	p
+
+iqty	Title
+1	"vx
+2	"vy
+3	"vz
+4	"bx
+5	"by
+6	"bz
+7	"p

@@ -1,0 +1,27 @@
+
+      MODULE read_eq_mod
+             ^           
+cf90-855 af90fe: ERROR READ_EQ_MOD, File = read_eq.f, Line = 39, Column = 14 
+  The compiler has detected errors in module "READ_EQ_MOD".  No module information file will be created for this module.
+
+      READ(dump_unit)mpsi,mtheta,rzphi_mband,nqty,new_rzphi,new_axis
+                                 ^                                   
+cf90-297 af90fe: ERROR READ_EQ_DUMP, File = read_eq.f, Line = 1483, Column = 34 
+  IMPLICIT NONE is specified in the host scope, therefore an explicit type must be specified for data object "RZPHI_MBAND".
+                                                  ^                  
+cf90-297 af90fe: ERROR READ_EQ_DUMP, File = read_eq.f, Line = 1483, Column = 51 
+  IMPLICIT NONE is specified in the host scope, therefore an explicit type must be specified for data object "NEW_RZPHI".
+                                                            ^        
+cf90-297 af90fe: ERROR READ_EQ_DUMP, File = read_eq.f, Line = 1483, Column = 61 
+  IMPLICIT NONE is specified in the host scope, therefore an explicit type must be specified for data object "NEW_AXIS".
+
+         WRITE(dump_unit,10)rzphi%mx,rzphi%my,rzphi%mband,rzphi%nqty
+                                                    ^                
+cf90-213 af90fe: ERROR READ_EQ_DUMP, File = read_eq.f, Line = 1498, Column = 53 
+  "MBAND" is not a component of derived type "BICUBE_TYPE".
+
+f90: Copyright Absoft Corporation 1994-2006; Absoft Fortran Compiler Version 10.0 
+f90fe: 1590 source lines
+f90fe: 5 Errors, 0 Warnings, 0 Other messages, 0 ANSI
+f90fe failed.
+make: *** [read_eq.o] Error 1

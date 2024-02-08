@@ -1,0 +1,10 @@
+i	matric%f(i)
+	
+1	dr/dpsi
+2	dr/dtheta
+3	dz/dpsi
+4	dz/dtheta
+5	r dphi/dpsi
+6	r dphi/dtheta
+7	r dphi/dzeta
+
