@@ -1,0 +1,26 @@
+Type (G=Graph, C=Contour):	G
+
+filename
+metyx.bin
+
+graph title:	Metric Tensor Components
+
+variable names
+0	theta
+1	g11
+2 	g22
+3	g33
+4	g23
+5	g31
+6	g12
+7	jac
+8	jacx
+
+ix	iy	title
+0	1	"g11
+0	2	"g22
+0	3	"g33
+0	4	"g23
+0	5	"g31
+0	6	"g12
+0	7	"jac

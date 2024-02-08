@@ -1,0 +1,22 @@
+&dir_input
+	outdir="results/qscan/refine"
+	match_flag=t
+/
+
+&outer_input
+	varname="newq0"
+	format="f5.3"
+	value0=1.010
+	dvalue=.01
+	nvalue=79
+	type="add"
+/
+
+&inner_input
+	varname="psihigh"
+	format="f6.2"
+	value0=.9
+	dvalue=.01
+	nvalue=2
+	type="none"
+/

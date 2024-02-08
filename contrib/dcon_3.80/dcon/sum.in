@@ -1,0 +1,4 @@
+&sum_input
+	rootname="results/qscan/refine"
+	sum2_flag=t
+/

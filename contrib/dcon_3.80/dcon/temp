@@ -1,0 +1,37 @@
+
+      MODULE fourfit_mod
+             ^           
+cf90-855 f90fe: ERROR FOURFIT_MOD, File = fourfit.f, Line = 22, Column = 14 
+  The compiler has detected errors in module "FOURFIT_MOD".  No module information file will be created for this module.
+
+         power(2,:)=(/two,one,zero,one,one,one,zero,zero/)
+                      ^                                    
+cf90-297 f90fe: ERROR FOURFIT_MAKE_METRIC, File = fourfit.f, Line = 98, Column = 23 
+  IMPLICIT NONE is specified in the host scope, therefore an explicit type must be specified for data object "TWO".
+                          ^                                
+cf90-829 f90fe: ERROR FOURFIT_MAKE_METRIC, File = fourfit.f, Line = 98, Column = 27 
+  All ac-value expressions in an array constructor must have the same type and type parameters.
+                              ^                            
+cf90-829 f90fe: ERROR FOURFIT_MAKE_METRIC, File = fourfit.f, Line = 98, Column = 31 
+  All ac-value expressions in an array constructor must have the same type and type parameters.
+                                   ^                       
+cf90-829 f90fe: ERROR FOURFIT_MAKE_METRIC, File = fourfit.f, Line = 98, Column = 36 
+  All ac-value expressions in an array constructor must have the same type and type parameters.
+                                       ^                   
+cf90-829 f90fe: ERROR FOURFIT_MAKE_METRIC, File = fourfit.f, Line = 98, Column = 40 
+  All ac-value expressions in an array constructor must have the same type and type parameters.
+                                           ^               
+cf90-829 f90fe: ERROR FOURFIT_MAKE_METRIC, File = fourfit.f, Line = 98, Column = 44 
+  All ac-value expressions in an array constructor must have the same type and type parameters.
+                                               ^           
+cf90-829 f90fe: ERROR FOURFIT_MAKE_METRIC, File = fourfit.f, Line = 98, Column = 48 
+  All ac-value expressions in an array constructor must have the same type and type parameters.
+                                                    ^      
+cf90-829 f90fe: ERROR FOURFIT_MAKE_METRIC, File = fourfit.f, Line = 98, Column = 53 
+  All ac-value expressions in an array constructor must have the same type and type parameters.
+
+f90: Copyright Absoft Corporation 1994-2003; Absoft Pro FORTRAN Version 8.2a 
+f90fe: 665 source lines
+f90fe: 9 Errors, 0 Warnings, 0 Other messages, 0 ANSI
+f90fe failed.
+make: *** [fourfit.o] Error 1

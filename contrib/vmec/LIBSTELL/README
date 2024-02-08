@@ -1,0 +1,9 @@
+It is IMPORTANT -  !!! ESSENTIAL !!! (for consistency with UNIX systems) that ALL
+FORTRAN FILES containing MODULE FILES have names consisting of ONLY LOWER CASE letters
+and numbers.
+
+The problem is with the dependency file (*.dep) and the fact that UNIX systems
+do NOT respect upper case letter in the compiled module files.
+
+Also, DO NOT put more than one module into a *.f file. The *.f file MUST have the
+name of the module in lower case.

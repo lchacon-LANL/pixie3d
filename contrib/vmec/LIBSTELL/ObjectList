@@ -1,0 +1,32 @@
+ObjectFiles = \
+safe_open_mod.o \
+vparams.o \
+mgrid_mod.o \
+stel_constants.o \
+stel_kinds.o \
+vmec_input.o \
+vsvd0.o \
+read_wout_mod.o \
+vmec_utils.o \
+vmec_seq.o \
+date_and_computer.o \
+system_mod.o \
+handle_err.o \
+ezcdf.o \
+ezcdf_attrib.o \
+ezcdf_opncls.o \
+ezcdf_inqvar.o \
+ezcdf_GenGet.o \
+ezcdf_GenPut.o \
+second0.o \
+spline.o \
+spline_it.o \
+splint.o \
+strip_comments.o \
+vmec_chdir.o \
+vmec_getenv.o \
+vmec_putenv.o \
+vmec_system.o \
+parse_extension.o \
+island_params.o \
+fourier.o 
