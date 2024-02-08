@@ -237,11 +237,6 @@ endif
 	@$(MAKE) -e -C $(COMMONDIR) contrib_clean
 
 contrib_setup: ;
-	-@tar xzf contrib.tgz
-
-contrib_pack: ;
-	-@rm -f contrib.tgz > /dev/null
-	-@tar czf contrib.tgz contrib
 
 # CLEAN ALL
 
